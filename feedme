@@ -1,0 +1,348 @@
+#!/usr/bin/env python
+
+# feedme: read RSS/Atom feeds and convert to Plucker files.
+# Copyright 2009 Akkana Peck <akkana@shallowsky.com>
+# Based on feedread, Copyright (C) 2009 Benjamin M. A'Lee <bma@subvert.org.uk>
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+#
+# Important TODO:
+# - Skip to next article links
+# - handle failures to download article
+#
+
+# class Feed :
+#     """ The feed from a specific RSS link"""
+
+#     def __init__(self, name, url, page_start=None, page_end=None,
+#                  ) :
+
+import cPickle
+import datetime
+import os
+import re
+import sys
+import time
+
+from ConfigParser import ConfigParser
+
+import feedparser
+
+Version = "0.1"
+
+def rssread(url, name, outdir, levels=2,
+            page_start='', page_end='',
+            single_page_pat='', skip_pats=[],
+            verbose=False):
+    """Read a feed from a URL and write the contents to a mail folder.
+        arguments:
+        url        -- RSS url to read
+        outdir     -- directory on disk to write the result for this site
+        verbose    -- print debug output?
+    """
+
+    downloaded_string ="\n<hr><i>(Downloaded by feedme v. 0.1)</i>\n"
+
+    feed = feedparser.parse(url)
+
+    # feedparser has no error return! One way is to check len(feed.feed).
+    if len(feed.feed) == 0 :
+        print >>sys.stderr, "Can't read", url
+        return
+
+    if url not in cache:
+        cache[url] = []
+    feedcache = cache[url]
+
+    if not os.access(outdir, os.W_OK) :
+        os.mkdir(outdir)
+
+    # indexstr is the contents of the index.html file.
+    # Kept as a string until we know whether there are new, non-cached
+    # stories so it's worth updating the copy on disk.
+    indexstr = u"<html>\n<head>\n"
+    indexstr += "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">\n";
+    indexstr += "<title>" + feed.feed.title + "</title>\n</head>\n"
+    indexstr += "\n<body>\n<h1>" + feed.feed.title + "</h1>\n\n"
+
+    if verbose:
+        print >>sys.stderr, "********* Reading", url
+
+    itemnum = 0
+    for item in feed.entries:
+
+        if 'links' in item:
+            href = [i['href'].encode('utf-8') for i in item.links if i['rel'] == 'alternate']
+        else:
+            href = []
+
+        if not 'id' in item:
+            if 'links' in item:
+                item.id = href[0]
+            else:
+                if verbose :
+                    print >>sys.stderr, "Item in", url, "had no unique ID."
+                return
+
+        if item.id in feedcache:
+            continue
+
+        itemnum += 1
+        if verbose :
+            print >>sys.stderr, "\nItem:", item.title.encode('utf-8')
+
+        #
+        # Follow the link and make a file for it:
+        #
+        if levels > 1 or not 'content' in item :
+            try :
+                subitem = feedparser.parse(item.link)
+                if len(subitem.feed) == 0 :
+                    #raise Exception()
+                    continue
+
+                # Don't ask. I figured out the next line empirically
+                # poking around with the python interpreter.
+                # Couldn't figure it out from the documentation.
+                html = subitem.items()[0][1].items()[0][1]
+
+                # See if the single page pattern exists and works
+                if single_page_pat != '' :
+                    m = re.search(single_page_pat, html)
+                    if m :
+                        sp_item = feedparser.parse(html[m.start():m.end()])
+                        if len(sp_item.feed) > 0 :
+                            if verbose :
+                                print >>sys.stderr, "Found a single-page link!"
+                            html = sp_item.items()[0][1].items()[0][1]
+                        else :
+                            if verbose :
+                                print >>sys.stderr, "Can't read single-page", \
+                                    html[m.start():m.end()]
+                    else :
+                        if verbose :
+                            print >>sys.stderr, "No single-page link in", \
+                                item.link
+
+                # Throw out everything before the page_start pattern
+                # and after the page_end pattern
+                if page_start and page_start != "" :
+                    #pat = re.compile(page_start)
+                    #match = pat.search(html)
+                    #if not match :
+                    #    print >>sys.stderr, "Couldn't find", page_start
+                    #else :
+                    #    html = html[match.start() : ]
+                    match = html.find(page_start)
+                    if match >= 0:
+                        html = html[match:]
+
+                if page_end and page_end != "" :
+                    match = html.find(page_end)
+                    if match >= 0:
+                        html = html[0 : match]
+
+                # Skip anything matching the skip_pats
+                for skip in skip_pats :
+                    if verbose :
+                        print >>sys.stderr, "Trying to skip", skip
+                    html = re.sub(skip, '', html)
+
+            except KeyboardInterrupt:
+                print >>sys.stderr, "Caught keyboard interrupt, exiting."
+                sys.exit(1)
+            except :
+                if verbose :
+                    print >>sys.stderr, "Couldn't parse subentry", item.link
+                html = item.summary
+                raise   # XXX remove, but should at least print the error
+
+        if not 'published_parsed' in item:
+            if 'updated_parsed' in item:
+                item.published_parsed = item.updated_parsed
+            else:
+                item.published_parsed = time.gmtime()
+
+        def save_html_file(outdir, title, html) :
+            # title and html are is unicode strings, not yet encoded.
+            # But html has already been converted and is ready to write.
+
+            utftitle = title.encode('utf-8')
+            #item.title.encode('us-ascii', "ignore")
+            fnam = str(itemnum) + ".html"
+            if verbose :
+                print "Saving to file", fnam
+
+            of = open(os.path.join(outdir, fnam), "w")
+            of.write("<html>\n<head>\n")
+            of.write("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">\n")
+            of.write("<title>" + utftitle + "</title>\n</head>\n")
+            of.write("\n<body>\n<h1>" + utftitle + "</h1>\n\n")
+            of.write(html.encode('utf-8'))
+
+            # add a "next item" link
+            if itemnum < len(feed.entries) :
+                of.write("<br><a href=\"" + str(itemnum+1) +
+                         ".html\">&gt;&gt;</a>\n")
+
+            of.write(downloaded_string)
+                
+            of.write("</body>\n</html>\n")
+            of.close()
+
+            return fnam
+
+        # Plucker named anchors don't work unless preceded by a <p>
+      # http://www.mail-archive.com/plucker-list@rubberchicken.org/msg07314.html
+        # and the previous message.
+        indexstr += "<p><a name=\"" + str(itemnum) + "\">&nbsp;</a>"
+
+        if levels == 1 :
+            # For a single-level site, don't put links over each entry.
+            indexstr += "\n<a href=\"" + item.link + "\">"
+            indexstr += item.title + "</a>\n"
+        else :
+            fnam = save_html_file(outdir, item.title, html)
+            if verbose :
+                print >>sys.stderr, "Saved to file", fnam
+            indexstr += '<p>\n<b><a href=\"' + fnam + '\">'
+            indexstr += item.title + '</a></b>\n'
+
+        # Under the title, add a link to jump to the next entry
+        indexstr += "<br> <i><a href=\"#" + str(itemnum+1) + \
+                    "\">&gt;&gt;</a></i>\n<br>\n"
+
+        # Add either the content or the summary:
+        if levels == 1 and 'content' in item :
+            content = item.content[0].value + "\n"
+        else :
+            content = item.summary_detail.value + "\n"
+
+        # Remove images from index content too
+        content = re.sub('<img .*?>', '', content)
+
+        indexstr += content + "\n"
+
+#         date = datetime.datetime(*item.published_parsed[0:7]).strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+        # Done with this entry. Record it in the cache.
+        feedcache.append(item.id)
+
+    # Only write the index.html file if there was content that
+    # wasn't already in the cache.
+    if itemnum > 0 :
+        indexfile = os.path.join(outdir, "index.html")
+        if verbose :
+            print "Writing", indexfile
+            #print indexstr.encode('utf-8')
+        index = open(indexfile, "w")
+        index.write(indexstr.encode('utf=8'))
+        index.write(downloaded_string)
+        index.write("\n</body>\n</html>\n")
+        index.close()
+
+        # Run plucker. This should eventually be configurable --
+        # but how, with arguments like these?
+        day = time.strftime("%a")
+        docname = day + ": " + name
+        fname = day + "_" + name.replace(" ", "_")
+        cmd = "plucker-build -N \"" + docname + "\" -f \"" + fname + "\"" \
+            + " --stayonhost --noimages --zlib-compression --maxdepth 2" \
+            + " -H \"file://" + indexfile + "\""
+
+        print "Running:", cmd
+        os.system(cmd)
+    else :
+        print name, ": no new content"
+
+#
+# Main -- read the config file and loop over sites.
+# rsserve, rsservoir, rssonate, rssort, rssound, rssource, rsspect,
+# rsspiration, rsspite, rssplendant, 
+#
+if __name__ == '__main__':
+    if 'XDG_CONFIG_HOME' in os.environ:
+        conffile = os.path.join(os.environ['XDG_CONFIG_HOME'],
+                                'feedme', 'feedme.conf')
+    else:
+        conffile = os.path.join(os.environ['HOME'],
+                                '.config', 'feedme', 'feedme.conf')
+    if not os.access(conffile,os.R_OK):
+        print >>sys.stderr, "Error: Config file does not exist."
+        sys.exit(1)
+    
+    if 'XDG_CACHE_HOME' in os.environ:
+        cachefile = os.path.join(os.environ['XDG_CACHE_HOME'],
+                                 'feedme', 'feedme.dat')
+    else:
+        cachefile = os.path.join(os.environ['HOME'], '.cache',
+                                 'feedme', 'feedme.dat')
+    
+    config = ConfigParser({ 'verbose':'false', 'levels':'2',
+                            'page_start':'', 'page_end':'',
+                            'single_page_pat':'', 'skip_pat':'' })
+    config.read(conffile)
+    
+    if os.path.exists(cachefile):
+        if not os.access(cachefile,os.W_OK):
+            print >>sys.stderr, "Error: Cache file is not writeable."
+            sys.exit(3)
+        else:
+            cache = cPickle.load(open(cachefile))
+    else:
+        dirname = os.path.dirname(cachefile)
+        if not os.path.exists(dirname):
+            os.mkdir(dirname)
+        cache = {}
+
+    #
+    # Loop over the list of sites
+    #
+    for feedname in config.sections():
+        # Mandatory arguments:
+        try :
+            url = config.get(feedname, 'url')
+            dir = config.get(feedname, 'dir')
+        except :
+            print "Must specify dir and name for:", feedname
+            sys.exit(1)
+
+        skip_pats = config.get(feedname, 'skip_pat')
+        if skip_pats != '' :
+            skip_pats = skip_pats.split('\n')
+        else :
+            skip_pats = []
+
+        # Skip images -- should make this optional
+        if config.get(feedname, 'skip_images') == 'true':
+            skip_pats.append('<img .*?>')
+
+        try:
+            feedfile = feedname.replace(" ", "_")
+            outpath = os.path.join(dir,  feedfile)
+            rssread(url, feedname, outpath,
+                    levels=int(config.get(feedname, 'levels')),
+                    page_start=config.get(feedname, 'page_start'),
+                    page_end=config.get(feedname, 'page_end'),
+                    single_page_pat=config.get(feedname, 'single_page_pat'),
+                    skip_pats=skip_pats,
+                    verbose=(config.get(feedname, 'verbose') != 'false'))
+            cPickle.dump(cache,open(cachefile,'w'))
+        except KeyboardInterrupt:
+            print >>sys.stderr, "Caught keyboard interrupt, exiting."
+            sys.exit(0)
+        except Exception, e:
+            print >>sys.stderr, "Failure on", feedname, sys.exc_type, e
+            raise
