@@ -21,15 +21,11 @@
 # - Figure out why we get repeat stories on sites like BBC.
 # - Allow interrupts on hung sites, without killing the whole session.
 
-# New in 0.4:
-# - Rewrite URLs so unfollowed links show up as coming from the original site,
-#   not file://
-# - error/msg logging: show at end, not inline
-# - handle failures like not finding plucker
-# - make backup of cache file
-#
+# New in 0.6:
+# - Handle formats besides Plucker: initially fb2.
+# - Show author.
 
-VersionString = "FeedMe 0.5"
+VersionString = "FeedMe 0.6"
 
 import cPickle
 import time  #, datetime
@@ -50,6 +46,83 @@ try :
 except ImportError, e:
     has_ununicode=False
 
+##################################################################
+# OUTPUT GENERATING FUNCTIONS
+# Define functions for each output format you need to support.
+#
+
+def run_conversion_cmd(appargs) :
+    if True or verbose :
+        cmd = " ".join(appargs)
+        print >>sys.stderr, "Running:", cmd
+        sys.stdout.flush()
+
+    retval = os.spawnvp(os.P_WAIT, appargs[0], appargs)
+    #retval = os.system(cmd)
+    if retval != 0 :
+        raise OSError(retval, "Couldn't run: " + ' '.join(appargs))
+
+#
+# Generate a Plucker file
+#
+def make_plucker_file(indexfile, feedname, levels, ascii) :
+    home = os.environ['HOME']
+    day = time.strftime("%a")
+    docname = day + " " + feedname
+    cleanfilename = day + "_" + feedname.replace(" ", "_")
+
+    # Make sure the plucker directory exists:
+    pluckerdir = os.path.join(home, ".plucker", "feedme")
+    if not os.path.exists(pluckerdir) :
+        os.makedirs(pluckerdir)
+
+    # Run plucker. This should eventually be configurable --
+    # but how, with arguments like these?
+
+    # Plucker mysteriously creates unbeamable files if the
+    # document name has a colons in it.
+    # So use the less pretty but safer underscored docname.
+    #docname = cleanfilename
+    appargs = [ "plucker-build", "-N", docname,
+                "-f", os.path.join("feedme", cleanfilename),
+                "--stayonhost", "--noimages",
+                "--maxdepth", str(levels),
+                "--zlib-compression", "--beamable",
+                "-H", "file://" + indexfile ]
+    if not ascii :
+        appargs.append("--charset=utf-8")
+
+    run_conversion_cmd(appargs)
+
+#
+# Generate a fictionbook2 file
+# http://calibre-ebook.com/user_manual/conversion.html
+#
+def make_fb2_file(indexfile, feedname, levels, ascii) :
+    home = os.environ['HOME']
+    day = time.strftime("%a")
+    # Prepend daynum to the filename because fbreader can only sort by filename
+    daynum = time.strftime("%w")
+    cleanfilename = daynum + day + "_" + feedname.replace(" ", "_")
+
+    appargs = [ "ebook-convert",
+                indexfile,
+                os.path.join(home, "fbfeeds", cleanfilename + ".fb2"),
+                "--authors", "feedme",
+                "--disable-font-rescaling" ]
+    if True or verbose :
+        cmd = " ".join(appargs)
+        print >>sys.stderr, "Running:", cmd
+        sys.stdout.flush()
+
+    run_conversion_cmd(appargs)
+
+# END OUTPUT GENERATING FUNCTIONS
+##################################################################
+
+##################################################################
+# MsgLog: Print messages and also batch them up to print at the end:
+#
 class MsgLog :
     def __init__(self) :
         self.msgstr = ""
@@ -123,7 +196,7 @@ def sub_tilde(name) :
 def get_feed(feedname, config, cache, cachefile, msglog) :
     # Mandatory arguments:
     try :
-        url = config.get(feedname, 'url')
+        sitefeedurl = config.get(feedname, 'url')
         dir = config.get(feedname, 'dir')
         dir = sub_tilde(dir)
     except :
@@ -176,17 +249,18 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
     global VersionString
     downloaded_string ="\n<hr><i>(Downloaded by " + VersionString + ")</i>\n"
 
-    feed = feedparser.parse(url)
+    feed = feedparser.parse(sitefeedurl)
 
     # feedparser has no error return! One way is to check len(feed.feed).
     if len(feed.feed) == 0 :
-        msglog.err("Can't read " + url)
+        msglog.err("Can't read " + sitefeedurl)
         return
 
     if not nocache :
-        if url not in cache:
-            cache[url] = []
-        feedcache = cache[url]
+        if sitefeedurl not in cache:
+            cache[sitefeedurl] = []
+        feedcache = cache[sitefeedurl]
+        newfeedcache = []
 
     if not os.access(outdir, os.W_OK) :
         os.makedirs(outdir)
@@ -203,11 +277,11 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
     indexstr = u"<html>\n<head>\n"
     indexstr += "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">\n";
     day = time.strftime("%a")
-    indexstr += "<title>" + day + ": " + feed.feed.title + "</title>\n</head>\n"
-    indexstr += "\n<body>\n<h1>" + day + ": " + feed.feed.title + "</h1>\n\n"
+    indexstr += "<title>" + day + ": " + feedname + "</title>\n</head>\n"
+    indexstr += "\n<body>\n<h1>" + day + ": " + feedname + ":" + feed.feed.title + "</h1>\n\n"
 
     if verbose:
-        print >>sys.stderr, "********* Reading", url
+        print >>sys.stderr, "********* Reading", sitefeedurl
 
     itemnum = 0
     for item in feed.entries :
@@ -225,10 +299,10 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
                 if len(href) > 0 :
                     item.id = href[0]
                     if verbose :
-                        msglog.msg("Using URL " + url + " for ID.")
+                        msglog.msg("Using URL " + href[0] + " for ID.")
                 else:
                     if verbose :
-                        msglog.msg("Item in " + url + " had no ID or URL.")
+                        msglog.msg("Item in " + href[0] + " had no ID or URL.")
                     next  # or return?
 
             # Make sure ids don't have named anchors appended:
@@ -246,10 +320,14 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
                 # a link to a different named anchor within the same file.
             except ValueError :
                 # Haven't seen it before. But is it in the cache already?
-                if not nocache and item.id in feedcache:
-                    if verbose :
-                        msglog.msg(url + " already cached -- skipping")
-                    continue
+                if not nocache :
+                    # We want it in the cache, whether it's new or not:
+                    newfeedcache.append(item.id)
+                    if item.id in feedcache:
+                        if verbose :
+                            msglog.msg(item.id + " already cached -- skipping")
+                        continue
+
                 # Add it to the cache and suburls.
                 suburls.append(item.id)
                 pagenum = len(suburls) - 1
@@ -279,10 +357,10 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
 
                     # It's not documented, but sometimes after urlopen
                     # we can actually get a content type. If it's not
-                    # text, that's bad.
+                    # text/something, that's bad.
                     ctype = response.headers['content-type']
                     if ctype and ctype != '' and ctype[0:4] != 'text' :
-                        msglog.msg(item.link + " isn't text -- skipping")
+                        msglog.error(item.link + " isn't text -- skipping")
                         continue
 
                     # Read the content of the link:
@@ -421,7 +499,8 @@ Which (default = s): """)
                 # title is a unicode string, not yet encoded.
                 # html is a string presumed to be in encoding (which may be '').
 
-                print "Saving", title, "in", outdir
+                if verbose :
+                    print "Saving", title, "in", outdir
                 utftitle = output_encode(title, encoding)
                 fnam = str(pagenum) + ".html"
 
@@ -458,7 +537,7 @@ Which (default = s): """)
                     print >>sys.stderr, "Saved to file", fnam
 
                 itemlink = '<a href=\"' + fnam + anchor + '\">'
-                indexstr += '<p>\n<b>' + itemlink + item.title + '</a></b>\n'
+                indexstr += itemlink + '<b>' + item.title + '</b></a>\n'
             else :
                 # For a single-level site, don't put links over each entry.
                 itemlink = '<a href=\"" + item.link + "\">'
@@ -484,6 +563,9 @@ Which (default = s): """)
 
             indexstr += content
 
+            if 'author' in item :
+                indexstr += "\n<br><i>by: " + item.author + "</i><br>"
+
             # After the content, add another link to the title,
             # in case the user wants to click through after reading
             # the content:
@@ -493,10 +575,6 @@ Which (default = s): """)
             else :
                 short_title = item.title
             indexstr += "\n<br>[[" + itemlink + short_title + "</a>]]"
-
-            # Done with this entry. Record it in the cache.
-            if not nocache :
-                feedcache.append(item.id)
 
         # If there was an error parsing this entry, we won't save
         # a file so decrement the itemnum and loop to the next entry.
@@ -539,38 +617,12 @@ Which (default = n): """)
         index.write("\n</body>\n</html>\n")
         index.close()
 
-        # Make sure the plucker directory exists:
-        pluckerdir = os.path.join(os.environ['HOME'], ".plucker", "feedme")
-        if not os.path.exists(pluckerdir) :
-            os.makedirs(pluckerdir)
-
-        # Run plucker. This should eventually be configurable --
-        # but how, with arguments like these?
-        day = time.strftime("%a")
-        pluckerfile = day + "_" + feedname.replace(" ", "_")
-        docname = day + " " + feedname
-        # Plucker mysteriously creates unbeamable files if the
-        # document name has a colons in it.
-        # So use the less pretty but safer underscored docname.
-        #docname = pluckerfile
-        appargs = [ "plucker-build", "-N", docname,
-                    "-f", os.path.join("feedme", pluckerfile),
-                    "--stayonhost", "--noimages",
-                    "--maxdepth", str(levels),
-                    "--zlib-compression", "--beamable",
-                    "-H", "file://" + indexfile ]
-        if not ascii :
-            appargs.append("--charset=utf-8")
-
-        cmd = " ".join(appargs)
-        if True or verbose :
-            print >>sys.stderr, "Running:", cmd
-            sys.stdout.flush()
-
-        retval = os.spawnvp(os.P_WAIT, appargs[0], appargs)
-        #retval = os.system(cmd)
-        if retval != 0 :
-            raise OSError(retval, "Couldn't run: " + ' '.join(appargs))
+        ####################################################
+        # Generate the output files
+        # (should factor the formats better, of course)
+        #
+        make_plucker_file(indexfile, feedname, levels, ascii)
+        #make_fb2_file(indexfile, feedname, levels, ascii)
 
         #
         # All done. Update the cache file.
@@ -578,7 +630,13 @@ Which (default = n): """)
         if not nocache :
             if verbose :
                 print >>sys.stderr, feedname, ": Updating cache file"
-            cPickle.dump(cache, open(cachefile,'w'))
+            # Dump the new cache, not the old one:
+            # XXX Find out how long this is taking.
+            # XXX Should we split the cache into per site?
+            t = time.time()
+            cache[sitefeedurl] = newfeedcache
+            cPickle.dump(cache, open(cachefile, 'w'))
+            print >>sys.stderr, "Writing cache took", time.time() - t, "seconds"
         elif verbose :
             print >>sys.stderr, feedname, ": Not updating cache file"
 
@@ -603,7 +661,6 @@ def init_cache() :
         dirname = os.path.dirname(cachefile)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
-        #os.open(cachefile, os.O_CREAT, 0644)
         cache = {}
     elif not os.access(cachefile, os.W_OK) :
         print >>sys.stderr, "Error: can't write cache file", cachefile
