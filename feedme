@@ -19,6 +19,8 @@
 # Important TODO:
 # - Prune the cache
 # - Figure out why we get repeat stories on sites like BBC.
+# - Allow interrupts on hung sites, without killing the whole session.
+
 # New in 0.4:
 # - Rewrite URLs so unfollowed links show up as coming from the original site,
 #   not file://
@@ -27,10 +29,10 @@
 # - make backup of cache file
 #
 
-VersionString = "FeedMe 0.4"
+VersionString = "FeedMe 0.5"
 
 import cPickle
-import time, datetime
+import time  #, datetime
 import os, sys
 import re
 #import types
@@ -67,6 +69,54 @@ class MsgLog :
     def get_errs(self) :
         return self.errstr
 
+import sys
+
+# file-like class that can optionally send output to a log file. Inspired by
+# http://www.redmountainsw.com/wordpress/archives/python-subclassing-file-types
+# and with help from KirkMcDonald.
+class tee() :
+    def __init__(self, _fd1, _fd2) :
+        self.fd1 = _fd1
+        self.fd2 = _fd2
+
+    def __del__(self) :
+        if self.fd1 != sys.stdout and self.fd1 != sys.stderr :
+            self.fd1.close()
+        if self.fd2 != sys.stdout and self.fd2 != sys.stderr :
+            self.fd2.close()
+
+    def write(self, text) :
+        self.fd1.write(text)
+        self.fd2.write(text)
+
+    def flush(self) :
+        self.fd1.flush()
+        self.fd2.flush()
+
+#
+# Interrupt handler: prompt for what to do.
+#
+def handleKeyboardInterrupt(msg) :
+    # os.isatty() doesn't work, so:
+    if not hasattr(sys.stdin, "isatty") :
+        print "Interrupt, and not running interactively. Exiting."
+        sys.exit(1)
+
+    response = raw_input(msg)
+    if response == '' :
+        return '\0'
+    if response[0] == 'q' :
+        sys.exit(1)
+    return response[0]
+
+def sub_tilde(name) :
+    # config.get alas doesn't substitute $HOME or ~
+    if name[0:2] == "~/" :
+        name = os.path.join(os.environ['HOME'], name[2:])
+    elif name[0:6] == "$HOME/" :
+        name = os.path.join(os.environ['HOME'], name[6:])
+    return name
+
 #
 # Get a single feed
 #
@@ -75,13 +125,9 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
     try :
         url = config.get(feedname, 'url')
         dir = config.get(feedname, 'dir')
-        # config.get alas doesn't substitute $HOME or ~
-        if dir[0:2] == "~/" :
-            dir = os.path.join(os.environ['HOME'], dir[2:])
-        elif dir[0:6] == "$HOME/" :
-            dir = os.path.join(os.environ['HOME'], dir[6:])
+        dir = sub_tilde(dir)
     except :
-        msglog.err("Must specify dir and name for: " + feedname)
+        msglog.err("Error reading feedme.conf entry for: " + feedname)
         return
 
     encoding = config.get(feedname, 'encoding')
@@ -133,7 +179,6 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
     feed = feedparser.parse(url)
 
     # feedparser has no error return! One way is to check len(feed.feed).
-
     if len(feed.feed) == 0 :
         msglog.err("Can't read " + url)
         return
@@ -167,6 +212,9 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
     itemnum = 0
     for item in feed.entries :
         try :
+            #
+            # Get the list of links (href) and a (hopefully) unique ID:
+            #
             if 'links' in item :
                 href = [i['href'].encode('utf-8') \
                             for i in item.links if i['rel'] == 'alternate']
@@ -176,9 +224,11 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
             if not 'id' in item :
                 if len(href) > 0 :
                     item.id = href[0]
+                    if verbose :
+                        msglog.msg("Using URL " + url + " for ID.")
                 else:
                     if verbose :
-                        msglog.msg("Item in", url, "had no unique ID.")
+                        msglog.msg("Item in " + url + " had no ID or URL.")
                     next  # or return?
 
             # Make sure ids don't have named anchors appended:
@@ -195,9 +245,12 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
                 # We've already seen a link to this URL. It's probably
                 # a link to a different named anchor within the same file.
             except ValueError :
-                # Haven't seen it before. Add it to the cache and suburls.
+                # Haven't seen it before. But is it in the cache already?
                 if not nocache and item.id in feedcache:
+                    if verbose :
+                        msglog.msg(url + " already cached -- skipping")
                     continue
+                # Add it to the cache and suburls.
                 suburls.append(item.id)
                 pagenum = len(suburls) - 1
 
@@ -212,14 +265,27 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
             # Follow the link and make a file for it:
             #
             if levels > 1 or not 'content' in item :
-                try :
+                try :    # Try to trap keyboard interrupts, + others
+                    if verbose :
+                        print "Fetching link", item.link
                     # For the sub-pages, we're getting HTML, not RSS.
                     # Nobody seems to have RSS pointing to RSS.
                     response = urllib2.urlopen(item.link)
+
                     # At this point it would be lovely to check whether the
                     # mime type is HTML. Unfortunately, all we have is a
                     # httplib.HTTPMessage instance which is completely
                     # undocumented (see http://bugs.python.org/issue3428).
+
+                    # It's not documented, but sometimes after urlopen
+                    # we can actually get a content type. If it's not
+                    # text, that's bad.
+                    ctype = response.headers['content-type']
+                    if ctype and ctype != '' and ctype[0:4] != 'text' :
+                        msglog.msg(item.link + " isn't text -- skipping")
+                        continue
+
+                    # Read the content of the link:
                     html = response.read()
                     link = response.geturl()
 
@@ -262,16 +328,22 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
                         m = re.search(single_page_pat, html)
                         if m :
                             single_page = html[m.start():m.end()]
+                            if verbose :
+                                print >>sys.stderr, \
+                                    "\nFetching single-page pattern:", \
+                                    single_page.encode('utf-8')
                             try :
                                 response = urllib2.urlopen(single_page)
                                 html2 = response.read()
                                 link = response.geturl()
                                 html = html2
                                 response.close()
-                                print >>sys.stderr, "Single page @", link
-                            except :
+                                if verbose :
+                                    print >>sys.stderr, "Single page @", link
+                            except Exception, e :
                                 print >>sys.stderr, \
-                                    "Can't get single-page url", single_page
+                                    "Can't get single-page url", single_page, \
+                                    str(e)
                         elif verbose :
                             print >>sys.stderr, "single-page pattern", \
                                 single_page_pat, "not found in", link
@@ -296,15 +368,30 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
 
                     # Skip anything matching the skip_pats
                     for skip in skip_pats :
-                        if verbose :
+                        if False and verbose :
                             print >>sys.stderr, "Trying to skip", skip
                             #print >>sys.stderr, "in", html.encode('utf-8')
                             #sys.stderr.flush()
                         html = re.sub(skip, '', html)
 
                 except KeyboardInterrupt :
-                    print >>sys.stderr, "Caught keyboard interrupt, exiting."
-                    sys.exit(1)
+                    response = handleKeyboardInterrupt("""
+*** Caught keyboard interrupt reading a story! ***\n
+Options:
+q: Quit
+c: Continue trying to read this story
+s: Skip to next story
+n: Skip to next site
+
+Which (default = s): """)
+                    if response[0] == 'n' :      # next site
+                        return
+                    elif response[0] != 'c' :    # next story (default)
+                        continue
+
+                    # If the response was 'c', we continue and just
+                    # ignore the interrupt.
+
                 except Exception, e :
                     # Collect info about what went wrong:
                     errmsg = "Couldnt read " + item.link + "\n"
@@ -318,10 +405,10 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
                         errmsg += traceback.format_exc(sys.exc_info()[2])
 
                     if verbose :
-                        print "=============="
+                        print >>sys.stderr, "=============="
                     msglog.err(errmsg)
                     if verbose :
-                        print "=============="
+                        print >>sys.stderr, "=============="
                     raise  # so this entry won't get stored or cached
 
             if not 'published_parsed' in item:
@@ -334,6 +421,7 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
                 # title is a unicode string, not yet encoded.
                 # html is a string presumed to be in encoding (which may be '').
 
+                print "Saving", title, "in", outdir
                 utftitle = output_encode(title, encoding)
                 fnam = str(pagenum) + ".html"
 
@@ -412,17 +500,39 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
 
         # If there was an error parsing this entry, we won't save
         # a file so decrement the itemnum and loop to the next entry.
-        except :
+        except KeyboardInterrupt :
+            sys.stderr.flush()
+            response = handleKeyboardInterrupt("""
+*** Caught keyboard interrupt while finishing a site! ***\n
+Options:
+q: Quit
+c: Continue trying to finish this site
+n: Skip to next site
+
+Which (default = n): """)
+            if response[0] == 'c' :
+                continue
+            if response[0] == 'q' :
+                sys.exit(1)
+            # Default is to skip to the next site:
+            return
+        except Exception, e :
             itemnum -= 1
             if verbose :
-                print >>sys.stderr, "Skipping item", item.link
+                print >>sys.stderr, "Skipping item", item.link.encode('utf-8')
+                print >>sys.stderr, "error was", str(e).encode('utf-8')
+
+                print >>sys.stderr, str(sys.exc_info()[0])
+                print >>sys.stderr, str(sys.exc_info()[1])
+                print >>sys.stderr, traceback.format_exc(sys.exc_info()[2])
 
     # Only write the index.html file if there was content that
     # wasn't already in the cache.
+    sys.stdout.flush()
     if itemnum > 0 :
         indexfile = os.path.join(outdir, "index.html")
         if verbose :
-            print "Writing", indexfile
+            print  >>sys.stderr, "Writing", indexfile
         index = open(indexfile, "w")
         index.write(output_encode(indexstr, encoding))
         index.write(downloaded_string)
@@ -454,7 +564,7 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
 
         cmd = " ".join(appargs)
         if True or verbose :
-            print "Running:", cmd
+            print >>sys.stderr, "Running:", cmd
             sys.stdout.flush()
 
         retval = os.spawnvp(os.P_WAIT, appargs[0], appargs)
@@ -467,13 +577,13 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
         #
         if not nocache :
             if verbose :
-                print feedname, ": Updating cache file"
+                print >>sys.stderr, feedname, ": Updating cache file"
             cPickle.dump(cache, open(cachefile,'w'))
         elif verbose :
-            print feedname, ": Not updating cache file"
+            print >>sys.stderr, feedname, ": Not updating cache file"
 
     else :
-        print feedname, ": no new content"
+        print >>sys.stderr, feedname, ": no new content"
 
 #
 # Find the cache file and load it, but don't parse yet
@@ -527,6 +637,7 @@ def read_config_file() :
                            'page_start':'', 'page_end':'',
                            'single_page_pat':'', 'skip_pat':'',
                            'nocache':'false',
+                           'logfile':'',
                            'ascii':'false'})
     config.read(conffile)
     return config
@@ -550,9 +661,10 @@ Copyright 2009 by Akkana Peck; share and enjoy under the GPL v2 or later."
     optparser.add_option("-s", "--show-sites",
                          action="store_true", dest="show_sites",
                          help="Show available sites")
+    optparser.add_option("-l", "--log", metavar="logfile",
+                         action="store", dest="log_file_name",
+                         help="Save output to a log file")
     (options, args) = optparser.parse_args()
-    # Currently there are no options, but there will be eventually,
-    # e.g. an "ignore cache" option.
 
     msglog = MsgLog()
 
@@ -570,28 +682,41 @@ Copyright 2009 by Akkana Peck; share and enjoy under the GPL v2 or later."
     else :
         cache, cachefile = init_cache()
 
+    logfilename = config.get('DEFAULT', 'logfile')
+    if logfilename :
+        logfilename = sub_tilde(logfilename)
+        # Set up a tee to a log file, and redirect stderr there:
+        print "teeing output to", logfilename
+        stderrsav = sys.stderr
+        outputlog = open(logfilename, "w")
+        sys.stderr = tee(stderrsav, outputlog)
+
     try :
         if len(args) == 0 :
             for feedname in sections :
                 get_feed(feedname, config, cache, cachefile, msglog)
         else :
             for arg in args :
-                print 'Getting feed for', arg
+                print >>sys.stderr, 'Getting feed for', arg
                 get_feed(arg, config, cache, cachefile, msglog)
+
+    # This causes a lot of premature exits. Not sure why we end up
+    # here rather than in the inner KeyboardInterrupt section.
     except KeyboardInterrupt :
-        print >>sys.stderr, "Caught keyboard interrupt, exiting."
-        sys.exit(1)
+        print >>sys.stderr, "Caught keyboard interrupt at the wrong time!"
+        print traceback.format_exc(sys.exc_info()[2])
+        #sys.exit(1)
     except OSError, e :
-        print "Caught an OSError"
+        print >>sys.stderr, "Caught an OSError"
         print >>sys.stderr, e
         sys.exit(e.errno)
 
     # Dump any errors we encountered.
     msgs = msglog.get_msgs()
     if msgs :
-        print "\n===== Messages ===="
-        print msgs.encode('utf-8', 'backslashreplace')
+        print >>sys.stderr, "\n===== Messages ===="
+        print >>sys.stderr, msgs.encode('utf-8', 'backslashreplace')
     msgs = msglog.get_errs()
     if msgs :
-        print "\n====== Errors ====="
-        print msgs.encode('utf-8', 'backslashreplace')
+        print >>sys.stderr, "\n====== Errors ====="
+        print >>sys.stderr, msgs.encode('utf-8', 'backslashreplace')
