@@ -21,11 +21,10 @@
 # - Figure out why we get repeat stories on sites like BBC.
 # - Allow interrupts on hung sites, without killing the whole session.
 
-# New in 0.6:
-# - Handle formats besides Plucker: initially fb2.
-# - Show author.
+# New in 0.7:
+# - Add epub format w/ date in authorname (for Aldiko)
 
-VersionString = "FeedMe 0.6"
+VersionString = "FeedMe 0.7"
 
 import cPickle
 import time  #, datetime
@@ -95,27 +94,50 @@ def make_plucker_file(indexfile, feedname, levels, ascii) :
     run_conversion_cmd(appargs)
 
 #
-# Generate a fictionbook2 file
 # http://calibre-ebook.com/user_manual/conversion.html
 #
-def make_fb2_file(indexfile, feedname, levels, ascii) :
+def make_calibre_file(indexfile, feedname, extension, levels, ascii,
+                      author, flags) :
     home = os.environ['HOME']
     day = time.strftime("%a")
     # Prepend daynum to the filename because fbreader can only sort by filename
-    daynum = time.strftime("%w")
-    cleanfilename = daynum + day + "_" + feedname.replace(" ", "_")
+    #daynum = time.strftime("%w")
+    cleanfilename = day + "_" + feedname.replace(" ", "_")
+    outdir = os.path.join(home, "feeds", extension[1:])
+    if not os.access(outdir, os.W_OK) :
+        os.makedirs(outdir)
 
     appargs = [ "ebook-convert",
                 indexfile,
-                os.path.join(home, "fbfeeds", cleanfilename + ".fb2"),
-                "--authors", "feedme",
-                "--disable-font-rescaling" ]
+                #os.path.join(home, "feeds", cleanfilename + extension),
+                # directory should be configurable too, probably
+                os.path.join(outdir, cleanfilename + extension),
+                "--authors", author ]
+    for flag in flags :
+        appargs.append(flag)
     if True or verbose :
         cmd = " ".join(appargs)
         print >>sys.stderr, "Running:", cmd
         sys.stdout.flush()
 
     run_conversion_cmd(appargs)
+
+#
+# Generate a fictionbook2 file
+#
+def make_fb2_file(indexfile, feedname, levels, ascii) :
+    make_calibre_file(indexfile, feedname, ".fb2", levels, ascii,
+                      "feedme", flags = [ "--disable-font-rescaling" ] )
+
+#
+# Generate an ePub file
+# http://calibre-ebook.com/user_manual/cli/ebook-convert-3.html#html-input-to-epub-output
+#
+def make_epub_file(indexfile, feedname, levels, ascii) :
+    make_calibre_file(indexfile, feedname, ".epub", levels, ascii,
+                      time.strftime("%m-%d %a") + " feeds",
+                      flags = [ '--no-default-epub-cover',
+                                '--dont-split-on-page-breaks' ])
 
 # END OUTPUT GENERATING FUNCTIONS
 ##################################################################
@@ -197,11 +219,16 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
     # Mandatory arguments:
     try :
         sitefeedurl = config.get(feedname, 'url')
-        dir = config.get(feedname, 'dir')
-        dir = sub_tilde(dir)
+        feeddir = config.get(feedname, 'dir')
     except :
         msglog.err("Error reading feedme.conf entry for: " + feedname)
         return
+
+    feeddir = sub_tilde(feeddir)
+    feeddir = os.path.join(feeddir, time.strftime("%m-%d-%a"))
+    print "new feeddir is", feeddir
+
+    formats = config.get(feedname, 'formats').split(',')
 
     encoding = config.get(feedname, 'encoding')
     skip_pats = config.get(feedname, 'skip_pat')
@@ -215,7 +242,7 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
         skip_pats.append('<img .*?>')
 
     feedfile = feedname.replace(" ", "_")
-    outdir = os.path.join(dir,  feedfile)
+    outdir = os.path.join(feeddir,  feedfile)
     ascii = (config.get(feedname, 'ascii') != 'false')
     if ascii and not has_ununicode :
         ascii = False
@@ -262,9 +289,6 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
         feedcache = cache[sitefeedurl]
         newfeedcache = []
 
-    if not os.access(outdir, os.W_OK) :
-        os.makedirs(outdir)
-
     # suburls: mapping of URLs we've encountered to local URLs.
     # Any anchors (#anchor) will be discarded.
     # This is for sites like WorldWideWords that make many links
@@ -274,11 +298,16 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
     # indexstr is the contents of the index.html file.
     # Kept as a string until we know whether there are new, non-cached
     # stories so it's worth updating the copy on disk.
-    indexstr = u"<html>\n<head>\n"
-    indexstr += "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">\n";
+    # The stylesheet is for FeedViewer and shouldn't bother plucker etc.
     day = time.strftime("%a")
-    indexstr += "<title>" + day + ": " + feedname + "</title>\n</head>\n"
-    indexstr += "\n<body>\n<h1>" + day + ": " + feedname + ":" + feed.feed.title + "</h1>\n\n"
+    indexstr = u"""<html>\n<head>
+<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">
+<title>%s: %s</title>
+<link rel="stylesheet" type="text/css" title="Feeds" href="../../feeds.css"/>
+</head>
+
+<body>\n<h1>%s: %s: %s</h1>
+\n""" % (day, feedname, day, feedname, feed.feed.title)
 
     if verbose:
         print >>sys.stderr, "********* Reading", sitefeedurl
@@ -504,11 +533,22 @@ Which (default = s): """)
                 utftitle = output_encode(title, encoding)
                 fnam = str(pagenum) + ".html"
 
+                # Make the parent directory if we haven't already
+                # (don't do it before now since we didn't know whether
+                # we had any content to save):
+                if not os.access(outdir, os.W_OK) :
+                    os.makedirs(outdir)
+
                 of = open(os.path.join(outdir, fnam), "w")
-                of.write("<html>\n<head>\n")
-                of.write("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">\n")
-                of.write("<title>" + utftitle + "</title>\n</head>\n")
-                of.write("\n<body>\n<h1>" + utftitle + "</h1>\n\n")
+                of.write("""<html>\n<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"
+<link rel="stylesheet" type="text/css" title="Feeds" href="../../feeds.css"/>
+<title>%s</title>
+</head>
+
+<body>
+<h1>%s</h1>\n
+""" % (utftitle, utftitle))
                 of.write(output_encode(html, encoding))
 
                 # add a "next item" link.
@@ -574,7 +614,7 @@ Which (default = s): """)
                 short_title = item.title[0:sublen] + "..."
             else :
                 short_title = item.title
-            indexstr += "\n<br>[[" + itemlink + short_title + "</a>]]"
+            indexstr += "\n<br>[[" + itemlink + short_title + "</a>]]\n\n"
 
         # If there was an error parsing this entry, we won't save
         # a file so decrement the itemnum and loop to the next entry.
@@ -619,10 +659,13 @@ Which (default = n): """)
 
         ####################################################
         # Generate the output files
-        # (should factor the formats better, of course)
         #
-        make_plucker_file(indexfile, feedname, levels, ascii)
-        #make_fb2_file(indexfile, feedname, levels, ascii)
+        if 'plucker' in formats :
+            make_plucker_file(indexfile, feedname, levels, ascii)
+        if 'fb2' in formats :
+            make_fb2_file(indexfile, feedname, levels, ascii)
+        if 'epub' in formats :
+            make_epub_file(indexfile, feedname, levels, ascii)
 
         #
         # All done. Update the cache file.
