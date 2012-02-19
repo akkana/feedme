@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # feedme: read RSS/Atom feeds and convert to Plucker files.
-# Copyright 2009 Akkana Peck <akkana@shallowsky.com>
+# Copyright 2009,2011 Akkana Peck <akkana@shallowsky.com>
 # Based on feedread, Copyright (C) 2009 Benjamin M. A'Lee <bma@subvert.org.uk>
 # 
 # This program is free software: you can redistribute it and/or modify
@@ -17,14 +17,9 @@
 
 #
 # Important TODO:
-# - Prune the cache
 # - Figure out why we get repeat stories on sites like BBC.
-# - Allow interrupts on hung sites, without killing the whole session.
 
-# New in 0.7:
-# - Add epub format w/ date in authorname (for Aldiko)
-
-VersionString = "FeedMe 0.7"
+VersionString = "FeedMe 0.8"
 
 import cPickle
 import time  #, datetime
@@ -313,6 +308,13 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
     if len(feed.feed) == 0 :
         msglog.err("Can't read " + sitefeedurl)
         return
+    # XXX Sometimes feeds die a few lines later getting feed.feed.title.
+    # Here's a braindead guard against it -- but why isn't this
+    # whole clause inside a try? It should be.
+    if not 'title' in feed.feed :
+        msglog.msg(sitefeedurl + " lacks a title!")
+        feed.feed.title = '[' + feedname + ']'
+        #return
 
     if not nocache :
         if sitefeedurl not in cache:
@@ -364,6 +366,12 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
                     if verbose :
                         msglog.msg("Item in " + href[0] + " had no ID or URL.")
                     next  # or return?
+
+            # Filter out file types known not to work
+            # XXX Only mp3 for now. Obviously, make this more general.
+            if item.link.endswith("mp3") :
+                print "Filtering out mp3 link", item.link
+                continue
 
             # Make sure ids don't have named anchors appended:
             anchor_index = item.id.rfind('#')
@@ -424,6 +432,7 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
                         continue
 
                     # Read the content of the link:
+                    # This can die with socket.error, "connection reset by peer"
                     html = response.read()
                     link = response.geturl()
 
@@ -591,6 +600,8 @@ Which (default = s): """)
                 # (don't do it before now since we didn't know whether
                 # we had any content to save):
                 if not os.access(outdir, os.W_OK) :
+                    if verbose :
+                        print "Making", outdir
                     os.makedirs(outdir)
 
                 of = open(os.path.join(outdir, fnam), "w")
@@ -811,8 +822,8 @@ if __name__ == '__main__':
     usage = """Usage: %prog [site ...]
 If no site is specified, feedme will update all the feeds in
 ~/.config/feedme.conf."""
-    LongVersion = VersionString + ": an RSS feed reader.\n\
-Copyright 2009 by Akkana Peck; share and enjoy under the GPL v2 or later."
+    LongVersion = VersionString + "0.8: an RSS feed reader.\n\
+Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
 
     optparser = OptionParser(usage=usage, version=LongVersion)
     optparser.add_option("-n", "--nocache",
@@ -826,9 +837,12 @@ Copyright 2009 by Akkana Peck; share and enjoy under the GPL v2 or later."
                          help="Save output to a log file")
     (options, args) = optparser.parse_args()
 
+    config = read_config_file()
+
+    # server = config.get('DEFAULT', 'master_server')
+
     msglog = MsgLog()
 
-    config = read_config_file()
     sections = config.sections()
 
     if options.show_sites :
@@ -883,3 +897,4 @@ Copyright 2009 by Akkana Peck; share and enjoy under the GPL v2 or later."
 
     # Clean up old directories:
     clean_up(config)
+
