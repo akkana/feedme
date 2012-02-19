@@ -1,0 +1,11 @@
+FeedMe: a lightweight RSS/feed fetcher.
+
+FeedMe is sort of an RSS version of Sitescooper or AvantGo,
+optimized for offline reading.
+
+You can maintain a list of RSS feeds you want to read daily,
+fetch them, cleaning up the HTML and (if you like) removing images,
+then, optionally, convert them to a format that's easier to read
+on a PDA or ebook reader.
+
+It's written in Python and requires feedparser.
