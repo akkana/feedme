@@ -16,12 +16,12 @@
 # <http://www.gnu.org/licenses/>.
 
 #
-# Important TODO:
+# New in 0.3:
 # - cmdline arg: bypass cache (for testing)
 # - handle failures to download article
 #
 
-VersionString = "FeedMe 0.3b1"
+VersionString = "FeedMe 0.3"
 
 import cPickle
 import time, datetime
@@ -304,7 +304,7 @@ def get_feed(feedname, config, cache, cachefile) :
             #if itemnum < len(feed.entries) - 1 :
             if item != feed.entries[-1] :
                 of.write("<br><a href=\"" + str(pagenum+1) +
-                         ".html\">&gt;&gt;</a>\n")
+                         ".html\">&gt;-&gt;</a>\n")
 
             of.write(downloaded_string)
                 
@@ -334,7 +334,7 @@ def get_feed(feedname, config, cache, cachefile) :
         # if it isn't the last entry.
         if item != feed.entries[-1] :
             indexstr += "<br> <i><a href=\"#" + str(itemnum+1) + \
-                "\">&gt;&gt;</a></i>\n<br>\n"
+                "\">&gt;-&gt;</a></i>\n<br>\n"
 
         # Add either the content or the summary:
         if levels == 1 and 'content' in item :
