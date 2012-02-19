@@ -45,6 +45,31 @@ try :
 except ImportError, e:
     has_ununicode=False
 
+#
+# Clean up old feed directories
+#
+def clean_up(config) :
+    try :
+        days = int(config.get('DEFAULT', 'save_days'))
+        feeddir = config.get('DEFAULT', 'dir')
+        feeddir = sub_tilde(feeddir)
+    except :
+        print "Error trying to get save_days and feed dir; can't clean up"
+        return
+
+    print "Cleaning up anything older than", days, "days from", feeddir
+
+    now = time.time()
+    for dir in os.listdir(feeddir) :
+        d = os.path.join(feeddir, dir)
+        howold = (now - os.path.getctime(d)) / 60 / 60 / 24
+        if howold > days :
+            print "Deleting", d
+            if os.path.isdir(d) :
+                shutil.rmtree(d)
+            else :
+                os.unlink(d)
+
 ##################################################################
 # OUTPUT GENERATING FUNCTIONS
 # Define functions for each output format you need to support.
@@ -212,6 +237,15 @@ def sub_tilde(name) :
         name = os.path.join(os.environ['HOME'], name[6:])
     return name
 
+def get_config_multiline(config, feedname, configname) :
+    configlines = config.get(feedname, configname)
+    if configlines != '' :
+        configlines = configlines.split('\n')
+    else :
+        configlines = []
+    print "configlines for", configname, ":", configlines
+    return configlines
+
 #
 # Get a single feed
 #
@@ -226,18 +260,14 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
 
     feeddir = sub_tilde(feeddir)
     feeddir = os.path.join(feeddir, time.strftime("%m-%d-%a"))
-    print "new feeddir is", feeddir
 
     formats = config.get(feedname, 'formats').split(',')
 
     encoding = config.get(feedname, 'encoding')
-    skip_pats = config.get(feedname, 'skip_pat')
-    if skip_pats != '' :
-        skip_pats = skip_pats.split('\n')
-    else :
-        skip_pats = []
 
-    # Skip images -- should make this optional
+    skip_pats = get_config_multiline(config, feedname, 'skip_pat')
+
+    # Skip images if requested
     if config.get(feedname, 'skip_images') == 'true':
         skip_pats.append('<img .*?>')
 
@@ -248,11 +278,12 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
         ascii = False
         msglog.msg(feedname + ": Can't convert to ascii without ununicode")
     levels = int(config.get(feedname, 'levels'))
-    page_start = config.get(feedname, 'page_start')
-    page_end = config.get(feedname, 'page_end')
-    single_page_pat = config.get(feedname, 'single_page_pat')
-    skip_pats = skip_pats
-    verbose = (config.get(feedname, 'verbose') != 'false')
+    #page_start = config.get(feedname, 'page_start')
+    page_starts = get_config_multiline(config, feedname, 'page_start')
+    page_ends = get_config_multiline(config, feedname, 'page_end')
+    single_page_pats = get_config_multiline(config, feedname, 'single_page_pat')
+
+    verbose = (config.get(feedname, 'verbose').lower() == 'true')
     if cache == None :
         nocache = True
     else :
@@ -410,7 +441,7 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
 
                     # URL rewriting, so we can offer "Next page" and
                     # similar links.
-                    # Do this *before* checking the single_page_pat
+                    # Do this *before* checking the single_page_pats
                     # since it might need to be rewritten too.
 
                     # Base URL which will be prepended to any relative links:
@@ -431,55 +462,78 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
                                   html)
 
                     # See if the single page pattern exists and works
-                    if single_page_pat != '' :
-                        m = re.search(single_page_pat, html)
-                        if m :
-                            single_page = html[m.start():m.end()]
-                            if verbose :
-                                print >>sys.stderr, \
-                                    "\nFetching single-page pattern:", \
-                                    single_page.encode('utf-8')
-                            try :
-                                response = urllib2.urlopen(single_page)
-                                html2 = response.read()
-                                link = response.geturl()
-                                html = html2
-                                response.close()
+                    if len(single_page_pats) > 0 :
+                        for single_page_pat in single_page_pats :
+                            m = re.search(single_page_pat, html)
+                            if m :
+                                single_page = html[m.start():m.end()]
                                 if verbose :
-                                    print >>sys.stderr, "Single page @", link
-                            except Exception, e :
-                                print >>sys.stderr, \
-                                    "Can't get single-page url", single_page, \
-                                    str(e)
-                        elif verbose :
-                            print >>sys.stderr, "single-page pattern", \
-                                single_page_pat, "not found in", link
+                                    print >>sys.stderr, \
+                                        "\nFetching single-page pattern:", \
+                                        single_page.encode('utf-8')
+                                try :
+                                    response = urllib2.urlopen(single_page)
+                                    html2 = response.read()
+                                    link = response.geturl()
+                                    html = html2
+                                    response.close()
+                                    if verbose :
+                                        print >>sys.stderr, \
+                                            "Single page @", link
+                                    break  # found a single-page, don't need 2
+                                except Exception, e :
+                                    print >>sys.stderr, \
+                                        "Can't get single-page url", \
+                                        single_page, \
+                                        str(e)
+                            elif verbose :
+                                print >>sys.stderr, "single-page pattern", \
+                                    single_page_pat, "not found in", link
 
                     # Throw out everything before the page_start pattern
                     # and after the page_end pattern
-                    if page_start and page_start != "" :
-                        #pat = re.compile(page_start)
-                        #match = pat.search(html)
-                        #if not match :
-                        #    print >>sys.stderr, "Couldn't find", page_start
-                        #else :
-                        #    html = html[match.start() : ]
-                        match = html.find(page_start)
-                        if match >= 0:
-                            html = html[match:]
+                    if len(page_starts) > 0 :
+                        for page_start in page_starts :
+                            #pat = re.compile(page_start)
+                            #match = pat.search(html)
+                            #if not match :
+                            #    print >>sys.stderr, "Couldn't find", page_start
+                            #else :
+                            #    html = html[match.start() : ]
+                            print "looking for page_start", page_start
+                            match = html.find(page_start)
+                            if match >= 0:
+                                if verbose :
+                                    print "Found page_start", page_start
+                                html = html[match:]
+                                break
 
-                    if page_end and page_end != "" :
-                        match = html.find(page_end)
-                        if match >= 0:
-                            html = html[0 : match]
+                    if len(page_ends) > 0 :
+                        for page_end in page_ends :
+                            print "looking for page_end", page_end
+                            match = html.find(page_end)
+                            if match >= 0:
+                                if verbose :
+                                    print "Found page_end", page_end
+                                html = html[0 : match]
 
-                    # Skip anything matching the skip_pats
-                    for skip in skip_pats :
-                        if False and verbose :
-                            print >>sys.stderr, "Trying to skip", skip
-                            #print >>sys.stderr, "in", html.encode('utf-8')
-                            #sys.stderr.flush()
-                        html = re.sub(skip, '', html)
+                    # Skip anything matching any of the skip_pats
+                    if len(skip_pats) > 0 :
+                        print len(skip_pats), "skip pats"
+                        for skip in skip_pats :
+                            if verbose :
+                                print >>sys.stderr, "Trying to skip", skip
+                                #print >>sys.stderr, "in", html.encode('utf-8')
+                                #sys.stderr.flush()
+                            # flags=DOTALL doesn't exist in re.sub until 2.7,
+                            #html = re.sub(skip, '', html, flags=re.DOTALL)
+                            # but does exist in a compiled re expression:
+                            regexp = re.compile(skip, flags=re.DOTALL)
+                            html = regexp.sub('', html)
+                            # Another way would be to use (.|\\n) in place of .
+                            # For some reason [.\n] doesn't work.
+                            #html = re.sub(skip, '', html, flags=re.DOTALL)
+                    else : print "no skip pats"
 
                 except KeyboardInterrupt :
                     response = handleKeyboardInterrupt("""
@@ -611,7 +665,12 @@ Which (default = s): """)
             # the content:
             sublen = 16
             if len(item.title) > sublen :
-                short_title = item.title[0:sublen] + "..."
+                # Truncate the title to sublen characters, and
+                # temove any HTML tags, otherwise we'll likely have
+                # tags like <i> that open but don't close
+                short_title = re.sub('<.*?>', '', item.title[0:sublen]) \
+                    + "..."
+
             else :
                 short_title = item.title
             indexstr += "\n<br>[[" + itemlink + short_title + "</a>]]\n\n"
@@ -738,6 +797,7 @@ def read_config_file() :
                            'single_page_pat':'', 'skip_pat':'',
                            'nocache':'false',
                            'logfile':'',
+                           'save_days':'7',
                            'ascii':'false'})
     config.read(conffile)
     return config
@@ -820,3 +880,6 @@ Copyright 2009 by Akkana Peck; share and enjoy under the GPL v2 or later."
     if msgs :
         print >>sys.stderr, "\n====== Errors ====="
         print >>sys.stderr, msgs.encode('utf-8', 'backslashreplace')
+
+    # Clean up old directories:
+    clean_up(config)
