@@ -16,19 +16,26 @@
 # <http://www.gnu.org/licenses/>.
 
 #
-# New in 0.3:
-# - cmdline arg: bypass cache (for testing)
-# - handle failures to download article
+# Important TODO:
+# - Prune the cache
+# - Figure out why we get repeat stories on sites like BBC.
+# New in 0.4:
+# - Rewrite URLs so unfollowed links show up as coming from the original site,
+#   not file://
+# - error/msg logging: show at end, not inline
+# - handle failures like not finding plucker
+# - make backup of cache file
 #
 
-VersionString = "FeedMe 0.3"
+VersionString = "FeedMe 0.4"
 
 import cPickle
 import time, datetime
 import os, sys
 import re
-import unicodedata   # for normalizing to ASCII
-import types
+#import types
+import shutil
+import traceback
 
 from ConfigParser import ConfigParser
 
@@ -41,10 +48,29 @@ try :
 except ImportError, e:
     has_ununicode=False
 
+class MsgLog :
+    def __init__(self) :
+        self.msgstr = ""
+        self.errstr = ""
+
+    def msg(self, s) :
+        self.msgstr += "\n" + s
+        print "", s.encode('ascii', 'backslashreplace')
+
+    def err(self, s) :
+        self.errstr += "\n" + s
+        print "ERROR:", s.encode('ascii', 'backslashreplace')
+
+    def get_msgs(self) :
+        return self.msgstr
+
+    def get_errs(self) :
+        return self.errstr
+
 #
 # Get a single feed
 #
-def get_feed(feedname, config, cache, cachefile) :
+def get_feed(feedname, config, cache, cachefile, msglog) :
     # Mandatory arguments:
     try :
         url = config.get(feedname, 'url')
@@ -55,7 +81,7 @@ def get_feed(feedname, config, cache, cachefile) :
         elif dir[0:6] == "$HOME/" :
             dir = os.path.join(os.environ['HOME'], dir[6:])
     except :
-        print "Must specify dir and name for:", feedname
+        msglog.err("Must specify dir and name for: " + feedname)
         return
 
     encoding = config.get(feedname, 'encoding')
@@ -74,7 +100,7 @@ def get_feed(feedname, config, cache, cachefile) :
     ascii = (config.get(feedname, 'ascii') != 'false')
     if ascii and not has_ununicode :
         ascii = False
-        print feedname, ':', "Can't convert to ascii without ununicode"
+        msglog.msg(feedname + ": Can't convert to ascii without ununicode")
     levels = int(config.get(feedname, 'levels'))
     page_start = config.get(feedname, 'page_start')
     page_end = config.get(feedname, 'page_end')
@@ -86,18 +112,20 @@ def get_feed(feedname, config, cache, cachefile) :
     else :
         nocache = (config.get(feedname, 'nocache') == 'true')
     if verbose and nocache :
-        print "Ignoring cache"
+        msglog.msg(feedname + ": Ignoring cache")
 
-    def output_encode(str, encoding) :
+    def output_encode(s, encoding) :
         if ascii and has_ununicode :
-            #return unicodedata.normalize('NFKD', str).encode('ascii', 'ignore')
+            #return unicodedata.normalize('NFKD', s).encode('ascii', 'ignore')
             # valid values in encode are replace and ignore
-            return ununicode.toascii(str,
+            return ununicode.toascii(s,
                                      in_encoding=encoding,
                                      errfilename=os.path.join(outdir,
                                                               "errors"))
+        elif isinstance(s, unicode) :
+            return s.encode('utf-8', 'backslashreplace')
         else :
-            return str.encode('utf=8')
+            return s
 
     global VersionString
     downloaded_string ="\n<hr><i>(Downloaded by " + VersionString + ")</i>\n"
@@ -107,7 +135,7 @@ def get_feed(feedname, config, cache, cachefile) :
     # feedparser has no error return! One way is to check len(feed.feed).
 
     if len(feed.feed) == 0 :
-        print >>sys.stderr, "Can't read", url
+        msglog.err("Can't read " + url)
         return
 
     if not nocache :
@@ -129,240 +157,265 @@ def get_feed(feedname, config, cache, cachefile) :
     # stories so it's worth updating the copy on disk.
     indexstr = u"<html>\n<head>\n"
     indexstr += "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">\n";
-    indexstr += "<title>" + feed.feed.title + "</title>\n</head>\n"
-    indexstr += "\n<body>\n<h1>" + feed.feed.title + "</h1>\n\n"
+    day = time.strftime("%a")
+    indexstr += "<title>" + day + ": " + feed.feed.title + "</title>\n</head>\n"
+    indexstr += "\n<body>\n<h1>" + day + ": " + feed.feed.title + "</h1>\n\n"
 
     if verbose:
         print >>sys.stderr, "********* Reading", url
 
     itemnum = 0
     for item in feed.entries :
-
-        if 'links' in item :
-            href = [i['href'].encode('utf-8') for i in item.links if i['rel'] == 'alternate']
-        else:
-            href = []
-
-        if not 'id' in item :
-            if len(href) > 0 :
-                item.id = href[0]
-            else:
-                if verbose :
-                    print >>sys.stderr, "Item in", url, "had no unique ID."
-                next  # or return?
-
-        # Make sure ids don't have named anchors appended:
-        anchor_index = item.id.rfind('#')
-        if anchor_index >= 0 :
-            anchor = item.id[anchor_index:]
-            item.id = item.id[0:anchor_index]
-        else :
-            anchor = ""
-
-        # See if we've already seen this page:
         try :
-            pagenum = suburls.index(item.id)
-            # We've already seen a link to this URL. It's probably
-            # a link to a different named anchor within the same file.
-        except ValueError :
-            # Haven't seen it before. Add it to the cache and suburls.
-            if not nocache and item.id in feedcache:
-                continue
-            suburls.append(item.id)
-            pagenum = len(suburls) - 1
-
-        itemnum += 1
-        if verbose :
-            print >>sys.stderr, "\nItem:", item.title.encode('utf-8')
-
-        # Now itemnum is the number of the entry on the index page;
-        # pagenum is the html file of the subentry, e.g. 3.html.
-
-        #
-        # Follow the link and make a file for it:
-        # XXX not sure we should be parsing subitems as RSS anyway.
-        # They're always just straight HTML links.
-        #
-        if levels > 1 or not 'content' in item :
-            try :
-                # For the sub-pages, we're getting HTML, not RSS.
-                # Nobody seems to have RSS pointing to RSS.
-                response = urllib2.urlopen(item.link)
-                # At this point it would be lovely to check whether the
-                # mime type is HTML. Unfortunately, all we have is a
-                # httplib.HTTPMessage instance which is completely
-                # undocumented (see http://bugs.python.org/issue3428).
-                html = response.read()
-
-                # urllib2 unfortunately doesn't read unicode,
-                # so try to figure out the current encoding:
-                if encoding == '' :
-                    type = response.headers['content-type'].split('charset=')
-                    if len(type) > 1 :
-                        encoding = type[-1]
-                # If that didn't work, oh well, encoding will stay at ''
-
-                # Here's a slow way to convert to unicode.
-                # But maybe we don't need to convert to unicode.
-                # if cur_encoding == '' :
-                #     xxx
-                # type = response.headers['content-type'].split('charset=')
-                # if len(type) > 1 :
-                #     html = unicode(htmlstr, type[-1])
-                # else :
-                #     if verbose :
-                #         print "No encoding specified: trying utf-8"
-                #     enc = 'utf-8'
-                #     try :
-                #         html = unicode(htmlstr, 'utf-8')
-                #     except UnicodeDecodeError, e :
-                #         print "utf-8 didn't work; trying 8859-15"
-                #         try :
-                #             html = unicode(htmlstr, 'iso8859-15')
-                #         except UnicodeDecodeError, e :
-                #             print "utf-8 didn't work; either; punting"
-                #             html = unicode(htmlstr, 'utf-8',
-                #                            errors='PUT SOMETHING HERE')
-                #     #import pdb; pdb.set_trace()
-
-                # No docs seem to say I should close this -- I can only assume:
-                response.close()
-
-                # See if the single page pattern exists and works
-                if single_page_pat != '' :
-                    m = re.search(single_page_pat, html)
-                    if m :
-                        single_page = html[m.start():m.end()]
-                        try :
-                            response = urllib2.urlopen(single_page)
-                            html2 = response.read()
-                            html = html2
-                        except :
-                            print >>sys.stderr, \
-                                "Can't get single-page url", single_page
-                    elif verbose :
-                        print >>sys.stderr, "No single-page link in", item.link
-
-                # Throw out everything before the page_start pattern
-                # and after the page_end pattern
-                if page_start and page_start != "" :
-                    #pat = re.compile(page_start)
-                    #match = pat.search(html)
-                    #if not match :
-                    #    print >>sys.stderr, "Couldn't find", page_start
-                    #else :
-                    #    html = html[match.start() : ]
-                    match = html.find(page_start)
-                    if match >= 0:
-                        html = html[match:]
-
-                if page_end and page_end != "" :
-                    match = html.find(page_end)
-                    if match >= 0:
-                        html = html[0 : match]
-
-                # Skip anything matching the skip_pats
-                for skip in skip_pats :
-                    if verbose :
-                        print >>sys.stderr, "Trying to skip", skip
-#                        print >>sys.stderr, "in", html.encode('utf-8')
-#                        sys.stderr.flush()
-                    html = re.sub(skip, '', html)
-
-            except KeyboardInterrupt :
-                print >>sys.stderr, "Caught keyboard interrupt, exiting."
-                sys.exit(1)
-            except Exception, e :
-                if verbose :
-                    print >>sys.stderr, "Couldn't parse subentry", item.link
-                html = "<b>Feedme Parse Error!</b><br><br>" + item.summary
-                #raise   # XXX remove, but should at least print the error
-
-        if not 'published_parsed' in item:
-            if 'updated_parsed' in item:
-                item.published_parsed = item.updated_parsed
+            if 'links' in item :
+                href = [i['href'].encode('utf-8') \
+                            for i in item.links if i['rel'] == 'alternate']
             else:
-                item.published_parsed = time.gmtime()
+                href = []
 
-        def save_html_file(outdir, title, html, encoding) :
-            # title is a unicode string, not yet encoded.
-            # html is a string presumed to be in encoding (which may be '').
+            if not 'id' in item :
+                if len(href) > 0 :
+                    item.id = href[0]
+                else:
+                    if verbose :
+                        msglog.msg("Item in", url, "had no unique ID.")
+                    next  # or return?
 
-            utftitle = output_encode(title, encoding)
-            fnam = str(pagenum) + ".html"
+            # Make sure ids don't have named anchors appended:
+            anchor_index = item.id.rfind('#')
+            if anchor_index >= 0 :
+                anchor = item.id[anchor_index:]
+                item.id = item.id[0:anchor_index]
+            else :
+                anchor = ""
 
-            of = open(os.path.join(outdir, fnam), "w")
-            of.write("<html>\n<head>\n")
-            of.write("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">\n")
-            of.write("<title>" + utftitle + "</title>\n</head>\n")
-            of.write("\n<body>\n<h1>" + utftitle + "</h1>\n\n")
-            of.write(output_encode(html, encoding))
+            # See if we've already seen this page:
+            try :
+                pagenum = suburls.index(item.id)
+                # We've already seen a link to this URL. It's probably
+                # a link to a different named anchor within the same file.
+            except ValueError :
+                # Haven't seen it before. Add it to the cache and suburls.
+                if not nocache and item.id in feedcache:
+                    continue
+                suburls.append(item.id)
+                pagenum = len(suburls) - 1
 
-            # add a "next item" link.
-            # XXX Unfortunately this itemnum check isn't necessarily reliable
-            # XXX since we may have skipped items.
-            #if itemnum < len(feed.entries) - 1 :
-            if item != feed.entries[-1] :
-                of.write("<br><a href=\"" + str(pagenum+1) +
-                         ".html\">&gt;-&gt;</a>\n")
-
-            of.write(downloaded_string)
-                
-            of.write("</body>\n</html>\n")
-            of.close()
-
-            return fnam
-
-        # Plucker named anchors don't work unless preceded by a <p>
-      # http://www.mail-archive.com/plucker-list@rubberchicken.org/msg07314.html
-        # and the previous message.
-        indexstr += "<p><a name=\"" + str(itemnum) + "\">&nbsp;</a>"
-
-        if levels > 1 :
-            fnam = save_html_file(outdir, item.title, html, encoding)
+            itemnum += 1
             if verbose :
-                print >>sys.stderr, "Saved to file", fnam
+                print >>sys.stderr, "\nItem:", item.title.encode('utf-8')
 
-            itemlink = '<a href=\"' + fnam + anchor + '\">'
-            indexstr += '<p>\n<b>' + itemlink + item.title + '</a></b>\n'
-        else :
-            # For a single-level site, don't put links over each entry.
-            itemlink = '<a href=\"" + item.link + "\">'
-            indexstr += "\n" + itemlink + item.title + "</a>\n"
+            # Now itemnum is the number of the entry on the index page;
+            # pagenum is the html file of the subentry, e.g. 3.html.
 
-        # Under the title, add a link to jump to the next entry
-        # if it isn't the last entry.
-        if item != feed.entries[-1] :
-            indexstr += "<br> <i><a href=\"#" + str(itemnum+1) + \
-                "\">&gt;-&gt;</a></i>\n<br>\n"
+            #
+            # Follow the link and make a file for it:
+            #
+            if levels > 1 or not 'content' in item :
+                try :
+                    # For the sub-pages, we're getting HTML, not RSS.
+                    # Nobody seems to have RSS pointing to RSS.
+                    response = urllib2.urlopen(item.link)
+                    # At this point it would be lovely to check whether the
+                    # mime type is HTML. Unfortunately, all we have is a
+                    # httplib.HTTPMessage instance which is completely
+                    # undocumented (see http://bugs.python.org/issue3428).
+                    html = response.read()
+                    link = response.geturl()
 
-        # Add either the content or the summary:
-        if levels == 1 and 'content' in item :
-            content = item.content[0].value + "\n"
-        elif 'summary_detail' in item:
-            content = item.summary_detail.value + "\n"
-        else :
-            content = "[No content]"
+                    # urllib2 unfortunately doesn't read unicode,
+                    # so try to figure out the current encoding:
+                    if encoding == '' :
+                        enctype = response.headers['content-type'].split('charset=')
+                        if len(enctype) > 1 :
+                            encoding = enctype[-1]
+                        else :
+                            encoding = 'utf-8'
 
-        # Remove images from index content too
-        # XXX should do this only if skip_imgs is true!
-        content = re.sub('<img .*?>', '', content)
+                    # No docs say I should close this. I can only assume.
+                    response.close()
 
-        indexstr += output_encode(content, encoding) + "\n"
+                    # URL rewriting, so we can offer "Next page" and
+                    # similar links.
+                    # Do this *before* checking the single_page_pat
+                    # since it might need to be rewritten too.
 
-        # After the content, add another link to the title,
-        # in case the user wants to click through after reading
-        # the content:
-        sublen = 16
-        if len(item.title) > sublen :
-            short_title = item.title[0:sublen] + "..."
-        else :
-            short_title = item.title
-        indexstr += "\n<br>[[" + itemlink + short_title + "</a>]]"
+                    # Base URL which will be prepended to any relative links:
+                    baseurl = re.sub('(.+)/.*', r'\1',
+                                     link.encode('ascii', 'xmlcharrefreplace'))
+                    siteurl = re.sub('([a-zA-Z]+://[^/]+)/.*', r'\1', baseurl)
 
-        # Done with this entry. Record it in the cache.
-        if not nocache :
-            feedcache.append(item.id)
+                    # XXX Next two regexps are dicey -- e.g. they don't
+                    # ensure that the end quote is the same as the start quote.
+
+                    # Rewrite any relative URLs in terms of the base URL
+                    html = re.sub('([hH][rR][eE][fF]\s*=\s*)(["\'])([^:/\'"]+?)(["\'])',
+                                  r'\1\2' + baseurl + r'/\3\4',
+                                  html)
+                    # Rewrite URLs that start with / in terms of the site URL:
+                    html = re.sub('([hH][rR][eE][fF]\s*=\s*)(["\'])/([^:\'"]+?)(["\'])',
+                                  r'\1\2' + siteurl + r'/\3\4',
+                                  html)
+
+                    # See if the single page pattern exists and works
+                    if single_page_pat != '' :
+                        m = re.search(single_page_pat, html)
+                        if m :
+                            single_page = html[m.start():m.end()]
+                            try :
+                                response = urllib2.urlopen(single_page)
+                                html2 = response.read()
+                                link = response.geturl()
+                                html = html2
+                                response.close()
+                                print >>sys.stderr, "Single page @", link
+                            except :
+                                print >>sys.stderr, \
+                                    "Can't get single-page url", single_page
+                        elif verbose :
+                            print >>sys.stderr, "single-page pattern", \
+                                single_page_pat, "not found in", link
+
+                    # Throw out everything before the page_start pattern
+                    # and after the page_end pattern
+                    if page_start and page_start != "" :
+                        #pat = re.compile(page_start)
+                        #match = pat.search(html)
+                        #if not match :
+                        #    print >>sys.stderr, "Couldn't find", page_start
+                        #else :
+                        #    html = html[match.start() : ]
+                        match = html.find(page_start)
+                        if match >= 0:
+                            html = html[match:]
+
+                    if page_end and page_end != "" :
+                        match = html.find(page_end)
+                        if match >= 0:
+                            html = html[0 : match]
+
+                    # Skip anything matching the skip_pats
+                    for skip in skip_pats :
+                        if verbose :
+                            print >>sys.stderr, "Trying to skip", skip
+                            #print >>sys.stderr, "in", html.encode('utf-8')
+                            #sys.stderr.flush()
+                        html = re.sub(skip, '', html)
+
+                except KeyboardInterrupt :
+                    print >>sys.stderr, "Caught keyboard interrupt, exiting."
+                    sys.exit(1)
+                except Exception, e :
+                    # Collect info about what went wrong:
+                    errmsg = "Couldnt read " + item.link + "\n"
+                    errmsg += "Title: " + item.title.encode('utf-8')
+                    if False and verbose :
+                        errmsg += "Item summary was:\n------\n"
+                        errmsg += item.summary + "\n------\n"
+                        errmsg += str(e) + '<br>\n'
+                        errmsg += str(sys.exc_info()[0]) + '<br>\n'
+                        errmsg += str(sys.exc_info()[1]) + '<br>\n'
+                        errmsg += traceback.format_exc(sys.exc_info()[2])
+
+                    if verbose :
+                        print "=============="
+                    msglog.err(errmsg)
+                    if verbose :
+                        print "=============="
+                    raise  # so this entry won't get stored or cached
+
+            if not 'published_parsed' in item:
+                if 'updated_parsed' in item:
+                    item.published_parsed = item.updated_parsed
+                else:
+                    item.published_parsed = time.gmtime()
+
+            def save_html_file(outdir, title, html, encoding) :
+                # title is a unicode string, not yet encoded.
+                # html is a string presumed to be in encoding (which may be '').
+
+                utftitle = output_encode(title, encoding)
+                fnam = str(pagenum) + ".html"
+
+                of = open(os.path.join(outdir, fnam), "w")
+                of.write("<html>\n<head>\n")
+                of.write("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">\n")
+                of.write("<title>" + utftitle + "</title>\n</head>\n")
+                of.write("\n<body>\n<h1>" + utftitle + "</h1>\n\n")
+                of.write(output_encode(html, encoding))
+
+                # add a "next item" link.
+                # XXX Unfortunately this itemnum check isn't necessarily reliable
+                # XXX since we may have skipped items.
+                #if itemnum < len(feed.entries) - 1 :
+                if item != feed.entries[-1] :
+                    of.write("<br><a href=\"" + str(pagenum+1) +
+                             ".html\">&gt;-&gt;</a>\n")
+
+                of.write(downloaded_string)
+
+                of.write("</body>\n</html>\n")
+                of.close()
+
+                return fnam
+
+            # Plucker named anchors don't work unless preceded by a <p>
+     # http://www.mail-archive.com/plucker-list@rubberchicken.org/msg07314.html
+            # and the previous message.
+            indexstr += "<p><a name=\"" + str(itemnum) + "\">&nbsp;</a>"
+
+            if levels > 1 :
+                fnam = save_html_file(outdir, item.title, html, encoding)
+                if verbose :
+                    print >>sys.stderr, "Saved to file", fnam
+
+                itemlink = '<a href=\"' + fnam + anchor + '\">'
+                indexstr += '<p>\n<b>' + itemlink + item.title + '</a></b>\n'
+            else :
+                # For a single-level site, don't put links over each entry.
+                itemlink = '<a href=\"" + item.link + "\">'
+                indexstr += "\n" + itemlink + item.title + "</a>\n"
+
+            # Under the title, add a link to jump to the next entry
+            # if it isn't the last entry.
+            if item != feed.entries[-1] :
+                indexstr += "<br> <i><a href=\"#" + str(itemnum+1) + \
+                    "\">&gt;-&gt;</a></i>\n<br>\n"
+
+            # Add either the content or the summary:
+            if levels == 1 and 'content' in item :
+                content = item.content[0].value + "\n"
+            elif 'summary_detail' in item:
+                content = item.summary_detail.value + "\n"
+            else :
+                content = "[No content]"
+
+            # Remove images from index content too
+            # XXX should do this only if skip_imgs is true!
+            content = re.sub('<img .*?>', '', content)
+
+            indexstr += content
+
+            # After the content, add another link to the title,
+            # in case the user wants to click through after reading
+            # the content:
+            sublen = 16
+            if len(item.title) > sublen :
+                short_title = item.title[0:sublen] + "..."
+            else :
+                short_title = item.title
+            indexstr += "\n<br>[[" + itemlink + short_title + "</a>]]"
+
+            # Done with this entry. Record it in the cache.
+            if not nocache :
+                feedcache.append(item.id)
+
+        # If there was an error parsing this entry, we won't save
+        # a file so decrement the itemnum and loop to the next entry.
+        except :
+            itemnum -= 1
+            if verbose :
+                print >>sys.stderr, "Skipping item", item.link
 
     # Only write the index.html file if there was content that
     # wasn't already in the cache.
@@ -384,25 +437,43 @@ def get_feed(feedname, config, cache, cachefile) :
         # Run plucker. This should eventually be configurable --
         # but how, with arguments like these?
         day = time.strftime("%a")
-        docname = day + ": " + feedname
         pluckerfile = day + "_" + feedname.replace(" ", "_")
-        cmd = "plucker-build -N \"" + docname \
-            + "\" -f \"feedme/" + pluckerfile \
-            + "\" --stayonhost --noimages --zlib-compression "\
-            + "--maxdepth " + str(levels) \
-            + " -H \"file://" + indexfile + "\""
+        docname = day + " " + feedname
+        # Plucker mysteriously creates unbeamable files if the
+        # document name has a colons in it.
+        # So use the less pretty but safer underscored docname.
+        #docname = pluckerfile
+        appargs = [ "plucker-build", "-N", docname,
+                    "-f", os.path.join("feedme", pluckerfile),
+                    "--stayonhost", "--noimages",
+                    "--maxdepth", str(levels),
+                    "--zlib-compression", "--beamable",
+                    "-H", "file://" + indexfile ]
+        if not ascii :
+            appargs.append("--charset=utf-8")
 
-        print "Running:", cmd
-        os.system(cmd)
+        cmd = " ".join(appargs)
+        if True or verbose :
+            print "Running:", cmd
+            sys.stdout.flush()
+
+        retval = os.spawnvp(os.P_WAIT, appargs[0], appargs)
+        #retval = os.system(cmd)
+        if retval != 0 :
+            raise OSError(retval, "Couldn't run: " + ' '.join(appargs))
+
+        #
+        # All done. Update the cache file.
+        #
+        if not nocache :
+            if verbose :
+                print feedname, ": Updating cache file"
+            cPickle.dump(cache, open(cachefile,'w'))
+        elif verbose :
+            print feedname, ": Not updating cache file"
+
     else :
         print feedname, ": no new content"
-
-    #
-    # All done. Update the cache file.
-    #
-    if not nocache :
-        print "Updating cache file"
-        cPickle.dump(cache, open(cachefile,'w'))
 
 #
 # Find the cache file and load it, but don't parse yet
@@ -428,6 +499,8 @@ def init_cache() :
         print >>sys.stderr, "Error: can't write cache file", cachefile
         sys.exit(1)
     else :
+        # Make a backup of the cache file, in case something goes wrong:
+        shutil.copy2(cachefile, cachefile + ".bak")
         cache = cPickle.load(open(cachefile))
 
     return cache, cachefile
@@ -474,12 +547,23 @@ Copyright 2009 by Akkana Peck; share and enjoy under the GPL v2 or later."
     optparser.add_option("-n", "--nocache",
                          action="store_true", dest="nocache",
                          help="Don't consult the cache, or update it")
+    optparser.add_option("-s", "--show-sites",
+                         action="store_true", dest="show_sites",
+                         help="Show available sites")
     (options, args) = optparser.parse_args()
     # Currently there are no options, but there will be eventually,
     # e.g. an "ignore cache" option.
 
+    msglog = MsgLog()
+
     config = read_config_file()
     sections = config.sections()
+
+    if options.show_sites :
+        for feedname in sections :
+            print feedname
+        sys.exit(0)
+
     if options.nocache :
         cache = None
         cachefile = None
@@ -489,12 +573,25 @@ Copyright 2009 by Akkana Peck; share and enjoy under the GPL v2 or later."
     try :
         if len(args) == 0 :
             for feedname in sections :
-                get_feed(feedname, config, cache, cachefile)
+                get_feed(feedname, config, cache, cachefile, msglog)
         else :
             for arg in args :
                 print 'Getting feed for', arg
-                get_feed(arg, config, cache, cachefile)
-    except KeyboardInterrupt:
+                get_feed(arg, config, cache, cachefile, msglog)
+    except KeyboardInterrupt :
         print >>sys.stderr, "Caught keyboard interrupt, exiting."
-        sys.exit(0)
+        sys.exit(1)
+    except OSError, e :
+        print "Caught an OSError"
+        print >>sys.stderr, e
+        sys.exit(e.errno)
 
+    # Dump any errors we encountered.
+    msgs = msglog.get_msgs()
+    if msgs :
+        print "\n===== Messages ===="
+        print msgs.encode('utf-8', 'backslashreplace')
+    msgs = msglog.get_errs()
+    if msgs :
+        print "\n====== Errors ====="
+        print msgs.encode('utf-8', 'backslashreplace')
