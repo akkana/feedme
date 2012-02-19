@@ -9,3 +9,5 @@ then, optionally, convert them to a format that's easier to read
 on a PDA or ebook reader.
 
 It's written in Python and requires feedparser.
+As of version 0.9 it's been split into two files and requires lxml.html.
+
