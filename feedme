@@ -517,7 +517,7 @@ Which (default = s): """)
 
             # There's an increasing trend to load up RSS pages with images.
             # Try to remove them.
-            if self.config.getboolean(feedname, 'skip_images') :
+            if config.getboolean(feedname, 'skip_images') :
                 content = re.sub('<img .*?>', '', content)
 
             indexstr += content
