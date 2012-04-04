@@ -38,18 +38,25 @@ class FeedmeHTMLParser():
         self.feedname = feedname
         self.outfile = None
 
-    def fetch_url(self, url, newdir, newname, title=None, footer='') :
+    def fetch_url(self, url, newdir, newname, title=None, author=None,
+                  footer='') :
         """Read a URL from the web. Parse it, rewriting any links,
            downloading any images and making any other changes needed
            according to the config file and current feed name.
            Write the modified HTML output to $newdir/$newname,
            and download any images into $newdir.
         """
+        if self.config.getboolean(self.feedname, 'verbose') :
+            print >>sys.stderr, "Fetching link", url, \
+                "to", newdir, "/", newname
+
         self.newdir = newdir
         self.newname = newname
         self.cururl = url
         if type(title) is unicode :
             title = title.encode('utf-8', 'replace')
+        if type(author) is unicode :
+            author = author.encode('utf-8', 'replace')
 
         # A flag to indicate when we're skipping everything --
         # e.g. inside <script> tags.
@@ -92,6 +99,9 @@ class FeedmeHTMLParser():
 <body>
 <h1>%s</h1>\n
 """ % (title, title))
+
+        if author :
+            self.outfile.write("By: %s\n<p>\n" % author)
 
         link = response.geturl()
 
@@ -194,12 +204,18 @@ class FeedmeHTMLParser():
             # when we're called recursively, url will be the single
             # page url so we won't make another recursive call.
             singlefile = outfilename + ".single"
-            self.fetch_url(self.single_page_url, newdir, singlefile)
+            self.fetch_url(self.single_page_url, newdir, singlefile,
+                           title=title, footer=footer)
             # If the fetch succeeded and we have a single-page file,
-            # replace the original file with it.
+            # replace the original file with it
+            # and remove the original.
             if os.path.exists(singlefile) :
-                os.rename(outfilename, outfilename + '.1')
+                #os.rename(outfilename, outfilename + '.1')
+                os.remove(outfilename)
                 os.rename(singlefile, outfilename)
+                if self.config.getboolean(self.feedname, 'verbose') :
+                    print >>sys.stderr, "Removing", outfilename, \
+                        "and renaming", singlefile
 
     def feed(self, html) :
         """Duplicate, in a half-assed way, HTMLParser.feed() but
@@ -294,8 +310,6 @@ tree = lxml.html.fromstring(html)
             if not src :
                 return
 
-            print >>sys.stderr, "Fetching img", src
-
             # urllib2 can't parse out the host part without first
             # creating a Request object:
             req = urllib2.Request(src)
@@ -316,7 +330,7 @@ tree = lxml.html.fromstring(html)
                 imgfilename = os.path.join(self.newdir, base)
                 try :
                     if not os.path.exists(imgfilename) :
-                        print >>sys.stderr, "Trying to download", src
+                        print >>sys.stderr, "Fetching", src
                         f = urllib2.urlopen(req)
                         # Lots of things can go wrong with downloading
                         # the image, such as exceptions.IOError from
