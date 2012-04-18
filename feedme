@@ -443,7 +443,7 @@ Which (default = s): """)
 
                 except (IOError, urllib2.HTTPError) as e :
                     # Collect info about what went wrong:
-                    errmsg = "Couldnt read " + item.link + "\n"
+                    errmsg = "Couldn't read " + item.link + "\n"
                     #errmsg += "Title: " + item.title.encode('utf-8', 'replace')
                     if verbose :
                         #errmsg += "Item summary was:\n------\n"
