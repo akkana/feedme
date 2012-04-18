@@ -408,16 +408,10 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
             #
             if levels > 1 :        # Normal multi-level site
                 try :    # Try to trap keyboard interrupts, + others
-                    if verbose :
-                        print >>sys.stderr, "Fetching link", item.link
-
                     # For the sub-pages, we're getting HTML, not RSS.
                     # Nobody seems to have RSS pointing to RSS.
                     parser = feedmeparser.FeedmeHTMLParser(config, feedname)
                     fnam = str(pagenum) + ".html"
-                    print >>sys.stderr, "Calling fetch_url on", \
-                        item.link, outdir, fnam, item.title.encode('utf-8',
-                                                                   'replace')
                     parser.fetch_url(item.link,
                                      outdir, fnam,
                                      item.title,
@@ -445,15 +439,14 @@ Which (default = s): """)
                 except (IOError, urllib2.HTTPError) as e :
                     # Collect info about what went wrong:
                     errmsg = "Couldnt read " + item.link + "\n"
-                    # print >>sys.stderr, "type of title:", type(item.title)
-                    errmsg += "Title: " + item.title.encode('utf-8', 'replace')
+                    #errmsg += "Title: " + item.title.encode('utf-8', 'replace')
                     if verbose :
-                        errmsg += "Item summary was:\n------\n"
-                        errmsg += item.summary + "\n------\n"
+                        #errmsg += "Item summary was:\n------\n"
+                        #errmsg += item.summary + "\n------\n"
                         errmsg += str(e) + '<br>\n'
-                        errmsg += str(sys.exc_info()[0]) + '<br>\n'
-                        errmsg += str(sys.exc_info()[1]) + '<br>\n'
-                        errmsg += traceback.format_exc(sys.exc_info()[2])
+                        #errmsg += str(sys.exc_info()[0]) + '<br>\n'
+                        #errmsg += str(sys.exc_info()[1]) + '<br>\n'
+                        #errmsg += traceback.format_exc(sys.exc_info()[2])
 
                     if verbose :
                         print >>sys.stderr, "=============="
@@ -462,8 +455,8 @@ Which (default = s): """)
                         print >>sys.stderr, "=============="
                     #raise  # so this entry won't get stored or cached
                     continue   # Move on to next story
-                except :
-                    # An unknown error, so report it
+                except Exception as e :
+                    # An unknown error, so report it complete with traceback.
                     errmsg = "Unknown error reading " + item.link + "\n"
                     errmsg += "Title: " + item.title.encode('utf-8', 'replace')
                     if verbose :
