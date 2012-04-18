@@ -403,6 +403,11 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
                     print >>sys.stderr, "Making", outdir
                 os.makedirs(outdir)
 
+            if 'author' in item :
+                author = item.author
+            else :
+                author = None
+
             #
             # Follow the link and make a file for it:
             #
@@ -414,7 +419,7 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
                     fnam = str(pagenum) + ".html"
                     parser.fetch_url(item.link,
                                      outdir, fnam,
-                                     item.title,
+                                     item.title, author,
                                      "<a href=\"%d.html\">&gt;-%d-&gt;</a>" \
                                          % (itemnum, itemnum))
 
@@ -438,7 +443,7 @@ Which (default = s): """)
 
                 except (IOError, urllib2.HTTPError) as e :
                     # Collect info about what went wrong:
-                    errmsg = "Couldnt read " + item.link + "\n"
+                    errmsg = "Couldn't read " + item.link + "\n"
                     #errmsg += "Title: " + item.title.encode('utf-8', 'replace')
                     if verbose :
                         #errmsg += "Item summary was:\n------\n"
@@ -515,8 +520,8 @@ Which (default = s): """)
 
             indexstr += content
 
-            if 'author' in item :
-                indexstr += "\n<br><i>by: " + item.author + "</i><br>"
+            if author :
+                indexstr += "\n<br><i>by: " + author + "</i><br>"
 
             # After the content, add another link to the title,
             # in case the user wants to click through after reading
