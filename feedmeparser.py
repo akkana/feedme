@@ -39,14 +39,15 @@ class FeedmeHTMLParser():
         self.outfile = None
 
     def fetch_url(self, url, newdir, newname, title=None, author=None,
-                  footer='') :
+                  footer='', referrer=None) :
         """Read a URL from the web. Parse it, rewriting any links,
            downloading any images and making any other changes needed
            according to the config file and current feed name.
            Write the modified HTML output to $newdir/$newname,
            and download any images into $newdir.
         """
-        if self.config.getboolean(self.feedname, 'verbose') :
+        verbose = self.config.getboolean(self.feedname, 'verbose')
+        if verbose :
             print >>sys.stderr, "Fetching link", url, \
                 "to", newdir, "/", newname
 
@@ -66,6 +67,12 @@ class FeedmeHTMLParser():
         # Nobody seems to have RSS pointing to RSS.
         request = urllib2.Request(url)
 
+        # If we're after the single-page URL, we may need a referrer
+        if referrer :
+            if verbose :
+                print >>sys.stderr, "Adding referrer", referrer
+            request.add_header('Referer', referrer)
+
         response = urllib2.urlopen(request)
 
         # At this point it would be lovely to check whether the
@@ -83,10 +90,19 @@ class FeedmeHTMLParser():
             response.close()
             return
 
+        # Were we redirected? geturl() will tell us that.
+        self.cururl = response.geturl()
+
+        # but sadly, that means we need another request object
+        # to parse out the host and prefix:
+        real_request = urllib2.Request(self.cururl)
+
         # feed() is going to need to know the host, to rewrite urls.
-        # So save it:
-        self.host = request.get_host()
-        self.prefix = request.get_type() + '://' + self.host + '/'
+        # So save it, based on any redirects we've had:
+        #self.host = request.get_host()
+        #self.prefix = request.get_type() + '://' + self.host + '/'
+        self.host = real_request.get_host()
+        self.prefix = real_request.get_type() + '://' + self.host + '/'
 
         outfilename = os.path.join(self.newdir, self.newname)
         self.outfile = open(outfilename, "w")
@@ -122,7 +138,15 @@ class FeedmeHTMLParser():
 
         # Read the content of the link:
         # This can die with socket.error, "connection reset by peer"
-        html = response.read()
+        try :
+            html = response.read()
+            print >>sys.stderr, "successully read", url
+        # XXX Need to guard against IncompleteRead -- but what class owns it??
+        #except httplib.IncompleteRead, e :
+        #    print >>sys.stderr, "Ignoring IncompleteRead on", url
+        except Exception, e :
+            print >>sys.stderr, "Unknown error from response.read()", url
+
         #print >>sys.stderr, "response.read() returned type", type(html)
         # Want to end up with unicode. In case it's str, decode it:
         if type(html) is str :
@@ -144,7 +168,7 @@ class FeedmeHTMLParser():
                 print "looking for page_start", page_start
                 match = html.find(page_start)
                 if match >= 0:
-                    if self.config.getboolean(self.feedname, 'verbose') :
+                    if verbose :
                         print "Found page_start", page_start
                     html = html[match:]
                     break
@@ -154,7 +178,7 @@ class FeedmeHTMLParser():
                 print "looking for page_end", page_end
                 match = html.find(page_end)
                 if match >= 0:
-                    if self.config.getboolean(self.feedname, 'verbose') :
+                    if verbose :
                         print "Found page_end", page_end
                     html = html[0 : match]
 
@@ -164,7 +188,7 @@ class FeedmeHTMLParser():
         if len(skip_pats) > 0 :
             print len(skip_pats), "skip pats"
             for skip in skip_pats :
-                if self.config.getboolean(self.feedname, 'verbose') :
+                if verbose :
                     print >>sys.stderr, "Trying to skip", skip
                     #print >>sys.stderr, "in", html.encode('utf-8')
                     #sys.stderr.flush()
@@ -204,18 +228,32 @@ class FeedmeHTMLParser():
             # when we're called recursively, url will be the single
             # page url so we won't make another recursive call.
             singlefile = outfilename + ".single"
-            self.fetch_url(self.single_page_url, newdir, singlefile,
-                           title=title, footer=footer)
-            # If the fetch succeeded and we have a single-page file,
-            # replace the original file with it
-            # and remove the original.
-            if os.path.exists(singlefile) :
-                #os.rename(outfilename, outfilename + '.1')
-                os.remove(outfilename)
-                os.rename(singlefile, outfilename)
-                if self.config.getboolean(self.feedname, 'verbose') :
-                    print >>sys.stderr, "Removing", outfilename, \
-                        "and renaming", singlefile
+            try :
+                if verbose :
+                    print >>sys.stderr, \
+                        "Trying to fetch single-page url with referrer =", \
+                        response.geturl(), "instead of", url
+                self.fetch_url(self.single_page_url, newdir, singlefile,
+                               title=title, footer=footer,
+                               referrer=response.geturl())
+
+                # If the fetch succeeded and we have a single-page file,
+                # replace the original file with it
+                # and remove the original.
+                if os.path.exists(singlefile) :
+                    #os.rename(outfilename, outfilename + '.1')
+                    os.remove(outfilename)
+                    os.rename(singlefile, outfilename)
+                    if verbose :
+                        print >>sys.stderr, "Removing", outfilename, \
+                            "and renaming", singlefile
+                else :
+                    print >>sys.stderr, \
+                        "Tried to fetch single-page file but apparently failed"
+            except (IOError, urllib2.HTTPError) as e :
+                print >>sys.stderr, "Couldn't read single-page URL", \
+                    self.single_page_url
+                print >>sys.stderr, e
 
     def feed(self, html) :
         """Duplicate, in a half-assed way, HTMLParser.feed() but
