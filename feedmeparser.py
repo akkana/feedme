@@ -482,14 +482,26 @@ tree = lxml.html.fromstring(html)
         # script and style tags aren't helpful in minimal offline reading
         if tag == 'script' or tag == 'style' :
             return True
+
         # base and meta tags can confuse the HTML displayer program
         # into looking remotely for images we've copied locally:
         if tag == 'base' or tag == 'script' :
             return True
+
         # Omit form elements, since it's too easy to land on them accidentally
         # when scrolling and trigger an unwanted Android onscreen keyboard:
         if tag == 'input' or tag == 'textarea' :
             return True
+
+        # Omit iframes -- they badly confuse Android's WebView
+        # (goBack fails if there's an iframe anywhere in the page:
+        # you have to goBack multiple times, I think once for every
+        # iframe in the page, and this doesn't seem to be a bug
+        # that's getting fixed any time soon).
+        # We don't want iframes in simplified HTML anyway.
+        if tag == 'iframe' :
+            return True
+
         return False
         
     def tag_skippable(self, tag):
