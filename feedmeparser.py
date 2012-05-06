@@ -104,23 +104,6 @@ class FeedmeHTMLParser():
         self.host = real_request.get_host()
         self.prefix = real_request.get_type() + '://' + self.host + '/'
 
-        outfilename = os.path.join(self.newdir, self.newname)
-        self.outfile = open(outfilename, "w")
-        self.outfile.write("""<html>\n<head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8"
-<link rel="stylesheet" type="text/css" title="Feeds" href="../../feeds.css"/>
-<title>%s</title>
-</head>
-
-<body>
-<h1>%s</h1>\n
-""" % (title, title))
-
-        if author :
-            self.outfile.write("By: %s\n<p>\n" % author)
-
-        link = response.geturl()
-
         # urllib2 unfortunately doesn't read unicode,
         # so try to figure out the current encoding:
         self.encoding = self.config.get(self.feedname, 'encoding')
@@ -134,7 +117,25 @@ class FeedmeHTMLParser():
             else :
                 #print >>sys.stderr, "Defaulting to utf-8"
                 self.encoding = 'utf-8'
-        #print >>sys.stderr, "final encoding is", self.encoding
+        if verbose :
+            print >>sys.stderr, "final encoding is", self.encoding
+
+        outfilename = os.path.join(self.newdir, self.newname)
+        self.outfile = open(outfilename, "w")
+        self.outfile.write("""<html>\n<head>
+<meta http-equiv="Content-Type" content="text/html; charset=%s"
+<link rel="stylesheet" type="text/css" title="Feeds" href="../../feeds.css"/>
+<title>%s</title>
+</head>
+
+<body>
+<h1>%s</h1>\n
+""" % (self.encoding, title, title))
+
+        if author :
+            self.outfile.write("By: %s\n<p>\n" % author)
+
+        link = response.geturl()
 
         # Read the content of the link:
         # This can die with socket.error, "connection reset by peer"
@@ -146,6 +147,10 @@ class FeedmeHTMLParser():
         #    print >>sys.stderr, "Ignoring IncompleteRead on", url
         except Exception, e :
             print >>sys.stderr, "Unknown error from response.read()", url
+
+        # html can be undefined here. If so, no point in doing anything else.
+        if not html:
+            return
 
         #print >>sys.stderr, "response.read() returned type", type(html)
         # Want to end up with unicode. In case it's str, decode it:
@@ -455,6 +460,13 @@ tree = lxml.html.fromstring(html)
 
     def same_host(self, host1, host2) :
         """Are two hosts close enough for the purpose of downloading images?"""
+
+        # host can be None:
+        if not host1 and not host2 :
+            return True
+        if not host1 or not host2 :
+            return False
+
         # For now, a simplistic comparison:
         # are the last two elements (foo.com) the same?
         # Eventually we might want smarter special cases,
