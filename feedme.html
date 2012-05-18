@@ -1,0 +1,109 @@
+<html>
+<head>
+<title>FeedMe: a Lightweight Feed/RSS reader</title>
+</head>
+<body>
+
+<img align=right src="feedme.jpg" width=350 height=290 border=0
+ alt="[Yum, RSS!]">
+
+<h1>FeedMe: a Lightweight Feed/RSS reader</h1>
+
+<blockquote>
+<b>
+News: FeedMe 0.8 is out. 
+</b>
+Mostly reliability fixes -- no important functionality differences.
+</blockquote>
+
+<p>
+Ever want to download RSS from news sites or blogs to your PDA?
+
+<p>
+<b>Download:</b> <a href="feedme-0.8">FeedMe 0.8</a>.</b>
+
+<p>
+You will need Python, and python's feedparser module (on Ubuntu or Arch,
+that's the package <i>python-feedparser</i>).
+
+<p>
+There are lots of RSS readers -- but they all seem
+oriented toward converting RSS to mail to be read in an HTML-capable
+mail reader. I get enough mail, which I read in Mutt without much HTML
+support. I wanted a way to get it onto my PDA in an easily readable,
+simple format without images and tables and stylesheets and javascript
+and all that other HTML cruft.
+
+<p>
+So I wrote FeedMe. It's very minimal but so far it seems to do the job.
+
+<p>
+FeedMe is sort of an RSS version of
+<a href="http://sitescooper.taint.org/">Sitescooper</a>.
+It produces either HTML or <a href="http://plkr.org">Plucker</a> format.
+
+<p>
+FeedMe can optionally convert each page to plain ascii --
+useful if you're producing output for a Palm PDA.
+For this option, set <code>ascii="yes"</code> in feedme.conf
+and install my <a href="../ununicode/">ununicode</a> module
+somewhere in your python path.
+
+<p>
+There's no documentation yet, but but the
+<a href="feedme.conf">sample feedme.conf configuration file</a>
+should be vaguely self-explanatory. Install it in
+<i>~/$XDG_CONFIG_HOME/feedme/feedme.conf</i> or
+<i>~/.config/feedme/feedme.conf</i>
+<p>
+Supported formats since 0.7 include plucker and epub; to get them,
+set <code>formats = epub</code> (or plucker, or plucker,epub to get both).
+For HTML only and no additional formats, set <code>formats = none</code>
+<p>
+Downloaded HTML will be put in ~/feeds/ (which must exist; you can
+specify a different location in feedme.conf).
+<p>
+Feedme can then convert the HTML into one of three formats:
+epub, plucker, or fb2. You'll need to have appropriate conversion tools 
+installed on your system: plucker for plucker format, calibre's
+ebook-convert for the other two. You can specify more than one format,
+separated by commas, in feedme.conf; or format=none if you only need
+the downloaded HTML.
+
+<h4>Maintenance:</h4>
+Feedme uses three important directories:
+<p>
+Feedme's configuration file is <i>~/.config/feedme/feedme.conf</i>.
+<p>
+Feedme's cache is <i>~/.cache/feedme/feedme.dat</i>.
+This file should remain relatively small if you have a sane number of feeds,
+but it doesn't hurt to keep an eye on it.
+<p>
+~/feeds is where it stores the downloaded HTML. 
+Stories are downloaded as <i>sitename/number.html</i>, e.g.
+<i>~/feeds/BBC_World_News/2.html</i>. These stories are cleaned
+out every <i>save_days</i> (set in your feedme.conf).
+<p>
+If you save to formats beyond plain HTML, there may be other directories
+used for the converted files; for example, plucker files are created in
+<i>~/.plucker/feeds</i>.
+This is never cleaned out by feedme, so you'll have to prune it yourself.
+When I used plucker as my feed
+reader, I had an alias that ran <code>rm ~/.plucker/feedme/*</code> 
+to remove the  previous day's plucks just before I ran feedme.
+
+<p>
+FeedMe's license is GPLv2 or (at your option) later.
+Thanks to Carla Schroder for the name suggestion!
+
+<p>
+FeedMe is now maintained on <a href="https://github.com/akkana/feedme">GitHub:
+FeedMe</a>.
+
+<hr>
+<a href="../index.html">More Software</a><br>
+<a href="../../index.html">Shallowsky Home</a><br>
+<a href="../../mailme.html">mail me</a>
+
+</body>
+</html>
