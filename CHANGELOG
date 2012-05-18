@@ -1,0 +1,44 @@
+May 18, 2012:
+    0.9: 
+
+December 23, 2011:
+    0.8: Several reliability fixes, guards against bad file types, etc.
+
+January 30, 2011:
+    0.7: Clean up old feed directories (new config param "save_days").
+    Handle multi-line configs, e.g. for skip_patterns.
+    Match skip, start and end patterns that span multiple lines in the source page.
+    Add stylesheet to output files, for use with html readers or FeedViewer.
+    Fix case where truncated title includes a start tag but not the corresponding end tag.
+    New "formats" parameter to specify which format(s) to generate.
+
+December 22, 2010:
+    0.7b1: handle epub format, or none (specified in config file); save each day's feed to its own dated directory. 
+
+November 17, 2010:
+    0.6: handle optional FB2 format; show author. 
+
+August 2, 2010:
+    0.5: Beef up the interrupt handling to fix places where it didn't work; reject non-text files (e.g. MP3s from podcasts). 
+
+March 3, 2010:
+    0.4:
+
+        Rewrite URLs so unfollowed links show up as coming from the original site, not file://
+        error/msg logging: show at end, not inline
+        handle failures like not finding plucker
+        make backup of cache file 
+
+
+December 9, 2009:
+    0.3: add commandline arguments, including -c to bypass caching. Handle failures to download articles. 
+
+October 20, 2009:
+    0.2: integrate ununicode.toascii; add extra content link at end of each index page entry. 
+
+October 15, 2009:
+    0.2pre1: smarter config parsing (~ and HOME), some support for ascii conversion, some extra links for added convenience. 
+
+October 6, 2009:
+    First release. 
+
