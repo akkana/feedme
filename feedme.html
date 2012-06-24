@@ -11,20 +11,23 @@
 
 <blockquote>
 <b>
-News: FeedMe 0.8 is out. 
+News: FeedMe 0.9 is out. 
 </b>
-Mostly reliability fixes -- no important functionality differences.
+Big changes: FeedMe now uses a real HTML parser -- which means that it
+now comes as two files, and depends on the python-lxml package.
+The advantages: rewriting of URLs is much more reliable, and it's
+now possible to download images (set skip_images to False in feedme.conf).
 </blockquote>
 
 <p>
 Ever want to download RSS from news sites or blogs to your PDA?
 
 <p>
-<b>Download:</b> <a href="feedme-0.8">FeedMe 0.8</a>.</b>
+<b>Download:</b> <a href="feedme-0.9.tar.gz">feedme-0.9.tar.gz</a>.</b>
 
 <p>
 You will need Python, and python's feedparser module (on Ubuntu or Arch,
-that's the package <i>python-feedparser</i>).
+that's the package <i>python-feedparser</i>) and lxml (package python-lxml).
 
 <p>
 There are lots of RSS readers -- but they all seem
