@@ -139,6 +139,8 @@ class FeedmeHTMLParser():
 
         # Read the content of the link:
         # This can die with socket.error, "connection reset by peer"
+        # And it may not set html, so initialize it first:
+        html = None
         try :
             html = response.read()
             print >>sys.stderr, "successully read", url
