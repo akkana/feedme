@@ -332,7 +332,9 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
     if verbose:
         print >>sys.stderr, "********* Reading", sitefeedurl
 
-    itemnum = 0
+    # We'll increment itemnum as soon as we start showing entries,
+    # so start it negative so anchor links will start at zero.
+    itemnum = -1
     for item in feed.entries :
         try :
             #
@@ -420,7 +422,7 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
                     parser.fetch_url(item.link,
                                      outdir, fnam,
                                      item.title, author,
-                                     "<a href=\"%d.html\">&gt;-%d-&gt;</a>" \
+                      "<center><a href=\"%d.html\">&gt;-%d-&gt;</a></center>" \
                                          % (itemnum, itemnum))
 
                 except KeyboardInterrupt :
@@ -502,7 +504,7 @@ Which (default = s): """)
             # if it isn't the last entry.
             if item != feed.entries[-1] :
                 indexstr += \
-                    "<br>\n<i><a href=\"#%d\">&gt;-&gt;</a></i>\n<br>\n" \
+       "<br>\n<center><i><a href=\"#%d\">&gt;-&gt;</a></i></center>\n<br>\n" \
                     % (itemnum+1)
 
             # Add either the content or the summary:
@@ -569,7 +571,7 @@ Which (default = n): """)
     # Only write the index.html file if there was content that
     # wasn't already in the cache.
     sys.stdout.flush()
-    if itemnum > 0 :
+    if itemnum >= 0 :
         indexfile = os.path.join(outdir, "index.html")
         if verbose :
             print  >>sys.stderr, "Writing", indexfile
