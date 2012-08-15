@@ -31,7 +31,7 @@ import re
 import shutil
 import traceback
 
-from ConfigParser import ConfigParser
+# from ConfigParser import ConfigParser
 
 import feedparser
 import urllib2
@@ -194,8 +194,6 @@ class MsgLog :
     def get_errs(self) :
         return self.errstr
 
-import sys
-
 # file-like class that can optionally send output to a log file. Inspired by
 # http://www.redmountainsw.com/wordpress/archives/python-subclassing-file-types
 # and with help from KirkMcDonald.
@@ -235,6 +233,7 @@ def handleKeyboardInterrupt(msg) :
     return response[0]
 
 def sub_tilde(name) :
+    """Do what os.path.expanduser does, but also allow $HOME in paths"""
     # config.get alas doesn't substitute $HOME or ~
     if name[0:2] == "~/" :
         name = os.path.join(os.environ['HOME'], name[2:])
@@ -242,10 +241,50 @@ def sub_tilde(name) :
         name = os.path.join(os.environ['HOME'], name[6:])
     return name
 
+def right_time(when, cachefile) :
+    """Does this feed specify only gathering at certain times?
+       If so, has such a time passed since the last time the
+       cache file was written?
+    """
+    print "when:", type(when), when
+    if len(when) <= 0 :
+        return True
+
+    statbuf = os.stat(cachefile)
+    filetime = time.localtime(statbuf.st_mtime)
+    print "Modification time:", filetime
+    now = time.localtime()
+
+    print "cachefile is", type(cachefile), cachefile
+    # Is it a day of the month?
+    try :
+        day_of_month = int(when)
+        print "Gather on day", day_of_month, "of each month"
+        if now.tm_mday == day_of_month :
+            return True
+        return False
+
+    except ValueError :
+        pass
+
+    # Okay, not a day of the month. Is it a day of the week?
+    weekdays = [ 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun' ]
+    if len(when) >= 3 :
+        when = when[0:3].lower()
+        if when in weekdays :
+            day_of_week = weekdays.index(when)
+            if now.tm_wday == day_of_week :
+                return True
+            return False
+
+    print >>stdout, "Eep, right_time(), shouldn't get here"
+    return False
+
 #
 # Get a single feed
 #
 def get_feed(feedname, config, cache, cachefile, msglog) :
+    """Fetch a single feed"""
     # Mandatory arguments:
     try :
         sitefeedurl = config.get(feedname, 'url')
@@ -263,6 +302,12 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
     formats = config.get(feedname, 'formats').split(',')
     encoding = config.get(feedname, 'encoding')
     ascii = config.getboolean(feedname, 'ascii')
+
+    # Is this a feed we should only check occasionally?
+    if not right_time(config.get(feedname, "when"), cachefile) :
+        print "Skipping", feedname, "-- not the right time"
+        return
+    print "Yes, it's time to feed"
 
     #encoding = config.get(feedname, 'encoding')
 
@@ -580,6 +625,14 @@ Which (default = n): """)
             index.write(feedmeparser.output_encode(indexstr, 'ascii'))
         else :
             index.write(feedmeparser.output_encode(indexstr, encoding))
+
+        # Before the downloaded string, insert a final named anchor.
+        # Occasionally we get a bug where we accidentally write a >>
+        # when there are really no further stories. So give it a
+        # place to go to.
+        # XXX But this may no longer be needed. Do we really see those links?
+        index.write("<p><a name=\"%d\">&nbsp;</a>\n" % itemnum)
+
         index.write(downloaded_string)
         index.write("\n</body>\n</html>\n")
         index.close()

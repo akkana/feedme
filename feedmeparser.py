@@ -560,6 +560,7 @@ def read_config_file() :
                            'nocache':'false',
                            'logfile':'',
                            'save_days':'7',
+                           'when':'',   # Day, like tue, or month day, like 14
                            'ascii':'false'})
     config.read(conffile)
     return config
