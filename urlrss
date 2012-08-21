@@ -1,0 +1,132 @@
+#! /usr/bin/env python
+
+# Make a local RSS file out of several text files listing URLs,
+# so we can run feedme to collect those URLs.
+
+import os, sys, time, datetime, subprocess
+import urllib2
+import xml.sax.saxutils
+
+# Usage: urlrss devicepath
+
+##############################
+# CONFIGURATION
+##############################
+# Path to mount the device:
+if len(sys.argv) > 1 :
+    devicepath = sys.argv[1]
+else :
+    devicepath = "/droidsd"
+
+# Where to look for the saved URL files:
+urlfiles = [ os.path.join(devicepath, "feeds", "saved-urls"),
+             os.path.expanduser("~/feeds/localurls") ]
+
+# Where to create the RSS file:
+#rssfile = os.path.join(home, ".plucker/html/xtraurls.rss")
+rssfile = os.path.expanduser("~/feeds/xtraurls.rss")
+
+# Where to save an HTML-format archive of the URLs.
+# We'll append to what's already there.
+urlarchive = os.path.expanduser("~/.cache/feedme/xtraurls.html")
+
+##############################
+# END CONFIGURATION
+# (Shouldn't need to change anything below this)
+##############################
+
+# Mount the device's SD card if it isn't already mounted:
+if not os.path.ismount(devicepath) :
+    subprocess.call(["mount", devicepath])
+    # Ignore return value: it will be nonzero if already mounted.
+    # So check to see if it's mounted now:
+    if not os.path.ismount(devicepath) :
+        print "Can't mount %s!" % devicepath
+        sys.exit(1)
+
+urls = []
+
+# Loop over all the url files to get our list of urls:
+for urlfile in urlfiles :
+    try :
+        ifp = open(urlfile)
+        print "Reading URLs from", urlfile
+    except :
+        continue
+
+    for line in ifp :
+        line = line.strip()
+        if not line : continue
+        urls.append(line)
+
+    ifp.close()
+    os.unlink(urlfile)
+
+if not urls :
+    print "No saved URLs"
+    if os.path.exists(rssfile) :
+        os.unlink(rssfile)
+    sys.exit(0)
+
+#
+# We have URLs to save. So open the output files.
+#
+ofp = open(rssfile, "w")
+print >>ofp, """<rss version="0.91">
+<channel>
+  <title>FeedMe URLs</title>
+  <description>Saved URLs %s</description>
+  <language>en</language>""" % datetime.datetime.now().ctime()
+try :
+    archivefp = open(urlarchive, "a")
+    print >>archivefp, "\n<h4>Feedme URLs %s</h4>" \
+        % datetime.datetime.now().ctime()
+except :
+    print "Couldn't archive Xtra URLs to", urlarchive
+    archivefp = None
+
+for url in urls :
+    # Follow it and see if it's a redirect -- we want the real url.
+    try :
+        print url, "...",
+        sys.stdout.flush()
+        urlobj = urllib2.urlopen(url, timeout=60)
+        newurl = urlobj.geturl()
+        urlobj.close()
+        if newurl != url :
+            print "redirected to", newurl
+            url = newurl
+        else :
+            print "."
+    except :
+        pass
+
+    # The XML parser we use in feedme will sometimes barf on ampersands:
+    # "xml.sax._exceptions.SAXException: Read failed (no details available)"
+    # and not even a stack trace to give a line number.
+    # Try to avoid that by escaping everything (and hope that
+    # doesn't break link following):
+    escaped_url = xml.sax.saxutils.escape(url)
+
+    # Save it in the RSS file:
+    print >>ofp, """
+<item>
+  <title>%s</title>
+  <description>%s</description>
+  <link>%s</link>
+</item>""" % (escaped_url, escaped_url, escaped_url)
+
+    # Save an HTML copy to the archive file:
+    if archivefp :
+        print >>archivefp, "<a href='%s'>%s</a>" % (url, url)
+
+print >>ofp, """</channel>
+</rss>"""
+
+ofp.close()
+if archivefp :
+    archivefp.close()
+
+if urls :
+    print "Saved %s urls to %s and %s" % (len(urls), rssfile, urlarchive)
+
