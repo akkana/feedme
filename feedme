@@ -341,9 +341,9 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
     if when and when != '' :
         statbuf = os.stat(cachefile)
         if not falls_between(when, statbuf.st_mtime, time.localtime()) :
-            print "Skipping", feedname, "-- not the right time"
+            print >>sys.stderr, "Skipping", feedname, "-- not", when
             return
-        print "Yes, it's time to feed"
+        print >>sys.stderr, "Yes, it's time to feed:", when
 
     #encoding = config.get(feedname, 'encoding')
 
@@ -370,6 +370,7 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
     except Exception, e :
         print "Couldn't parse feed: URL:", sitefeedurl
         print str(e)
+        #traceback.print_stack()
         return
 
     # feedparser has no error return! One way is to check len(feed.feed).
