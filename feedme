@@ -187,6 +187,7 @@ class MsgLog :
     def err(self, s) :
         self.errstr += "\n" + s
         print "ERROR:", s.encode('ascii', 'backslashreplace')
+        traceback.print_stack()
 
     def get_msgs(self) :
         return self.msgstr
@@ -373,6 +374,11 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
     global VersionString
     downloaded_string ="\n<hr><i>(Downloaded by " + VersionString + ")</i>\n"
 
+    # feedparser doesn't understand file:// URLs, so translate those
+    # to a local file:
+    if sitefeedurl.startswith('file://'):
+        sitefeedurl = sitefeedurl[7:]
+
     # feedparser.parse() can throw unexplained errors like
     # "xml.sax._exceptions.SAXException: Read failed (no details available)"
     # which will kill our whole process, so guard against that:
@@ -550,7 +556,7 @@ Which (default = s): """)
 
                     if verbose :
                         print >>sys.stderr, "=============="
-                    msglog.err(errmsg)
+                    msglog.err("IO or HTTP error: " + errmsg)
                     if verbose :
                         print >>sys.stderr, "=============="
                     #raise  # so this entry won't get stored or cached
@@ -581,7 +587,7 @@ Which (default = s): """)
 
                     if verbose :
                         print >>sys.stderr, "=============="
-                    msglog.err(errmsg)
+                    msglog.err("Unknown error: " + errmsg)
                     if verbose :
                         print >>sys.stderr, "=============="
                     continue   # Move on to next story, ensure we get index

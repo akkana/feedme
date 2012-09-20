@@ -74,6 +74,8 @@ class FeedmeHTMLParser():
             request.add_header('Referer', referrer)
 
         response = urllib2.urlopen(request)
+        # Lots of ways this can fail.
+        # e.g. ValueError, "unknown url type"
 
         # At this point it would be lovely to check whether the
         # mime type is HTML. Unfortunately, all we have is a
