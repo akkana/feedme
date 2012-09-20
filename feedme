@@ -249,7 +249,8 @@ def falls_between(when, time1, time2) :
        If when == none, return True.
        If when matches time2, return True.
     """
-    if not when or type(len) is str and len(when) <= 0 :
+    print >>sys.stderr, "Does", when, "fall between", time1, "and", time2, "?"
+    if not when or type(when) is str and len(when) <= 0 :
         return True
 
     # We need both times both in seconds since epoch and in struct_time:
@@ -264,13 +265,20 @@ def falls_between(when, time1, time2) :
         else : raise ValueError("%s not int or struct_time" % str(t))
 
     (t1, st1) = both_time_types(time1)
+    print >>sys.stderr, "Time1:", t1, st1
     (t2, st2) = both_time_types(time2)
+    print >>sys.stderr, "Time2:", t2, st2
 
     daysdiff = (t2 - t1) / 60. / 60. / 24.
+    print >>sys.stderr, "daysdiff is", daysdiff
+    if daysdiff < 0 :
+        msglog.err("daysdiff < 0!!! " + str(daysdiff))
 
     # Is it a day of the month?
     try :
         day_of_month = int(when)
+        print >>sys.stderr, "It's a day of the month:", day_of_month,
+        print >>sys.stderr, "compared to", st1.tm_mday, "and", st2.tm_mday
 
         # It is a day of the month! How many days in between the two dates?
         if daysdiff > 31 :
@@ -304,15 +312,19 @@ def falls_between(when, time1, time2) :
 
     # Has more than a week passed? Then it encompasses all weekdays.
     if daysdiff > 7 :
+        print >>sys.stderr, "More than a week has passed"
         return True
 
     day_of_week = weekdays.index(when)
-    return  (st2.tm_wday - day_of_week) % 7 < daysdiff
+    print >>sys.stderr, when, "is weekday #", day_of_week,
+    print >>sys.stderr, "compared to", st1.tm_wday, "and", st2.tm_wday
+    print >>sys.stderr, "Will return", (st2.tm_wday - day_of_week) % 7, '<', daysdiff
+    return (st2.tm_wday - day_of_week) % 7 < daysdiff
 
 #
 # Get a single feed
 #
-def get_feed(feedname, config, cache, cachefile, msglog) :
+def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
     """Fetch a single feed"""
     # Mandatory arguments:
     try :
@@ -338,9 +350,8 @@ def get_feed(feedname, config, cache, cachefile, msglog) :
        cache file was written?
     """
     when = config.get(feedname, "when")
-    if when and when != '' :
-        statbuf = os.stat(cachefile)
-        if not falls_between(when, statbuf.st_mtime, time.localtime()) :
+    if when and when != '' and last_time :
+        if not falls_between(when, last_time, time.localtime()) :
             print >>sys.stderr, "Skipping", feedname, "-- not", when
             return
         print >>sys.stderr, "Yes, it's time to feed:", when
@@ -544,12 +555,24 @@ Which (default = s): """)
                         print >>sys.stderr, "=============="
                     #raise  # so this entry won't get stored or cached
                     continue   # Move on to next story
+
+                except ValueError, e :
+                    # urllib2 is supposed to throw a urllib2.URLError for
+                    # "unknown url type", but in practice it throws a ValueError.
+                    # See this most often for doubleclick ad links in the latimes
+                    # that have no spec, e.g. //ad.doubleclick.net/...
+                    errmsg = "Couldn't open url " + item.link + "\n"
+                    errmsg += "Title: " + item.title.encode('utf-8', 'replace')
+                    print >>sys.stderr, errmsg
+                    msglog.err(errmsg)
+                    continue
+
                 except Exception as e :
                     # An unknown error, so report it complete with traceback.
                     errmsg = "Unknown error reading " + item.link + "\n"
                     errmsg += "Title: " + item.title.encode('utf-8', 'replace')
                     if verbose :
-                        errmsg += "Item summary was:\n------\n"
+                        errmsg += "\nItem summary was:\n------\n"
                         errmsg += item.summary + "\n------\n"
                         errmsg += str(e) + '<br>\n'
                         errmsg += str(sys.exc_info()[0]) + '<br>\n'
@@ -770,8 +793,13 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
     if options.nocache :
         cache = None
         cachefile = None
+        last_time = None
     else :
         cache, cachefile = init_cache()
+        # Figure out the last time we ran feedme.
+        # We'll use this for feeds that only update at certain times.
+        statbuf = os.stat(cachefile)
+        last_time = statbuf.st_mtime
 
     logfilename = config.get('DEFAULT', 'logfile')
     if logfilename :
@@ -785,11 +813,11 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
     try :
         if len(args) == 0 :
             for feedname in sections :
-                get_feed(feedname, config, cache, cachefile, msglog)
+                get_feed(feedname, config, cache, cachefile, last_time, msglog)
         else :
             for arg in args :
                 print >>sys.stderr, 'Getting feed for', arg
-                get_feed(arg, config, cache, cachefile, msglog)
+                get_feed(arg, config, cache, cachefile, last_time, msglog)
 
     # This causes a lot of premature exits. Not sure why we end up
     # here rather than in the inner KeyboardInterrupt section.

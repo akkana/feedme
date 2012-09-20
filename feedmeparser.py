@@ -85,8 +85,7 @@ class FeedmeHTMLParser():
         # text/something, that's bad.
         ctype = response.headers['content-type']
         if ctype and ctype != '' and ctype[0:4] != 'text' :
-            #msglog.error(url + " isn't text -- skipping")
-            print url + " isn't text -- skipping"
+            print >>sys.stderr, url, "isn't text -- skipping"
             response.close()
             return
 
@@ -207,7 +206,6 @@ class FeedmeHTMLParser():
                 # Another way would be to use (.|\\n) in place of .
                 # For some reason [.\n] doesn't work.
                 #html = re.sub(skip, '', html, flags=re.DOTALL)
-        else : print "no skip pats"
 
         self.single_page_url = None
 
