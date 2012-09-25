@@ -619,10 +619,10 @@ Which (default = s): """)
                     % (itemnum+1)
 
             # Add either the content or the summary:
-            if levels == 1 and 'content' in item :
-                content = item.content[0].value + "\n"
-            elif 'summary_detail' in item:
+            if 'summary_detail' in item:
                 content = item.summary_detail.value + "\n"
+            elif 'content' in item :
+                content = item.content[0].value + "\n"
             else :
                 content = "[No content]"
 
