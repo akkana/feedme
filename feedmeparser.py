@@ -144,7 +144,6 @@ class FeedmeHTMLParser():
         html = None
         try :
             html = response.read()
-            print >>sys.stderr, "successully read", url
         # XXX Need to guard against IncompleteRead -- but what class owns it??
         #except httplib.IncompleteRead, e :
         #    print >>sys.stderr, "Ignoring IncompleteRead on", url
@@ -158,7 +157,6 @@ class FeedmeHTMLParser():
         #print >>sys.stderr, "response.read() returned type", type(html)
         # Want to end up with unicode. In case it's str, decode it:
         if type(html) is str :
-            #print >>sys.stderr, "decoding html using charset", self.encoding
             # But sometimes this raises errors anyway, even using
             # the page's own encoding, so use 'replace':
             html = html.decode(self.encoding, 'replace')
@@ -262,12 +260,29 @@ class FeedmeHTMLParser():
                     self.single_page_url
                 print >>sys.stderr, e
 
-    def feed(self, html) :
+    def feed(self, uhtml) :
         """Duplicate, in a half-assed way, HTMLParser.feed() but
            using lxml.html since it handles real-world documents.
+           Input is expected to be unicode.
         """
-        # Parse the whole document
-        tree = lxml.html.fromstring(html)
+        # Parse the whole document.
+        # (Trying valiantly to recover from lxml errors.)
+        try :
+            tree = lxml.html.fromstring(uhtml)
+        except ValueError :
+            print "ValueError!"
+            # Idiot lxml.html that doesn't give any sensible way
+            # to tell what really went wrong:
+            if str(sys.exc_info()[1]).startswith(
+                "Unicode strings with encoding declaration") :
+                # This seems to happen because somehow the html gets
+                # something like this inserted at the beginning:
+                # <?xml version="1.0" encoding="utf-8"?>
+                # So if we've hit the error, try to remove it:
+                tree = lxml.html.fromstring(re.sub(
+                        '<\?xml .*encoding=[\'"].*?[\'"]\?>', '', uhtml))
+            else :
+                raise ValueError
 
         # Iterate over the DOM tree:
         self.crawl_tree(tree)
@@ -318,7 +333,7 @@ tree = lxml.html.fromstring(html)
             return
 
         #print "type(tag) =", type(tag)
-        self.outfile.write('<' + tag.encode(self.encoding, 'replace'))
+        self.outfile.write('<' + tag.encode(self.encoding, 'xmlcharrefreplace'))
 
         if tag == 'a' :
             if 'href' in attrs.keys() :
@@ -339,7 +354,8 @@ tree = lxml.html.fromstring(html)
                                 self.make_absolute(href[m.start():m.end()])
                             print >>sys.stderr, \
                                 "\nFound single-page pattern:", \
-                                self.single_page_url.encode('utf-8', 'replace')
+                                self.single_page_url.encode('utf-8',
+                                                            'xmlcharrefreplace')
                             # But continue fetching the regular pattern,
                             # since the single-page one may fail
 
@@ -400,16 +416,20 @@ tree = lxml.html.fromstring(html)
                 except Exception, e :
                     print "Error downloading image:", str(e), src
             else :
+                # Looks like it's probably a nonlocal image.
+                # Possibly this could be smarter about finding similar domains,
+                # or having a list of allowed image domains.
                 print >>sys.stderr, req.get_host(), "and", self.host, "are too different -- not fetching"
 
         # Now we've done any needed processing to the tag and its attrs.
         # t's time to write them to the output file.
         for attr in attrs.keys() :
-            self.outfile.write(' ' + attr.encode(self.encoding, 'replace'))
+            self.outfile.write(' ' + attr.encode(self.encoding,
+                                                 'xmlcharrefreplace'))
             if attrs[attr] and type(attrs[attr]) is str :
                 # make sure attr[1] doesn't have any embedded double-quotes
                 val = attrs[attr].replace('"', '\"').encode(self.encoding,
-                                                            'replace')
+                                                            'xmlcharrefreplace')
                 self.outfile.write('="' + val + '"')
 
         self.outfile.write('>')
@@ -433,32 +453,45 @@ tree = lxml.html.fromstring(html)
         if tag == "body" or tag == 'html' :
             return
 
-        self.outfile.write('</' + tag.encode(self.encoding, 'replace') + '>\n')
+        self.outfile.write('</' + tag.encode(self.encoding,
+                                             'xmlcharrefreplace') + '>\n')
 
     def handle_data(self, data):
+        # XXX lxml.etree.tostring() might be a cleaner way of printing
+        # these nodes: http://lxml.de/tutorial.html
         if self.skipping :
             #print >>sys.stderr, "Skipping data"
             return
         if type(data) is unicode :
-            #print >>sys.stderr, "Writing unicode"
-            self.outfile.write(data.encode(self.encoding, 'replace'))
+            #print >>sys.stderr, "Unicode data is", \
+            #    data.encode(self.encoding, 'xmlcharrefreplace')
+            self.outfile.write(data.encode(self.encoding, 'xmlcharrefreplace'))
         elif type(data) is str :
-            #print >>sys.stderr, "Writing text", data
+            #print >>sys.stderr, "Text data is", data
             self.outfile.write(data)
         else :
             print >>sys.stderr, "Data isn't str or unicode! type =", type(title)
 
-    def handle_charref(self, num) :
-        if self.skipping :
-            #print "Skipping charref"
-            return
-        self.outfile.write('&#' + num.encode(self.encoding, 'replace') + ';')
+    # def handle_charref(self, num) :
+    #     # I don't think we ever actually get here -- lxml.html.fromstring()
+    #     # already replaces all html entities with the numeric unicode
+    #     # equivalent whether we want that or not, and we have to write
+    #     # them out in handle_data with xmlcharrefreplace.
+    #     # If we really really wanted to we might be able to keep the
+    #     # page's original entities by calling fromstring(cgi.urlescape(html))
+    #     # html before 
+    #     if self.skipping :
+    #         #print "Skipping charref"
+    #         return
+    #     self.outfile.write('&#' + num.encode(self.encoding,
+    #                                          'xmlcharrefreplace') + ';')
 
-    def handle_entityref(self, name) :
-        if self.skipping :
-            #print "Skipping entityref"
-            return
-        self.outfile.write('&' + name.encode(self.encoding, 'replace') + ';')
+    # def handle_entityref(self, name) :
+    #     if self.skipping :
+    #         #print "Skipping entityref"
+    #         return
+    #     self.outfile.write('&' + name.encode(self.encoding,
+    #                                          'xmlcharrefreplace') + ';')
 
     def same_host(self, host1, host2) :
         """Are two hosts close enough for the purpose of downloading images?"""

@@ -182,12 +182,16 @@ class MsgLog :
 
     def msg(self, s) :
         self.msgstr += "\n" + s
-        print "", s.encode('ascii', 'backslashreplace')
+        print "MESSAGE:", s.encode('ascii', 'backslashreplace')
+
+    def warn(self, s) :
+        self.msgstr += "\n" + s
+        print "WARNING:", s.encode('ascii', 'backslashreplace')
 
     def err(self, s) :
         self.errstr += "\n" + s
         print "ERROR:", s.encode('ascii', 'backslashreplace')
-        traceback.print_stack()
+        #traceback.print_stack()
 
     def get_msgs(self) :
         return self.msgstr
@@ -564,13 +568,27 @@ Which (default = s): """)
 
                 except ValueError, e :
                     # urllib2 is supposed to throw a urllib2.URLError for
-                    # "unknown url type", but in practice it throws a ValueError.
-                    # See this most often for doubleclick ad links in the latimes
+                    # "unknown url type", but in practice it throws ValueError.
+                    # See this e.g. for doubleclick ad links in the latimes
                     # that have no spec, e.g. //ad.doubleclick.net/...
-                    errmsg = "Couldn't open url " + item.link + "\n"
-                    errmsg += "Title: " + item.title.encode('utf-8', 'replace')
-                    print >>sys.stderr, errmsg
-                    msglog.err(errmsg)
+                    # Unfortunately it seems to happen in other cases too,
+                    # so there's no way to separate out the urllib2 ones
+                    # except by string: str(sys.exc_info()[1]) starts with
+                    # "unknown url type:"
+                    errmsg = "ValueError on title "
+                    errmsg += item.title.encode('utf-8', 'replace')
+                    errmsg += "\n"
+                    # print >>sys.stderr, errmsg
+                    # msglog.err will print it, no need to print it again.
+                    if str(sys.exc_info()[1]).startswith("unknown url type:") :
+                        # Don't show stack trace for unknown URL types,
+                        # since it's a known error.
+                        errmsg += str(sys.exc_info()[1]) + " - couldn't load\n"
+                        msglog.warn(errmsg)
+                    else :
+                        errmsg += "ValueError on url " + item.link + "\n"
+                        errmsg += traceback.format_exc(sys.exc_info()[2])
+                        msglog.err(errmsg)
                     continue
 
                 except Exception as e :
