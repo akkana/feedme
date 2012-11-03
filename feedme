@@ -837,7 +837,19 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
     try :
         if len(args) == 0 :
             for feedname in sections :
-                get_feed(feedname, config, cache, cachefile, last_time, msglog)
+                # This can hang if feedparser hangs parsing the initial RSS.
+                # So give the user a chance to ^C out of one feed
+                # without stopping the whole run:
+                try :
+                    get_feed(feedname, config, cache, cachefile,
+                             last_time, msglog)
+                except KeyboardInterrupt :
+                    print >>sys.stderr, "Interrupt! Skipping feed", feedname
+                    handleKeyboardInterrupt("Type q to quit, anything else to skip to next feed: ")
+                    # We don't actually have to check the return value;
+                    # handleKeyboardInterrupt will quit if the user types q.
+
+        #sys.exit(1)
         else :
             for arg in args :
                 print >>sys.stderr, 'Getting feed for', arg
