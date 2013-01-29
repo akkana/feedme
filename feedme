@@ -364,10 +364,14 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
     #encoding = config.get(feedname, 'encoding')
 
     print >>sys.stderr, "feedname:", feedname
+    # Use underscores rather than spaces in the filename.
     feedfile = feedname.replace(" ", "_")
+    # Also, make sure there are no colons (illegal in filenames):
+    feedfile = feedfile.replace(":", "")
     print >>sys.stderr, "feedfile:", feedfile
     outdir = os.path.join(feeddir,  feedfile)
     print >>sys.stderr, "outdir:", outdir
+
     if cache == None :
         nocache = True
     else :
@@ -610,6 +614,8 @@ Which (default = s): """)
                         print >>sys.stderr, "=============="
                     continue   # Move on to next story, ensure we get index
 
+            # Done with if levels > 1 clause
+            
             if not 'published_parsed' in item:
                 if 'updated_parsed' in item:
                     item.published_parsed = item.updated_parsed
@@ -626,7 +632,7 @@ Which (default = s): """)
                 indexstr += itemlink + '<b>' + item.title + '</b></a>\n'
             else :
                 # For a single-level site, don't put links over each entry.
-                itemlink = '<a href=\"" + item.link + "\">'
+                itemlink = '<a href=\"' + item.link + '\">'
                 indexstr += "\n" + itemlink + item.title + "</a>\n"
 
             # Under the title, add a link to jump to the next entry
