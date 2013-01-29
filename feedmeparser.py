@@ -567,6 +567,10 @@ tree = lxml.html.fromstring(html)
                 self.config.getboolean(self.feedname, 'skip_images') :
             return True
 
+        if tag == 'a' and \
+                self.config.getboolean(self.feedname, 'skip_links') :
+            return True
+
         return False
 
 #
@@ -586,15 +590,19 @@ def read_config_file() :
         print >>sys.stderr, "Error: no config file in", conffile
         sys.exit(1)
     
-    config = ConfigParser({'verbose':'false', 'levels':'2',
-                           'encoding':'',  # blank means try several
-                           'page_start':'', 'page_end':'',
-                           'single_page_pat':'', 'skip_pat':'',
-                           'nocache':'false',
-                           'logfile':'',
-                           'save_days':'7',
-                           'when':'',   # Day, like tue, or month day, like 14
-                           'ascii':'false'})
+    config = ConfigParser({'verbose' : 'false',
+                           'levels' : '2',
+                           'encoding' : '',  # blank means try several
+                           'page_start' : '', 'page_end':'',
+                           'single_page_pat' : '', 'skip_pat':'',
+                           'nocache' : 'false',
+                           'logfile' : '',
+                           'save_days' : '7',
+                           'skip_images' : 'true',
+                           'nonlocal_images' : 'false',
+                           'skip_links' : 'false',
+                           'when' : '',   # Day, like tue, or month day, like 14
+                           'ascii' : 'false'})
     config.read(conffile)
     return config
 

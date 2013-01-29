@@ -31,8 +31,6 @@ import re
 import shutil
 import traceback
 
-# from ConfigParser import ConfigParser
-
 import feedparser
 import urllib2
 
@@ -348,6 +346,7 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
     formats = config.get(feedname, 'formats').split(',')
     encoding = config.get(feedname, 'encoding')
     ascii = config.getboolean(feedname, 'ascii')
+    skip_links = config.getboolean(feedname, 'skip_links')
 
     # Is this a feed we should only check occasionally?
     """Does this feed specify only gathering at certain times?
@@ -632,15 +631,21 @@ Which (default = s): """)
                 indexstr += itemlink + '<b>' + item.title + '</b></a>\n'
             else :
                 # For a single-level site, don't put links over each entry.
-                itemlink = '<a href=\"' + item.link + '\">'
-                indexstr += "\n" + itemlink + item.title + "</a>\n"
+                if skip_links :
+                    itemlink = None
+                    indexstr += "\n<b>" + item.title + "</b>\n"
+                else :
+                    itemlink = '<a href=\"' + item.link + '\">'
+                    indexstr += "\n" + itemlink + item.title + "</a>\n"
 
             # Under the title, add a link to jump to the next entry
             # if it isn't the last entry.
-            if item != feed.entries[-1] :
+            if item != feed.entries[-1] and not skip_links :
                 indexstr += \
        "<br>\n<center><i><a href=\"#%d\">&gt;-&gt;</a></i></center>\n<br>\n" \
                     % (itemnum+1)
+            else :
+                indexstr += '<br><br>'
 
             # Add either the content or the summary:
             if 'summary_detail' in item:
@@ -654,6 +659,10 @@ Which (default = s): """)
             # Try to remove them.
             if config.getboolean(feedname, 'skip_images') :
                 content = re.sub('<img .*?>', '', content)
+
+            # Try to get rid of embedded links if skip_links is true:
+            if skip_links :
+                content = re.sub('<a href=.*>(.*?)</a>', '\\1', content)
 
             indexstr += content
 
@@ -673,7 +682,8 @@ Which (default = s): """)
 
             else :
                 short_title = item.title
-            indexstr += "\n<br>[[" + itemlink + short_title + "</a>]]\n\n"
+            if itemlink :
+                indexstr += "\n<br>[[" + itemlink + short_title + "</a>]]\n\n"
 
         # If there was an error parsing this entry, we won't save
         # a file so decrement the itemnum and loop to the next entry.
