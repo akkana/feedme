@@ -279,8 +279,20 @@ class FeedmeHTMLParser():
                 # something like this inserted at the beginning:
                 # <?xml version="1.0" encoding="utf-8"?>
                 # So if we've hit the error, try to remove it:
-                tree = lxml.html.fromstring(re.sub(
-                        '<\?xml .*encoding=[\'"].*?[\'"]\?>', '', uhtml))
+                print >>sys.stderr, "Stupid lxml encoding error on:"
+                print >>sys.stderr, uhtml[:512].encode('utf-8',
+                                                       'xmlcharrefreplace'),
+                print '...'
+
+                # Some sample strings that screw up lxml and must be removed:
+                # <?xml version="1.0" encoding="ascii" ?>
+                uhtml = re.sub('<\?xml .*?encoding=[\'\"].*?[\'\"].*?\?>',
+                                '', uhtml)
+                tree = lxml.html.fromstring(uhtml)
+                print "Tried to remove encoding: now"
+                print >>sys.stderr, uhtml[:512].encode('utf-8',
+                                                       'xmlcharrefreplace'),
+                print '...'
             else :
                 raise ValueError
 
@@ -602,6 +614,7 @@ def read_config_file() :
                            'nonlocal_images' : 'false',
                            'skip_links' : 'false',
                            'when' : '',   # Day, like tue, or month day, like 14
+                           'min_width' : '25', # min # chars in an item link
                            'ascii' : 'false'})
     config.read(conffile)
     return config
@@ -611,5 +624,4 @@ if __name__ == '__main__':
 
     parser = FeedmeHTMLParser(config, 'Freaktest')
     parser.fetch_url('http://www.freakonomics.com/2011/12/21/what-to-do-with-cheating-students/', '/home/akkana/feeds/Freaktest/', 'test.html', "Freak Test")
-    #parser.fetch_url('file:///home/akkana/what-to-do-with-cheating-students.htm', '/home/akkana/feeds/Freaktest/', 'test.html')
 

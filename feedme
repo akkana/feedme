@@ -388,13 +388,16 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
 
     # feedparser.parse() can throw unexplained errors like
     # "xml.sax._exceptions.SAXException: Read failed (no details available)"
-    # which will kill our whole process, so guard against that:
+    # which will kill our whole process, so guard against that.
+    # Sadly, feedparser usually doesn't give any details about what went wrong.
     try :
+        print "Running: feedparser.parse(", sitefeedurl, ")"
         feed = feedparser.parse(sitefeedurl)
+    # except xml.sax._exceptions.SAXException, e :
     except Exception, e :
         print "Couldn't parse feed: URL:", sitefeedurl
         print str(e)
-        #traceback.print_stack()
+        traceback.print_stack()
         return
 
     # feedparser has no error return! One way is to check len(feed.feed).
@@ -625,6 +628,10 @@ Which (default = s): """)
      # http://www.mail-archive.com/plucker-list@rubberchicken.org/msg07314.html
             # and the previous message.
             indexstr += "<p><a name=\"%d\">&nbsp;</a>" % itemnum
+            minwidth = config.getint(feedname, 'min_width')
+            if len(item.title) < minwidth :
+                #item.title += '&nbsp;' * (minwidth - len(item.title) - 2) + '__'
+                item.title += '. ' * (minwidth - len(item.title)) + '__'
 
             if levels > 1 :
                 itemlink = '<a href=\"' + fnam + anchor + '\">'
