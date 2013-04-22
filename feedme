@@ -222,7 +222,7 @@ class tee() :
 #
 # Interrupt handler: prompt for what to do.
 #
-def handleKeyboardInterrupt(msg) :
+def handle_keyboard_interrupt(msg) :
     # os.isatty() doesn't work, so:
     if not hasattr(sys.stdin, "isatty") :
         print "Interrupt, and not running interactively. Exiting."
@@ -535,7 +535,7 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
                                          % (itemnum, itemnum))
 
                 except KeyboardInterrupt :
-                    response = handleKeyboardInterrupt("""
+                    response = handle_keyboard_interrupt("""
 *** Caught keyboard interrupt reading a story! ***\n
 Options:
 q: Quit
@@ -696,7 +696,7 @@ Which (default = s): """)
         # a file so decrement the itemnum and loop to the next entry.
         except KeyboardInterrupt :
             sys.stderr.flush()
-            response = handleKeyboardInterrupt("""
+            response = handle_keyboard_interrupt("""
 *** Caught keyboard interrupt while finishing a site! ***\n
 Options:
 q: Quit
@@ -868,9 +868,9 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
                              last_time, msglog)
                 except KeyboardInterrupt :
                     print >>sys.stderr, "Interrupt! Skipping feed", feedname
-                    handleKeyboardInterrupt("Type q to quit, anything else to skip to next feed: ")
+                    handle_keyboard_interrupt("Type q to quit, anything else to skip to next feed: ")
                     # We don't actually have to check the return value;
-                    # handleKeyboardInterrupt will quit if the user types q.
+                    # handle_keyboard_interrupt will quit if the user types q.
 
         #sys.exit(1)
         else :
