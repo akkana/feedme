@@ -344,6 +344,31 @@ tree = lxml.html.fromstring(html)
             #return "Inside a skipped section"
             return
 
+        # meta refreshes won't work when we're offline, but we
+        # might want to display them to give the user the option.
+        # <meta http-equiv="Refresh" content="0; URL=http://blah"></meta>
+        if tag == 'meta' :
+            if 'http-equiv' in attrs.keys() and \
+                    attrs['http-equiv'].lower() == 'refresh' :
+                self.outfile.write("Meta refresh suppressed.<br />")
+                if 'content' in attrs.keys() :
+                    content = attrs['content'].split(';')
+                    if len(content) > 1 :
+                        href = content[1].strip()
+                    else :
+                        href = content[0].strip()
+                    # XXX Next comparison might be better done with re,
+                    # in case of spaces around the =.
+                    print >>sys.stderr, "href is '" +  href + "'"
+                    if href.upper().startswith('URL=') :
+                        href = href[4:]
+                    self.outfile.write('<a href="' + href + '">'
+                                       + href + '</a>')
+                return
+                # XXX Note that this won't skip the </meta> tag, unfortunately,
+                # and tag_skippable_section can't distinguish between
+                # meta refresh and any other meta tags.
+
         #print "type(tag) =", type(tag)
         self.outfile.write('<' + tag.encode(self.encoding, 'xmlcharrefreplace'))
 
