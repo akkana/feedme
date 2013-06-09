@@ -722,7 +722,6 @@ Which (default = n): """)
 
     # Only write the index.html file if there was content that
     # wasn't already in the cache.
-    sys.stdout.flush()
     if itemnum >= 0 :
         indexfile = os.path.join(outdir, "index.html")
         if verbose :

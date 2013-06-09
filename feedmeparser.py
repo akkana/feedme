@@ -37,6 +37,7 @@ class FeedmeHTMLParser():
         self.config = config
         self.feedname = feedname
         self.outfile = None
+        self.skipping = None
 
     def fetch_url(self, url, newdir, newname, title=None, author=None,
                   footer='', referrer=None) :
@@ -49,7 +50,7 @@ class FeedmeHTMLParser():
         verbose = self.config.getboolean(self.feedname, 'verbose')
         if verbose :
             print >>sys.stderr, "Fetching link", url, \
-                "to", newdir, "/", newname
+                "to", newdir + "/" + newname
 
         self.newdir = newdir
         self.newname = newname
@@ -61,7 +62,7 @@ class FeedmeHTMLParser():
 
         # A flag to indicate when we're skipping everything --
         # e.g. inside <script> tags.
-        self.skipping = False
+        self.skipping = None
 
         # For the sub-pages, we're getting HTML, not RSS.
         # Nobody seems to have RSS pointing to RSS.
@@ -76,6 +77,7 @@ class FeedmeHTMLParser():
         response = urllib2.urlopen(request)
         # Lots of ways this can fail.
         # e.g. ValueError, "unknown url type"
+        # or BadStatusLine: ''
 
         # At this point it would be lovely to check whether the
         # mime type is HTML. Unfortunately, all we have is a
@@ -330,18 +332,18 @@ tree = lxml.html.fromstring(html)
         #if self.config.getboolean(self.feedname, 'verbose') :
         #    print "start tag", tag, attrs
 
+        if self.skipping :
+            #print "Inside a skipped section"
+            return
+
         # Some tags, we just skip
         if self.tag_skippable_section(tag) :
-            self.skipping = True
+            self.skipping = tag
             #print "Starting a skippable", tag, "section"
             return
 
         if self.tag_skippable(tag) :
             #print "skipping start", tag, "tag"
-            return
-
-        if self.skipping :
-            #return "Inside a skipped section"
             return
 
         # meta refreshes won't work when we're offline, but we
@@ -364,6 +366,16 @@ tree = lxml.html.fromstring(html)
                         href = href[4:]
                     self.outfile.write('<a href="' + href + '">'
                                        + href + '</a>')
+
+                    # Also set the refresh target as the single_page_url.
+                    # Maybe we can actually get it here.
+                    if not self.single_page_url :
+                        self.single_page_url = \
+                            self.make_absolute(href)
+                        print >>sys.stderr, \
+                            "\nTrying meta refresh as single-page pattern:", \
+                            self.single_page_url.encode('utf-8',
+                                                        'xmlcharrefreplace')
                 return
                 # XXX Note that this won't skip the </meta> tag, unfortunately,
                 # and tag_skippable_section can't distinguish between
@@ -473,7 +485,7 @@ tree = lxml.html.fromstring(html)
 
     def handle_endtag(self, tag):
         #print "end tag", tag
-        if self.tag_skippable_section(tag) :
+        if tag == self.skipping :
             self.skipping = False
             #print "Ending a skippable", tag, "section"
             return
@@ -560,8 +572,7 @@ tree = lxml.html.fromstring(html)
         
     def tag_skippable_section(self, tag):
         """Skip certain types of tags we don't want in simplified HTML.
-           This will not remove tags inside the skipped tag, only the
-           skipped tag itself.
+           This skips everything until the matching end tag.
         """
         # script and style tags aren't helpful in minimal offline reading
         if tag == 'script' or tag == 'style' :
@@ -586,6 +597,10 @@ tree = lxml.html.fromstring(html)
         if tag == 'iframe' :
             return True
 
+        # Don't want embedded <head> stuff
+        if tag == 'head' :
+            return True
+
         return False
         
     def tag_skippable(self, tag):
@@ -606,6 +621,11 @@ tree = lxml.html.fromstring(html)
 
         if tag == 'a' and \
                 self.config.getboolean(self.feedname, 'skip_links') :
+            return True
+
+        # Embedded <body> tags often have unfortunate color settings.
+        # Embedded <html> tags don't seem to do any harm, but seem wrong.
+        if tag == 'body' or tag == 'html' :
             return True
 
         return False
