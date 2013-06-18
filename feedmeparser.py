@@ -32,6 +32,9 @@ def get_config_multiline(config, feedname, configname) :
         configlines = []
     return configlines
 
+class NoContentError(Exception) :
+    pass
+
 class FeedmeHTMLParser():
     def __init__(self, config, feedname) :
         self.config = config
@@ -46,6 +49,7 @@ class FeedmeHTMLParser():
            according to the config file and current feed name.
            Write the modified HTML output to $newdir/$newname,
            and download any images into $newdir.
+           Raises NoContentError if it can't get the page.
         """
         verbose = self.config.getboolean(self.feedname, 'verbose')
         if verbose :
@@ -91,7 +95,7 @@ class FeedmeHTMLParser():
         if ctype and ctype != '' and ctype[0:4] != 'text' :
             print >>sys.stderr, url, "isn't text -- skipping"
             response.close()
-            return
+            raise ContentsNotTextError
 
         # Were we redirected? geturl() will tell us that.
         self.cururl = response.geturl()
@@ -154,7 +158,9 @@ class FeedmeHTMLParser():
 
         # html can be undefined here. If so, no point in doing anything else.
         if not html:
-            return
+            print >>sys.stderr, "Didn't read anything from response.read()"
+            raise NoContentError
+
 
         #print >>sys.stderr, "response.read() returned type", type(html)
         # Want to end up with unicode. In case it's str, decode it:
@@ -194,7 +200,6 @@ class FeedmeHTMLParser():
         # It may eventually be better to do this in the HTML parser.
         skip_pats = get_config_multiline(self.config, self.feedname, 'skip_pat')
         if len(skip_pats) > 0 :
-            print len(skip_pats), "skip pats"
             for skip in skip_pats :
                 if verbose :
                     print >>sys.stderr, "Trying to skip", skip
@@ -209,6 +214,9 @@ class FeedmeHTMLParser():
                 # For some reason [.\n] doesn't work.
                 #html = re.sub(skip, '', html, flags=re.DOTALL)
 
+        # print >>sys.stderr, "After skipping skip_pats, html is:"
+        # print >>sys.stderr, html.encode(self.encoding, 'replace')
+
         self.single_page_url = None
 
         # XXX temporarily record the original html src, so we can compare.
@@ -216,8 +224,19 @@ class FeedmeHTMLParser():
         # srcfp.write(html.encode(self.encoding, 'replace'))
         # srcfp.close()
 
+        # Keep a record of whether we've seen any content:
+        self.wrote_data = False
+
         # Iterate through the HTML, making any necessary simplifications:
         self.feed(html)
+
+        # Did we write anything real, any real content?
+        # XXX Currently this requires text, might want to add img tags.
+        if not self.wrote_data :
+            print >>sys.stderr, "Didn't get any content for", title
+            self.outfile.close()
+            os.remove(outfilename)
+            raise NoContentError
 
         # feed() won't write the final tags, so that we can add a footer:
         self.outfile.write(footer)
@@ -336,19 +355,11 @@ tree = lxml.html.fromstring(html)
             #print "Inside a skipped section"
             return
 
-        # Some tags, we just skip
-        if self.tag_skippable_section(tag) :
-            self.skipping = tag
-            #print "Starting a skippable", tag, "section"
-            return
-
-        if self.tag_skippable(tag) :
-            #print "skipping start", tag, "tag"
-            return
-
         # meta refreshes won't work when we're offline, but we
         # might want to display them to give the user the option.
         # <meta http-equiv="Refresh" content="0; URL=http://blah"></meta>
+        # All other meta tags will be skipped, so do this test
+        # before checking for tag_skippable.
         if tag == 'meta' :
             if 'http-equiv' in attrs.keys() and \
                     attrs['http-equiv'].lower() == 'refresh' :
@@ -380,6 +391,26 @@ tree = lxml.html.fromstring(html)
                 # XXX Note that this won't skip the </meta> tag, unfortunately,
                 # and tag_skippable_section can't distinguish between
                 # meta refresh and any other meta tags.
+
+        # Delete any style tags used for color or things like display:none
+        if 'style' in attrs.keys() :
+            style = attrs['style']
+            if re.search('display: *none', style) :
+                return    # Yes, discard the whole style tag
+            if re.search('color:', style) :
+                return
+            if re.search('background', style) :
+                return
+
+        # Some tags, we always skip
+        if self.tag_skippable_section(tag) :
+            self.skipping = tag
+            # print >>sys.stderr, "Starting a skippable", tag, "section"
+            return
+
+        if self.tag_skippable(tag) :
+            # print >>sys.stderr, "skipping start", tag, "tag"
+            return
 
         #print "type(tag) =", type(tag)
         self.outfile.write('<' + tag.encode(self.encoding, 'xmlcharrefreplace'))
@@ -487,10 +518,10 @@ tree = lxml.html.fromstring(html)
         #print "end tag", tag
         if tag == self.skipping :
             self.skipping = False
-            #print "Ending a skippable", tag, "section"
+            print >>sys.stderr, "Ending a skippable", tag, "section"
             return
-        if self.tag_skippable(tag) :
-            #print "Skipping end", tag
+        if self.tag_skippable(tag) or self.tag_skippable_section(tag) :
+            print >>sys.stderr, "Skipping end", tag
             return
 
         # Some tags don't have ends, and it can cause problems:
@@ -502,6 +533,7 @@ tree = lxml.html.fromstring(html)
         if tag == "body" or tag == 'html' :
             return
 
+        # print >>sys.stderr, "Writing end tag", tag
         self.outfile.write('</' + tag.encode(self.encoding,
                                              'xmlcharrefreplace') + '>\n')
 
@@ -511,12 +543,19 @@ tree = lxml.html.fromstring(html)
         if self.skipping :
             #print >>sys.stderr, "Skipping data"
             return
+
+        # If it's not just whitespace, make a note that we've written something.
+        if data.strip() :
+            self.wrote_data = True
+
         if type(data) is unicode :
             #print >>sys.stderr, "Unicode data is", \
             #    data.encode(self.encoding, 'xmlcharrefreplace')
+            print >>sys.stderr, "Writing some unicode data:", data.encode(self.encoding, 'xmlcharrefreplace')
             self.outfile.write(data.encode(self.encoding, 'xmlcharrefreplace'))
         elif type(data) is str :
             #print >>sys.stderr, "Text data is", data
+            print >>sys.stderr, "Writing some ascii data:", data
             self.outfile.write(data)
         else :
             print >>sys.stderr, "Data isn't str or unicode! type =", type(title)
@@ -625,7 +664,12 @@ tree = lxml.html.fromstring(html)
 
         # Embedded <body> tags often have unfortunate color settings.
         # Embedded <html> tags don't seem to do any harm, but seem wrong.
-        if tag == 'body' or tag == 'html' :
+        if tag == 'body' or tag == 'html' or tag == 'meta' :
+            return True
+
+        # Font tags are almost always to impose colors that don't
+        # work against an arbitrary background.
+        if tag == 'font' :
             return True
 
         return False

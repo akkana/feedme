@@ -534,6 +534,15 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
                       "<center><a href=\"%d.html\">&gt;-%d-&gt;</a></center>" \
                                          % (itemnum, itemnum))
 
+                except feedmeparser.NoContentError as e :
+                    # fetch_url didn't manage to get the page or write a file.
+                    # So don't increment pagenum or itemnum for the next story.
+                    msglog.warn("Didn't find any content on " + item.link
+                                + ": " + str(e))
+                    itemnum -= 1
+                    pagenum -= 1
+                    continue
+
                 except KeyboardInterrupt :
                     response = handle_keyboard_interrupt("""
 *** Caught keyboard interrupt reading a story! ***\n
@@ -548,9 +557,10 @@ Which (default = s): """)
                         return
                     elif response[0] != 'c' :    # next story (default)
                         continue
-
                     # If the response was 'c', we continue and just
                     # ignore the interrupt.
+                    # Anything written so far will remain written --
+                    # though we probably won't have an index file.
 
                 except (IOError, urllib2.HTTPError) as e :
                     # Collect info about what went wrong:
@@ -570,6 +580,11 @@ Which (default = s): """)
                     if verbose :
                         print >>sys.stderr, "=============="
                     #raise  # so this entry won't get stored or cached
+
+                    # We didn't get this item, so don't list it in the index:
+                    itemnum -= 1
+                    pagenum -= 1
+
                     continue   # Move on to next story
 
                 except ValueError, e :
@@ -595,6 +610,11 @@ Which (default = s): """)
                         errmsg += "ValueError on url " + item.link + "\n"
                         errmsg += traceback.format_exc(sys.exc_info()[2])
                         msglog.err(errmsg)
+
+                    # We didn't get this item, so don't list it in the index:
+                    itemnum -= 1
+                    pagenum -= 1
+
                     continue
 
                 except Exception as e :
@@ -771,6 +791,12 @@ Which (default = n): """)
 
     else :
         print >>sys.stderr, feedname, ": no new content"
+
+        # We may have made the directory. If so, remove it:
+        # if there's no index file then there's no way to access anything there.
+        if os.path.exists(outdir) :
+            print >>sys.stderr, "Removing directory", outdir
+            shutil.rmtree(outdir)
 
 #
 # Find the cache file and load it, but don't parse yet
