@@ -518,10 +518,10 @@ tree = lxml.html.fromstring(html)
         #print "end tag", tag
         if tag == self.skipping :
             self.skipping = False
-            print >>sys.stderr, "Ending a skippable", tag, "section"
+            # print >>sys.stderr, "Ending a skippable", tag, "section"
             return
         if self.tag_skippable(tag) or self.tag_skippable_section(tag) :
-            print >>sys.stderr, "Skipping end", tag
+            # print >>sys.stderr, "Skipping end", tag
             return
 
         # Some tags don't have ends, and it can cause problems:
@@ -551,11 +551,9 @@ tree = lxml.html.fromstring(html)
         if type(data) is unicode :
             #print >>sys.stderr, "Unicode data is", \
             #    data.encode(self.encoding, 'xmlcharrefreplace')
-            print >>sys.stderr, "Writing some unicode data:", data.encode(self.encoding, 'xmlcharrefreplace')
             self.outfile.write(data.encode(self.encoding, 'xmlcharrefreplace'))
         elif type(data) is str :
-            #print >>sys.stderr, "Text data is", data
-            print >>sys.stderr, "Writing some ascii data:", data
+            #print >>sys.stderr, "Writing some ascii data:", data
             self.outfile.write(data)
         else :
             print >>sys.stderr, "Data isn't str or unicode! type =", type(title)
