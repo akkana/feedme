@@ -441,6 +441,13 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
     if verbose:
         print >>sys.stderr, "********* Reading", sitefeedurl
 
+    # A pattern to tell the user how to get to the next story: >->
+    # We also might want to remove that pattern later, in case
+    # a story wasn't successfully downloaded -- so make a
+    # regexp that can match it.
+    next_item_string =  '<br>\n<center><i><a href=\"#%d\">&gt;-&gt;</a></i></center>\n<br>\n'
+    next_item_pattern = '<br>\n<center><i><a href=\"#[0-9]+\">&gt;-&gt;</a></i></center>\n<br>\n'
+
     # We'll increment itemnum as soon as we start showing entries,
     # so start it negative so anchor links will start at zero.
     itemnum = -1
@@ -668,11 +675,9 @@ Which (default = s): """)
             # Under the title, add a link to jump to the next entry
             # if it isn't the last entry.
             if item != feed.entries[-1] and not skip_links :
-                indexstr += \
-       "<br>\n<center><i><a href=\"#%d\">&gt;-&gt;</a></i></center>\n<br>\n" \
-                    % (itemnum+1)
+                indexstr += next_item_string % (itemnum+1)
             else :
-                indexstr += '<br><br>'
+                indexstr += '<br><center>(last story)</center><br>'
 
             # Add either the content or the summary:
             if 'summary_detail' in item:
@@ -743,6 +748,19 @@ Which (default = n): """)
     # Only write the index.html file if there was content that
     # wasn't already in the cache.
     if itemnum >= 0 :
+        # If the RSS page ended with a story we didn't include,
+        # either because it's old or because it had no content we could show,
+        # we'll have an extra ">->" line. Try to remove it.
+        # (Ugh, python re has no cleaner way of getting the last match.)
+        m = None
+        for m in re.finditer(next_item_pattern, indexstr) :
+            pass
+        if m:
+            print >>sys.stderr, "Removing final next-item pattern"
+            indexstr = indexstr[:m.start()] \
+                + "<br>\n<center><i>[Last story]</i></center>\n<br>\n" \
+                + indexstr[m.end():]
+        
         indexfile = os.path.join(outdir, "index.html")
         if verbose :
             print  >>sys.stderr, "Writing", indexfile
@@ -753,11 +771,11 @@ Which (default = n): """)
             index.write(feedmeparser.output_encode(indexstr, encoding))
 
         # Before the downloaded string, insert a final named anchor.
-        # Occasionally we get a bug where we accidentally write a >>
+        # On some sites we get a bug where we accidentally write a >>
         # when there are really no further stories. So give it a
-        # place to go to.
-        # XXX But this may no longer be needed. Do we really see those links?
-        index.write("<p><a name=\"%d\">&nbsp;</a>\n" % itemnum)
+        # place to go. Though if the removal of the final >->
+        # succeeded, this should no longer be needed.
+        index.write("<p><a name=\"%d\">&nbsp;</a>\n" % (itemnum+1))
 
         index.write(downloaded_string)
         index.write("\n</body>\n</html>\n")
