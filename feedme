@@ -758,7 +758,7 @@ Which (default = n): """)
         if m:
             print >>sys.stderr, "Removing final next-item pattern"
             indexstr = indexstr[:m.start()] \
-                + "<br>\n<center><i>[Last story]</i></center>\n<br>\n" \
+                + "<br>\n<center><i>[end]</i></center>\n<br>\n" \
                 + indexstr[m.end():]
         
         indexfile = os.path.join(outdir, "index.html")
