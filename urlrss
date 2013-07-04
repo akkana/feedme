@@ -1,13 +1,17 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 
-# Make a local RSS file out of several text files listing URLs,
+# Make a local RSS file based on a list of URLs,
 # so we can run feedme to collect those URLs.
+#
+# The URLs may be passed in as a POST query,
+# or if there's no query string, we'll try to mount the Android device
+# and collect URLs from a file there and another one locally.
 
 import os, sys, time, datetime, subprocess
 import urllib2
 import xml.sax.saxutils
 
-# Usage: urlrss devicepath
+import cgi
 
 ##############################
 # CONFIGURATION
@@ -19,8 +23,7 @@ else :
     devicepath = "/droidsd"
 
 # Where to look for the saved URL files:
-urlfiles = [ os.path.join(devicepath, "feeds", "saved-urls"),
-             os.path.expanduser("~/feeds/localurls") ]
+urlfiles = [ os.path.expanduser("~/feeds/localurls") ]
 
 # Where to create the RSS file:
 #rssfile = os.path.join(home, ".plucker/html/xtraurls.rss")
@@ -35,22 +38,51 @@ urlarchive = os.path.expanduser("~/.cache/feedme/xtraurls.html")
 # (Shouldn't need to change anything below this)
 ##############################
 
-# Mount the device's SD card if it isn't already mounted:
-if not os.path.ismount(devicepath) :
-    subprocess.call(["mount", devicepath])
-    # Ignore return value: it will be nonzero if already mounted.
-    # So check to see if it's mounted now:
-    if not os.path.ismount(devicepath) :
-        print "Can't mount %s!" % devicepath
-        sys.exit(1)
-
 urls = []
+
+# We need to be able to handle either text or HTML output:
+html_output = False
+line_sep = ''
+
+# See if we're being called as a CGI script:
+form = cgi.FieldStorage()
+if 'xtraurls' in form:
+    html_output = True
+    formurls = form['xtraurls'].value.strip().split('\n')
+    for url in formurls:
+        urls.append(url)
+
+    html_output = True
+    line_sep = '<br>'
+    print '''Content-type: text/html
+
+<html>
+<head>
+<title>Extra URLs</title>
+</head>
+
+<body>
+
+<h1>Extra URLs</h1>
+
+<p>'''
+
+else:
+    # Mount the device's SD card if it isn't already mounted:
+    if not os.path.ismount(devicepath) :
+        subprocess.call(["mount", devicepath])
+        # Ignore return value: it will be nonzero if already mounted.
+        # So check to see if it's mounted now:
+        if not os.path.ismount(devicepath) :
+            print "Can't mount %s!" % devicepath
+            sys.exit(1)
+        urlfiles.append(os.path.join(devicepath, "feeds", "saved-urls"))
 
 # Loop over all the url files to get our list of urls:
 for urlfile in urlfiles :
     try :
         ifp = open(urlfile)
-        print "Reading URLs from", urlfile
+        print "Reading URLs from", urlfile, line_sep
     except :
         continue
 
@@ -63,7 +95,7 @@ for urlfile in urlfiles :
     os.unlink(urlfile)
 
 if not urls :
-    print "No saved URLs"
+    print "No saved URLs", line_sep
     if os.path.exists(rssfile) :
         os.unlink(rssfile)
     sys.exit(0)
@@ -71,22 +103,29 @@ if not urls :
 #
 # We have URLs to save. So open the output files.
 #
-ofp = open(rssfile, "w")
-print >>ofp, """<rss version="0.91">
+
+try :
+    ofp = open(rssfile, "w")
+except :
+    print "Couldn't write to RSS file", rssfile, line_sep
+    sys.exit(1)
+
+    print >>ofp, """<rss version="0.91">
 <channel>
   <title>FeedMe URLs</title>
   <description>Saved URLs %s</description>
   <language>en</language>""" % datetime.datetime.now().ctime()
+
 try :
     archivefp = open(urlarchive, "a")
     print >>archivefp, "\n<h4>Feedme URLs %s</h4>" \
         % datetime.datetime.now().ctime()
 except :
-    print "Couldn't archive Xtra URLs to", urlarchive
+    print "Couldn't open archive file", urlarchive, line_sep
     archivefp = None
 
 for url in urls :
-    # Follow it and see if it's a redirect -- we want the real url.
+    # Follow it and see if it's a redirect -- we want the real, final url.
     try :
         print url, "...",
         sys.stdout.flush()
@@ -94,10 +133,10 @@ for url in urls :
         newurl = urlobj.geturl()
         urlobj.close()
         if newurl != url :
-            print "redirected to", newurl
+            print "redirected to", newurl, line_sep
             url = newurl
         else :
-            print "."
+            print ".", line_sep
     except :
         pass
 
@@ -129,4 +168,9 @@ if archivefp :
 
 if urls :
     print "Saved %s urls to %s and %s" % (len(urls), rssfile, urlarchive)
+    print line_sep
 
+if html_output :
+    print '''</ul>
+</body>
+</html>'''
