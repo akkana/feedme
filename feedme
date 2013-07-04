@@ -672,12 +672,9 @@ Which (default = s): """)
                     itemlink = '<a href=\"' + item.link + '\">'
                     indexstr += "\n" + itemlink + item.title + "</a>\n"
 
-            # Under the title, add a link to jump to the next entry
-            # if it isn't the last entry.
-            if item != feed.entries[-1] and not skip_links :
-                indexstr += next_item_string % (itemnum+1)
-            else :
-                indexstr += '<br><center>(last story)</center><br>'
+            # Under the title, add a link to jump to the next entry.
+            # If it's the last entry, we'll change it to "[end]" later.
+            indexstr += next_item_string % (itemnum+1)
 
             # Add either the content or the summary:
             if 'summary_detail' in item:
