@@ -76,7 +76,8 @@ else:
         if not os.path.ismount(devicepath) :
             print "Can't mount %s!" % devicepath
             sys.exit(1)
-        urlfiles.append(os.path.join(devicepath, "feeds", "saved-urls"))
+    else: print "Device is already mounted."
+    urlfiles.append(os.path.join(devicepath, "feeds", "saved-urls"))
 
 # Loop over all the url files to get our list of urls:
 for urlfile in urlfiles :
@@ -110,7 +111,7 @@ except :
     print "Couldn't write to RSS file", rssfile, line_sep
     sys.exit(1)
 
-    print >>ofp, """<rss version="0.91">
+print >>ofp, """<rss version="0.91">
 <channel>
   <title>FeedMe URLs</title>
   <description>Saved URLs %s</description>
