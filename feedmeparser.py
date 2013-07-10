@@ -130,7 +130,7 @@ class FeedmeHTMLParser():
         outfilename = os.path.join(self.newdir, self.newname)
         self.outfile = open(outfilename, "w")
         self.outfile.write("""<html>\n<head>
-<meta http-equiv="Content-Type" content="text/html; charset=%s"
+<meta http-equiv="Content-Type" content="text/html; charset=%s">
 <link rel="stylesheet" type="text/css" title="Feeds" href="../../feeds.css"/>
 <title>%s</title>
 </head>
