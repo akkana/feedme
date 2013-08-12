@@ -735,7 +735,11 @@ Which (default = n): """)
         except Exception, e :    # probably an HTTPError, bad URL
             itemnum -= 1
             if verbose :
-                print >>sys.stderr, "Skipping item", item.link.encode('utf-8')
+                print >>sys.stderr, "Skipping item",
+                if 'link' in item :
+                    print item.link.encode('utf-8')
+                else :
+                    print "item has no link! item =", item
                 print >>sys.stderr, "error was", str(e).encode('utf-8')
 
                 print >>sys.stderr, str(sys.exc_info()[0])
