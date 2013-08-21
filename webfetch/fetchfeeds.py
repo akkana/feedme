@@ -8,6 +8,7 @@ import sys, os
 try:
     import android
     is_android = True
+    droid.makeToast("Running on Android!")
 except:
     is_android = False
 
@@ -104,5 +105,16 @@ def fetch_dir_recursive(urldir, outdir):
 
 dirdate = '06-28-Fri'
 baseurl = 'http://shallowsky.com/feeds/' + dirdate
-fetch_dir_recursive(baseurl, '/tmp/newdir')
+if is_android:
+    outdir = '/mnt/sdcard/external_sd/feeds/'
+else:
+    outdir = '/tmp/feeds'
+fetch_dir_recursive(baseurl, outdir)
+
+if is_android:
+    droid.makeToast("Feeds downloaded")
+    droid.vibrate()
+    droid.notify('Feed Fetcher', 'Feeds downloaded to ' + outdir)
+
+print 'Feeds downloaded to ' + outdir
 
