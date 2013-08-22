@@ -3,9 +3,10 @@
 # Make a local RSS file based on a list of URLs,
 # so we can run feedme to collect those URLs.
 #
-# The URLs may be passed in as a POST query,
-# or if there's no query string, we'll try to mount the Android device
-# and collect URLs from a file there and another one locally.
+# The URLs may be passed in as a POST query, if running as a CGI;
+# or if there's no query string (we're running it locally as a script),
+# we'll try to mount the Android device # and collect URLs from a file
+# there and from another one locally.
 
 import os, sys, time, datetime, subprocess
 import urllib2
@@ -50,7 +51,11 @@ if 'xtraurls' in form:
     html_output = True
     formurls = form['xtraurls'].value.strip().split('\n')
     for url in formurls:
-        urls.append(url)
+        # We have to pass xtraurls=none in the case of no URLs,
+        # otherwise 'xtraurls' in form tests False and we have
+        # no way of knowing we're being run from a CGI.
+        if url != 'none':
+            urls.append(url)
 
     html_output = True
     line_sep = '<br>'

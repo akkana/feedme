@@ -24,7 +24,7 @@
 VersionString = "FeedMe 0.9"
 
 import cPickle
-import time  #, datetime
+import time
 import os, sys
 import re
 #import types
@@ -62,6 +62,11 @@ def clean_up(config) :
     now = time.time()
     for dir in os.listdir(feeddir) :
         d = os.path.join(feeddir, dir)
+
+        # Only clean up directories, not files sitting in the feeds dir.
+        if not os.path.isdir(d):
+            continue
+
         try :
             howold = (now - os.path.getctime(d)) / 60 / 60 / 24
             if howold > days :
@@ -892,14 +897,24 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
         statbuf = os.stat(cachefile)
         last_time = statbuf.st_mtime
 
-    logfilename = config.get('DEFAULT', 'logfile')
-    if logfilename :
-        logfilename = sub_tilde(logfilename)
-        # Set up a tee to a log file, and redirect stderr there:
-        print "teeing output to", logfilename
-        stderrsav = sys.stderr
-        outputlog = open(logfilename, "w")
-        sys.stderr = tee(stderrsav, outputlog)
+    # logfilename = config.get('DEFAULT', 'logfile')
+    # if logfilename :
+    #     logfilename = sub_tilde(logfilename)
+
+    # Ignore the config file logfile setting, and log to LOG
+    # inside the newly created feed directory.
+    # Which hasn't been created yet, so we'd better create it here.
+
+    feeddir = sub_tilde(config.get('DEFAULT', 'dir'))
+    if not os.path.exists(feeddir):
+        os.makedirs(feeddir)
+    logfilename = os.path.join(feeddir, time.strftime("%m-%d-%a"), 'LOG')
+
+    #     # Set up a tee to the log file, and redirect stderr there:
+    print "teeing output to", logfilename
+    stderrsav = sys.stderr
+    outputlog = open(logfilename, "w")
+    sys.stderr = tee(stderrsav, outputlog)
 
     try :
         if len(args) == 0 :

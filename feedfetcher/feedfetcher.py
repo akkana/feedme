@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import urllib2
+import urllib, urllib2
 
 import BeautifulSoup
 # http://www.crummy.com/software/BeautifulSoup/bs3/documentation.html
@@ -32,10 +32,15 @@ def fetch_url_to(url, outfile):
 
     print "Fetching", url, "to", outfile
 
-    # Read the URL
-    infile = urllib2.urlopen(url)
-    contents = infile.read()
-    infile.close()
+    # Read the URL. It may fail: not all referenced links
+    # are always successfully downloaded.
+    try:
+        infile = urllib2.urlopen(url)
+        contents = infile.read()
+        infile.close()
+    except urllib2.HTTPError:
+        perror("Couldn't fetch " + url)
+        return
 
     # Copy to the output file
     outf = open(outfile, 'w')
@@ -106,10 +111,17 @@ def fetch_dir_recursive(urldir, outdir):
     if not urldir.endswith('/'):
         urldir += '/'
 
-    f = urllib2.urlopen(urldir)
-    dirpage = f.read()
-    # dirlines = dirpage.split('\n')
-    f.close()
+    try:
+        f = urllib2.urlopen(urldir)
+        dirpage = f.read()
+        # dirlines = dirpage.split('\n')
+        f.close()
+    except urllib2.HTTPError:
+        errstr = "Couldn't find %s on server" % os.path.basename(urldir)
+        perror(errstr)
+        if is_android:
+            droid.vibrate()
+            droid.notify(errstr)
 
     # Parse the directory contents to get the list of feeds
     # It's in a table tag, where valid entries will look like:
@@ -135,21 +147,91 @@ def fetch_dir_recursive(urldir, outdir):
     print
 
     for subdir in feeddirs:
+        # Don't fetch the log file
+        if subdir == 'LOG':
+            continue
         fetch_feed_dir(urldir + subdir, os.path.join(outdir, subdir))
 
-dirdate = time.strftime("%m-%d-%a"))
-baseurl = 'http://shallowsky.com/feeds/' + dirdate
-if is_android:
-    outdir = '/mnt/sdcard/external_sd/feeds/'
-else:
-    outdir = '/tmp/feeds'
-outdir = os.path.join(outdir, dirdate)
-fetch_dir_recursive(baseurl, outdir)
+def run_feed():
+    # Hit the CGI URL on the server to tell it to run feedme.
+    # First build up the URL with any extra URLs we've collected:
+    url = 'http://localhost/feeds/urlrss.cgi?xtraurls='
+    if is_android:
+        savedpath = '/mnt/sdcard/external_sd/feeds/saved-urls'
+    else:
+        savedpath = '/tmp/saved-urls'
+    saved_urls = []
+    try:
+        saved = open(savedpath)
+        for line in saved.read():
+            saved_urls.append(urllib.urlencode(line.strip()))
+        saved.close()
+    except:
+        print 'No saved urls'
 
-if is_android:
-    droid.makeToast("Feeds downloaded")
-    droid.vibrate()
-    droid.notify('Feed Fetcher', 'Feeds downloaded to ' + outdir)
+    if saved_urls:
+        #url += '?xtraurls=' + '%0a'.join(saved_urls)
+        url += '%0a'.join(saved_urls)
+    else:
+        url += "none"
 
-print 'Feeds downloaded to ' + outdir
+    print 'Requesting URL:', url
 
+    # Now hit the URL. We don't actually care about what it returns,
+    # though we do care if it throws an error.
+    try:
+        infile = urllib2.urlopen(url)
+        contents = infile.read()
+        infile.close()
+        print "Read:"
+        print contents
+    except Exception, e:
+        print "Couldn't access server: " + str(e)
+        return None
+
+    # Now, supposedly, feedme is running on the server.
+    dirdate = time.strftime("%m-%d-%a")
+    return dirdate
+
+def wait_for_feeds(baseurl):
+    # When the server is done running feedme, it should create a file
+    # inside the date directory called LOG.
+    # So look for that:
+    logurl = baseurl + 'LOG'
+    print "Waiting for LOG to appear at", logurl, '...'
+    while True:
+        try:
+            logfile = urllib2.urlopen(logurl)
+            logfile.close()
+            print "Got it!"
+            return
+        except urllib2.HTTPError, e:
+            if e.code != 404:
+                print "\nOops, got some HTTP error other than a 404"
+                raise(e)
+        print '.',
+        sys.stdout.flush()
+        time.sleep(5)
+
+def download_feeds(baseurl, dirdate):
+    if is_android:
+        outdir = '/mnt/sdcard/external_sd/feeds/'
+    else:
+        outdir = '/tmp/feeds'
+    outdir = os.path.join(outdir, dirdate)
+    fetch_dir_recursive(baseurl, outdir)
+
+    if is_android:
+        droid.makeToast("Feeds downloaded")
+        droid.vibrate()
+        droid.notify('Feed Fetcher', 'Feeds downloaded to ' + outdir)
+
+    print 'Feeds downloaded to ' + outdir
+
+if __name__ == '__main__':
+    dirdate = run_feed()
+    if dirdate:
+        #baseurl = 'http://shallowsky.com/feeds/' + dirdate + '/'
+        baseurl = 'http://localhost/feeds/' + dirdate + '/'
+        wait_for_feeds(baseurl)
+        download_feeds(baseurl, dirdate)
