@@ -901,16 +901,16 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
     # if logfilename :
     #     logfilename = sub_tilde(logfilename)
 
-    # Ignore the config file logfile setting, and log to LOG
-    # inside the newly created feed directory.
-    # Which hasn't been created yet, so we'd better create it here.
+    # Ignore the config file logfile setting, and log to feeds/LOG.
+    # When we're finished, we'll move the file to inside the newly
+    # created feed directory.
 
     feeddir = sub_tilde(config.get('DEFAULT', 'dir'))
     if not os.path.exists(feeddir):
         os.makedirs(feeddir)
-    logfilename = os.path.join(feeddir, time.strftime("%m-%d-%a"), 'LOG')
+    logfilename = os.path.join(feeddir, 'LOG')
 
-    #     # Set up a tee to the log file, and redirect stderr there:
+    # Set up a tee to the log file, and redirect stderr there:
     print "teeing output to", logfilename
     stderrsav = sys.stderr
     outputlog = open(logfilename, "w")
@@ -957,6 +957,10 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
     if msgs :
         print >>sys.stderr, "\n====== Errors ====="
         print >>sys.stderr, msgs.encode('utf-8', 'backslashreplace')
+
+    # Now we're done. It's time to move the log file into its final place.
+    os.rename(logfilename,
+              os.path.join(feeddir, time.strftime("%m-%d-%a"), 'LOG'))
 
     # Clean up old directories:
     clean_up(config)
