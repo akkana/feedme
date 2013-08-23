@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+# Initiate feedme on a remote web server;
+# wait for it to finish, then download the feeds to the local filesystem.
+# Can run either on a local Linux machine or on Android under SL4A.
+
 import urllib, urllib2
 
 import BeautifulSoup
@@ -8,6 +12,23 @@ import HTMLParser  # Needed for the exceptions used by BeautifulSoup
 
 import sys, os
 import time
+
+############# CONFIGURATION ########################################
+
+# Put your server base URL here, the dir that will contain
+# both feedme and feeds directories. It must end with a slash.
+# serverurlurl = 'http://shallowsky.com/'
+serverurl = 'http://localhost/'
+
+# Where to download feeds if running locally.
+# This may include ~ for home directory.
+localdir = '~/feeds'
+
+# Where to download feeds if running on Android.
+# Should be an absolute path, probably starting with /mnd/sdcard.
+android_localdir = '/mnt/sdcard/external_sd/feeds/'
+
+############# END CONFIGURATION ####################################
 
 # Are we on Android? Make it optional, for easier testing.
 try:
@@ -152,10 +173,10 @@ def fetch_dir_recursive(urldir, outdir):
             continue
         fetch_feed_dir(urldir + subdir, os.path.join(outdir, subdir))
 
-def run_feed(outdir):
+def run_feed(serverurl, outdir):
     # Hit the CGI URL on the server to tell it to run feedme.
     # First build up the URL with any extra URLs we've collected:
-    url = os.path.join('http://localhost/feedme/urlrss.cgi?xtraurls=')
+    url = os.path.join(serverurl + 'feedme/urlrss.cgi?xtraurls=')
     savedpath = os.path.join(outdir, 'saved-urls')
     saved_urls = []
     try:
@@ -177,19 +198,14 @@ def run_feed(outdir):
 
     # Now hit the URL. We don't actually care about what it returns,
     # though we do care if it throws an error.
-    try:
-        infile = urllib2.urlopen(url)
-        contents = infile.read()
-        infile.close()
-        print "Read:"
-        print contents
-    except Exception, e:
-        print "Couldn't access server: " + str(e)
-        return None
+    # This may throw various HTTP errors.
+    infile = urllib2.urlopen(url)
+    contents = infile.read()
+    infile.close()
+    print "Read:"
+    print contents
 
     # Now, supposedly, feedme is running on the server.
-    dirdate = time.strftime("%m-%d-%a")
-    return dirdate
 
 def wait_for_feeds(baseurl):
     # When the server is done running feedme, it should create a file
@@ -223,11 +239,20 @@ def download_feeds(baseurl, outdir):
 
 if __name__ == '__main__':
     if is_android:
-        outdir = '/mnt/sdcard/external_sd/feeds/'
+        outdir = android_localdir
     else:
-        outdir = '/tmp/feeds'
-    dirdate = run_feed(outdir)
-    if dirdate:
-        baseurl = 'http://localhost/feeds/' + dirdate + '/'
+        outdir = os.path.expanduser(localdir)
+    dirdate = time.strftime("%m-%d-%a")
+
+    try:
+        run_feed(serverurl, outdir)
+
+        baseurl = serverurl + 'feeds/' + dirdate + '/'
+
         wait_for_feeds(baseurl)
         download_feeds(baseurl, os.path.join(outdir, dirdate))
+
+    except KeyboardInterrupt:
+        print "KeyboardInterrupt"
+    except urllib2.URLError, e:
+        print "Couldn't access server: " + str(e)
