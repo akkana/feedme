@@ -1,0 +1,27 @@
+
+Documentation of this ridiculously complex procedure:
+
+On the web server, create /var/www/feedme and /var/www/feeds.
+Then must both be writable by the web server's user (probably www-data).
+
+Create /var/www/feedme/.config with an appropriate config file.
+
+Copy urlrss to /var/www/feedme/urlrss.cgi and make sure it's executable.
+
+Install SL4A and Python for Android on your Android device:
+- Download both sl4a_r6.apk and PythonForAndroid_r4.apk
+- Install sl4a from the apk
+- Find SL4A in Applications and run it. It will say "no matches found",
+  but that's okay: the important thing is that it creates the directory
+  /sdcard/sl4a/scripts, without which PythonForAndroid will fail to install.
+- Install PythonForAndroid from the apk
+- Find Python for Android in Applications and run it. Tap Install.
+- Go back to the home screen and run SL4A again, and now you should
+  see scripts.
+
+Edit feedfetcher.py to point to your server.
+Then copy feedfetcher.py into sl4a/scripts/ on your Android device.
+
+Optional: Make a home screen shortcut for feedfetcher:
+- Hit the add icon button ("+") on the main screen.
+- Shortcut-->Scripts-->Select script-->Select foreground or background
