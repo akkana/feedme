@@ -152,19 +152,17 @@ def fetch_dir_recursive(urldir, outdir):
             continue
         fetch_feed_dir(urldir + subdir, os.path.join(outdir, subdir))
 
-def run_feed():
+def run_feed(outdir):
     # Hit the CGI URL on the server to tell it to run feedme.
     # First build up the URL with any extra URLs we've collected:
-    url = 'http://localhost/feeds/urlrss.cgi?xtraurls='
-    if is_android:
-        savedpath = '/mnt/sdcard/external_sd/feeds/saved-urls'
-    else:
-        savedpath = '/tmp/saved-urls'
+    url = os.path.join('http://localhost/feedme/urlrss.cgi?xtraurls=')
+    savedpath = os.path.join(outdir, 'saved-urls')
     saved_urls = []
     try:
         saved = open(savedpath)
-        for line in saved.read():
-            saved_urls.append(urllib.urlencode(line.strip()))
+        for line in saved:
+            print line,
+            saved_urls.append(urllib.quote_plus(line.strip()))
         saved.close()
     except:
         print 'No saved urls'
@@ -213,12 +211,7 @@ def wait_for_feeds(baseurl):
         sys.stdout.flush()
         time.sleep(5)
 
-def download_feeds(baseurl, dirdate):
-    if is_android:
-        outdir = '/mnt/sdcard/external_sd/feeds/'
-    else:
-        outdir = '/tmp/feeds'
-    outdir = os.path.join(outdir, dirdate)
+def download_feeds(baseurl, outdir):
     fetch_dir_recursive(baseurl, outdir)
 
     if is_android:
@@ -229,9 +222,12 @@ def download_feeds(baseurl, dirdate):
     print 'Feeds downloaded to ' + outdir
 
 if __name__ == '__main__':
-    dirdate = run_feed()
+    if is_android:
+        outdir = '/mnt/sdcard/external_sd/feeds/'
+    else:
+        outdir = '/tmp/feeds'
+    dirdate = run_feed(outdir)
     if dirdate:
-        #baseurl = 'http://shallowsky.com/feeds/' + dirdate + '/'
         baseurl = 'http://localhost/feeds/' + dirdate + '/'
         wait_for_feeds(baseurl)
-        download_feeds(baseurl, dirdate)
+        download_feeds(baseurl, os.path.join(outdir, dirdate))

@@ -8,7 +8,9 @@
 # we'll try to mount the Android device # and collect URLs from a file
 # there and from another one locally.
 
-import os, sys, time, datetime, subprocess
+import os, sys
+import time, datetime
+import subprocess
 import urllib2
 import xml.sax.saxutils
 
@@ -27,7 +29,6 @@ else :
 urlfiles = [ os.path.expanduser("~/feeds/localurls") ]
 
 # Where to create the RSS file:
-#rssfile = os.path.join(home, ".plucker/html/xtraurls.rss")
 rssfile = os.path.expanduser("~/feeds/xtraurls.rss")
 
 # Where to save an HTML-format archive of the URLs.
@@ -58,6 +59,19 @@ if 'xtraurls' in form:
             urls.append(url)
 
     html_output = True
+
+    # Don't want to rely on config/cache files in the homedir of
+    # whatever user might be running the web server.
+    # Instead, try to force HOME:
+    os.environ['HOME'] = '/var/www/feedme'
+
+    # Re-expand urlfiles since we've changed HOME.
+    # XXX It's super confusing that this one needs to change
+    # but the other two we set above, don't.
+    # Need to come up with sensible locations that work
+    # both for local and CGI use.
+    urlfiles = [ os.path.expanduser("~/localurls") ]
+
     line_sep = '<br>'
     print '''Content-type: text/html
 
@@ -177,6 +191,23 @@ if urls :
     print line_sep
 
 if html_output :
+    # If we're being run as a CGI, it's because someone wants us
+    # to kick off a feedme process. So do so:
+    # Don't need to pass env= in the next call,
+    # because changing os.environ earlier already changed the environment
+    # that will be passed through to subprocesses.
+
+    # We need to throw away feedme's output (but it should be captured
+    # in feedme's log file anyway) otherwise the web server won't
+    # deliver any page content until feedme is completely done
+    # (or it times out).
+    devnull = open(os.devnull, 'wb')
+
+    # Start feedme running in the background, so we can return immediately.
+    subprocess.Popen(["/var/www/feedme/feedme"],
+                     stdout=devnull, stderr=devnull)
+
     print '''</ul>
 </body>
 </html>'''
+
