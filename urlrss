@@ -2,6 +2,8 @@
 
 # Make a local RSS file based on a list of URLs,
 # so we can run feedme to collect those URLs.
+# Can be run locally as a script, or can be installed on a web server
+# as a CGI (see feedfetcher for details on how to set that up).
 #
 # The URLs may be passed in as a POST query, if running as a CGI;
 # or if there's no query string (we're running it locally as a script),
@@ -118,77 +120,79 @@ if not urls :
     print "No saved URLs", line_sep
     if os.path.exists(rssfile) :
         os.unlink(rssfile)
-    sys.exit(0)
 
-#
-# We have URLs to save. So open the output files.
-#
+else:
+    #
+    # We have URLs to save. So open the output files.
+    #
 
-try :
-    ofp = open(rssfile, "w")
-except :
-    print "Couldn't write to RSS file", rssfile, line_sep
-    sys.exit(1)
+    try :
+        ofp = open(rssfile, "w")
+    except :
+        print "Couldn't write to RSS file", rssfile, line_sep
+        sys.exit(1)
 
-print >>ofp, """<rss version="0.91">
+    print >>ofp, """<rss version="0.91">
 <channel>
   <title>FeedMe URLs</title>
   <description>Saved URLs %s</description>
   <language>en</language>""" % datetime.datetime.now().ctime()
 
-try :
-    archivefp = open(urlarchive, "a")
-    print >>archivefp, "\n<h4>Feedme URLs %s</h4>" \
-        % datetime.datetime.now().ctime()
-except :
-    print "Couldn't open archive file", urlarchive, line_sep
-    archivefp = None
-
-for url in urls :
-    # Follow it and see if it's a redirect -- we want the real, final url.
     try :
-        print url, "...",
-        sys.stdout.flush()
-        urlobj = urllib2.urlopen(url, timeout=60)
-        newurl = urlobj.geturl()
-        urlobj.close()
-        if newurl != url :
-            print "redirected to", newurl, line_sep
-            url = newurl
-        else :
-            print ".", line_sep
+        archivefp = open(urlarchive, "a")
+        print >>archivefp, "\n<h4>Feedme URLs %s</h4>" \
+            % datetime.datetime.now().ctime()
     except :
-        pass
+        print "Couldn't open archive file", urlarchive, line_sep
+        archivefp = None
 
-    # The XML parser we use in feedme will sometimes barf on ampersands:
-    # "xml.sax._exceptions.SAXException: Read failed (no details available)"
-    # and not even a stack trace to give a line number.
-    # Try to avoid that by escaping everything (and hope that
-    # doesn't break link following):
-    escaped_url = xml.sax.saxutils.escape(url)
+    for url in urls :
+        # Follow it and see if it's a redirect -- we want the real, final url.
+        try :
+            print url, "...",
+            sys.stdout.flush()
+            urlobj = urllib2.urlopen(url, timeout=60)
+            newurl = urlobj.geturl()
+            urlobj.close()
+            if newurl != url :
+                print "redirected to", newurl, line_sep
+                url = newurl
+            else :
+                print ".", line_sep
+        except :
+            pass
 
-    # Save it in the RSS file:
-    print >>ofp, """
+        # The XML parser we use in feedme will sometimes barf on ampersands:
+        # "xml.sax._exceptions.SAXException: Read failed (no details available)"
+        # and not even a stack trace to give a line number.
+        # Try to avoid that by escaping everything (and hope that
+        # doesn't break link following):
+        escaped_url = xml.sax.saxutils.escape(url)
+
+        # Save it in the RSS file:
+        print >>ofp, """
 <item>
   <title>%s</title>
   <description>%s</description>
   <link>%s</link>
 </item>""" % (escaped_url, escaped_url, escaped_url)
 
-    # Save an HTML copy to the archive file:
-    if archivefp :
-        print >>archivefp, "<a href='%s'>%s</a>" % (url, url)
+        # Save an HTML copy to the archive file:
+        if archivefp :
+            print >>archivefp, "<a href='%s'>%s</a>" % (url, url)
 
-print >>ofp, """</channel>
+    print >>ofp, """</channel>
 </rss>"""
 
-ofp.close()
-if archivefp :
-    archivefp.close()
+    ofp.close()
+    if archivefp :
+        archivefp.close()
 
-if urls :
-    print "Saved %s urls to %s and %s" % (len(urls), rssfile, urlarchive)
-    print line_sep
+    if urls :
+        print "Saved %s urls to %s and %s" % (len(urls), rssfile, urlarchive)
+        print line_sep
+
+# Done making the Xtra RSS file (if any).
 
 if html_output :
     # If we're being run as a CGI, it's because someone wants us
@@ -204,8 +208,10 @@ if html_output :
     devnull = open(os.devnull, 'wb')
 
     # Start feedme running in the background, so we can return immediately.
+    print "<p>Trying to run feedme ..."
     subprocess.Popen(["/var/www/feedme/feedme"],
                      stdout=devnull, stderr=devnull)
+    print "<p>Feedme should be running now."
 
     print '''</ul>
 </body>
