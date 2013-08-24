@@ -17,7 +17,6 @@ import time
 
 # Put your server base URL here, the dir that will contain
 # both feedme and feeds directories. It must end with a slash.
-# serverurlurl = 'http://shallowsky.com/'
 serverurl = 'http://localhost/'
 
 # Where to download feeds if running locally.
@@ -207,25 +206,30 @@ def run_feed(serverurl, outdir):
 
     # Now, supposedly, feedme is running on the server.
 
+def url_exists(url):
+    '''Does the URL exist? Return True or False.'''
+    try:
+
+        urlfile = urllib2.urlopen(url)
+        urlfile.close()
+        print "Got it!"
+        return True
+    except urllib2.HTTPError, e:
+        if e.code == 404:
+            return False
+        print "\nOops, got some HTTP error other than a 404"
+        raise(e)
+
 def wait_for_feeds(baseurl):
     # When the server is done running feedme, it should create a file
     # inside the date directory called LOG.
     # So look for that:
     logurl = baseurl + 'LOG'
     print "Waiting for LOG to appear at", logurl, '...'
-    while True:
-        try:
-            logfile = urllib2.urlopen(logurl)
-            logfile.close()
-            print "Got it!"
-            return
-        except urllib2.HTTPError, e:
-            if e.code != 404:
-                print "\nOops, got some HTTP error other than a 404"
-                raise(e)
+    while not url_exists(logurl):
         print '.',
         sys.stdout.flush()
-        time.sleep(5)
+        time.sleep(10)
 
 def download_feeds(baseurl, outdir):
     fetch_dir_recursive(baseurl, outdir)
@@ -244,10 +248,13 @@ if __name__ == '__main__':
         outdir = os.path.expanduser(localdir)
     dirdate = time.strftime("%m-%d-%a")
 
+    baseurl = serverurl + 'feeds/' + dirdate + '/'
     try:
-        run_feed(serverurl, outdir)
-
-        baseurl = serverurl + 'feeds/' + dirdate + '/'
+        # Only initiate a feed if there isn't already a log file there.
+        # We might have aborted some earlier attempt, or even kicked
+        # off feeds from some other machine, but now need to download feeds.
+        if not url_exists(baseurl + 'LOG'):
+            run_feed(serverurl, outdir)
 
         wait_for_feeds(baseurl)
         download_feeds(baseurl, os.path.join(outdir, dirdate))
