@@ -1,12 +1,25 @@
 
-Documentation of this ridiculously complex procedure:
+How to set up feedme so that it runs remotely on a web server,
+triggered from a laptop or android device:
 
-On the web server, create /var/www/feedme and /var/www/feeds.
-Then must both be writable by the web server's user (probably www-data).
+On the web server, create $SERVERDIR/feedme and $SERVERDIR/feeds
+($SERVERDIR will probably be /var/www/ for simple setups).
+They must both be writable by the web server's user (probably www-data).
+Once feedmeparser.py has been created, $SERVERDIR/feedme probably
+no longer needs to be writable, but $SERVERDIR/feeds and
+/$SERVERDIR/feedme/.cache/feedme still will need to remain
+writable by www-data forever.
 
-Create /var/www/feedme/.config with an appropriate config file.
+When you copy over your .config/feedme/feedme.conf, make sure
+that dir = points to a directory writable by the web server.
+If you were using something like ~/feeds for your own homedir,
+that may cause feedme not to start (and there will be no obvious
+error message in that case, since it will have no place to
+log the error).
 
-Copy urlrss to /var/www/feedme/urlrss.cgi and make sure it's executable.
+Create $SERVERDIR/feedme/.config with an appropriate config file.
+
+Copy urlrss to $SERVERDIR/feedme/urlrss.cgi and make sure it's executable.
 
 Install SL4A and Python for Android on your Android device:
 - Download both sl4a_r6.apk and PythonForAndroid_r4.apk
@@ -21,6 +34,7 @@ Install SL4A and Python for Android on your Android device:
 
 Edit feedfetcher.py to point to your server.
 Then copy feedfetcher.py into sl4a/scripts/ on your Android device.
+(Or use it on a laptop or desktop.)
 
 Optional: Make a home screen shortcut for feedfetcher:
 - Hit the add icon button ("+") on the main screen.
