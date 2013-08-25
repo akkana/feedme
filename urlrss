@@ -27,15 +27,32 @@ if len(sys.argv) > 1 :
 else :
     devicepath = "/droidsd"
 
-# Where to look for the saved URL files:
-urlfiles = [ os.path.expanduser("~/feeds/localurls") ]
+# Where to look for the saved URL files.
+# This will be tilde-expanded after we've ascertained whether
+# we're running from a CGI.
+urlfiles = [ "~/feeds/localurls" ]
 
-# Where to create the RSS file:
-rssfile = os.path.expanduser("~/feeds/xtraurls.rss")
+# Where to create the RSS file.
+# Will be tilde-expanded.
+rssfile = "~/feeds/xtraurls.rss"
 
 # Where to save an HTML-format archive of the URLs.
 # We'll append to what's already there.
-urlarchive = os.path.expanduser("~/.cache/feedme/xtraurls.html")
+urlarchive = "~/.cache/feedme/xtraurls.html"
+
+# The home dir of the server -- under which we should find feeds and feedme.
+#serverhome = '/var/www'
+serverhome = '/public/shallowsky/'
+
+# The path to feedme on the web server, as seen from the www-data user.
+# If you've set serverhome you can probably leave this alone.
+feedme_exec = serverhome + 'feedme/feedme'
+
+# Optional: a file path on the server to log output to.
+# This will only be used in CGI mode.
+# Set to None for no debugging.
+# If you've set serverhome you can probably leave this alone.
+debuglog = serverhome + 'feeds/log-urlrss'
 
 ##############################
 # END CONFIGURATION
@@ -52,6 +69,8 @@ line_sep = ''
 form = cgi.FieldStorage()
 if 'xtraurls' in form:
     html_output = True
+    if debuglog:
+        debuglog = open(debuglog, 'w')
     formurls = form['xtraurls'].value.strip().split('\n')
     for url in formurls:
         # We have to pass xtraurls=none in the case of no URLs,
@@ -65,14 +84,24 @@ if 'xtraurls' in form:
     # Don't want to rely on config/cache files in the homedir of
     # whatever user might be running the web server.
     # Instead, try to force HOME:
-    os.environ['HOME'] = '/var/www/feedme'
+    os.environ['HOME'] = serverhome + 'feedme'
 
-    # Re-expand urlfiles since we've changed HOME.
-    # XXX It's super confusing that this one needs to change
-    # but the other two we set above, don't.
-    # Need to come up with sensible locations that work
-    # both for local and CGI use.
-    urlfiles = [ os.path.expanduser("~/localurls") ]
+    # Tilde-expand our various configuration variables,
+    # now that we know HOME is set appropriately.
+    urlfiles = map(os.path.expanduser, urlfiles)
+    rssfile = os.path.expanduser(rssfile)
+    urlarchive = os.path.expanduser(urlarchive)
+
+    if debuglog:
+        # and redirect stderr to there:
+        sys.stderr = debuglog
+
+        print >>debuglog, "devicepath:", devicepath
+        print >>debuglog, "urlfiles:", urlfiles
+        print >>debuglog, "rssfile:", rssfile
+        print >>debuglog, "urlarchive:", urlarchive
+        print >>debuglog, "feedme exec:", feedme_exec
+        print >>debuglog, 'HOME:', os.environ['HOME']
 
     line_sep = '<br>'
     print '''Content-type: text/html
@@ -104,7 +133,7 @@ else:
 for urlfile in urlfiles :
     try :
         ifp = open(urlfile)
-        print "Reading URLs from", urlfile, line_sep
+        print >>sys.stderr, "Reading URLs from", urlfile, line_sep
     except :
         continue
 
@@ -117,7 +146,7 @@ for urlfile in urlfiles :
     os.unlink(urlfile)
 
 if not urls :
-    print "No saved URLs", line_sep
+    print >>sys.stderr, "No saved URLs", line_sep
     if os.path.exists(rssfile) :
         os.unlink(rssfile)
 
@@ -129,7 +158,7 @@ else:
     try :
         ofp = open(rssfile, "w")
     except :
-        print "Couldn't write to RSS file", rssfile, line_sep
+        print >>sys.stderr, "Couldn't write to RSS file", rssfile, line_sep
         sys.exit(1)
 
     print >>ofp, """<rss version="0.91">
@@ -143,22 +172,22 @@ else:
         print >>archivefp, "\n<h4>Feedme URLs %s</h4>" \
             % datetime.datetime.now().ctime()
     except :
-        print "Couldn't open archive file", urlarchive, line_sep
+        print >>sys.stderr, "Couldn't open archive file", urlarchive, line_sep
         archivefp = None
 
     for url in urls :
         # Follow it and see if it's a redirect -- we want the real, final url.
         try :
-            print url, "...",
+            print >>sys.stderr, url, "...",
             sys.stdout.flush()
             urlobj = urllib2.urlopen(url, timeout=60)
             newurl = urlobj.geturl()
             urlobj.close()
             if newurl != url :
-                print "redirected to", newurl, line_sep
+                print >>sys.stderr, "redirected to", newurl, line_sep
                 url = newurl
             else :
-                print ".", line_sep
+                print  >>sys.stderr,".", line_sep
         except :
             pass
 
@@ -189,8 +218,8 @@ else:
         archivefp.close()
 
     if urls :
-        print "Saved %s urls to %s and %s" % (len(urls), rssfile, urlarchive)
-        print line_sep
+        print >>sys.stderr, "Saved %s urls to %s and %s" % (len(urls),
+                                                            rssfile, urlarchive)
 
 # Done making the Xtra RSS file (if any).
 
@@ -208,10 +237,10 @@ if html_output :
     devnull = open(os.devnull, 'wb')
 
     # Start feedme running in the background, so we can return immediately.
-    print "<p>Trying to run feedme ..."
-    subprocess.Popen(["/var/www/feedme/feedme"],
+    print >>sys.stderr, "<p>Trying to run %s ..." % feedme_exec
+    subprocess.Popen([feedme_exec],
                      stdout=devnull, stderr=devnull)
-    print "<p>Feedme should be running now."
+    print >>sys.stderr, "<p>Feedme should be running now."
 
     print '''</ul>
 </body>
