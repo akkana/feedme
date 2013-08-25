@@ -47,7 +47,7 @@ def perror(s):
 
 def fetch_url_to(url, outfile):
     if os.path.exists(outfile):
-        print outfile, "already exists -- not re-fetching"
+        print os.path.basename(outfile), "already exists -- not re-fetching"
         return
 
     print "Fetching", url, "to", outfile
@@ -59,7 +59,8 @@ def fetch_url_to(url, outfile):
         contents = infile.read()
         infile.close()
     except urllib2.HTTPError:
-        perror("Couldn't fetch " + url)
+        print("Couldn't fetch " + url)
+        # Don't do perror because droid.makeToast() delays way too long.
         return
 
     # Copy to the output file
@@ -98,6 +99,11 @@ def fetch_url_to(url, outfile):
         if not_a_local_link(link):
             continue
 
+        # We see a lot of "already exists -- not re-fetching" even
+        # on html pages (it makes sense on images) -- why?
+        # Check whether it's this:
+        if os.path.join(outdir, link) == outfile:
+            print outfile + ' has a recursive link to itself'
         fetch_url_to(dirurl + link, os.path.join(outdir, link))
 
     for tag in soup.findAll('img'):
@@ -108,7 +114,6 @@ def fetch_url_to(url, outfile):
         except KeyError:
             continue
         if not_a_local_link(link):
-            #print "Not a local link:", link
             continue
         fetch_url_to(dirurl + link, os.path.join(outdir, link))
 
