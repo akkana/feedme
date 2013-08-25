@@ -41,8 +41,7 @@ rssfile = "~/feeds/xtraurls.rss"
 urlarchive = "~/.cache/feedme/xtraurls.html"
 
 # The home dir of the server -- under which we should find feeds and feedme.
-#serverhome = '/var/www'
-serverhome = '/public/shallowsky/'
+serverhome = '/var/www'
 
 # The path to feedme on the web server, as seen from the www-data user.
 # If you've set serverhome you can probably leave this alone.
