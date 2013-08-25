@@ -903,7 +903,7 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
     # Set up a tee to the log file, and redirect stderr there:
     print "teeing output to", logfilename
     stderrsav = sys.stderr
-    outputlog = open(logfilename, "w")
+    outputlog = open(logfilename, "w", buffering=1)
     sys.stderr = tee(stderrsav, outputlog)
 
     try :
