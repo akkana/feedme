@@ -35,7 +35,7 @@ try:
     print "Running on Android"
     is_android = True
     droid = android.Android()
-    droid.makeToast("Running on Android!")
+    #droid.makeToast("Running on Android!")
 except ImportError:
     print "Not running on Android"
     is_android = False
@@ -59,7 +59,7 @@ def fetch_url_to(url, outfile):
         contents = infile.read()
         infile.close()
     except urllib2.HTTPError:
-        print("Couldn't fetch " + url)
+        print "Couldn't fetch " + url
         # Don't do perror because droid.makeToast() delays way too long.
         return
 
@@ -132,7 +132,9 @@ def fetch_feed_dir(dirurl, outdir):
     index = fetch_url_to(dirurl + 'index.html',
                          os.path.join(outdir, 'index.html'))
 
-def fetch_dir_recursive(urldir, outdir):
+def parse_directory_page(urldir, outdir):
+    '''Parse a directory page from the server, returning a list of subdirs.
+    '''
     if not urldir.endswith('/'):
         urldir += '/'
 
@@ -167,6 +169,11 @@ def fetch_dir_recursive(urldir, outdir):
         if link[0] != '?' and link[0] != '/':
             feeddirs.append(link)
 
+    return feeddirs
+
+def fetch_feeds_dir_recursive(urldir, outdir):
+    feeddirs = parse_directory_page(urldir, outdir):
+
     # now feeddirs[] should contain the subdirs we want to fetch.
     print "Will try to fetch feed dirs:", feeddirs
     print
@@ -189,6 +196,11 @@ def run_feed(serverurl, outdir):
             print line,
             saved_urls.append(urllib.quote_plus(line.strip()))
         saved.close()
+        # Now rename the saved file so we won't get those urls again.
+        bakpath = savedpath + '.bak'
+        if os.path.exists(bakpath) :
+            os.unlink(bakpath)
+        os.rename(savedpath, bakpath)
     except:
         print 'No saved urls'
 
@@ -231,13 +243,24 @@ def wait_for_feeds(baseurl):
     # So look for that:
     logurl = baseurl + 'LOG'
     print "Waiting for LOG to appear at", logurl, '...'
+    save_feeddirs = []
     while not url_exists(logurl):
         print '.',
         sys.stdout.flush()
+
+        # Check for new directories appearing in the feeds dir,
+        # and print them out as they appear.
+        feeddirs = parse_directory_page(urldir, outdir):
+        if len(feeddirs) != len(save_feeddirs) :
+            if feeddirs != save_feeddirs :
+                # Find the difference -- the new one that has appeared
+                for newfeed in set(feeddirs) - set(save_feeddirs) :
+                    print newfeed,
+
         time.sleep(10)
 
 def download_feeds(baseurl, outdir):
-    fetch_dir_recursive(baseurl, outdir)
+    fetch_feeds_dir_recursive(baseurl, outdir)
 
     if is_android:
         droid.makeToast("Feeds downloaded")
