@@ -256,6 +256,7 @@ def wait_for_feeds(baseurl):
                 # Find the difference -- the new one that has appeared
                 for newfeed in set(feeddirs) - set(save_feeddirs) :
                     print newfeed,
+                save_feeddirs = feeddirs
 
         time.sleep(10)
 
