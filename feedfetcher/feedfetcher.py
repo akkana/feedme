@@ -172,7 +172,7 @@ def parse_directory_page(urldir, outdir):
     return feeddirs
 
 def fetch_feeds_dir_recursive(urldir, outdir):
-    feeddirs = parse_directory_page(urldir, outdir):
+    feeddirs = parse_directory_page(urldir, outdir)
 
     # now feeddirs[] should contain the subdirs we want to fetch.
     print "Will try to fetch feed dirs:", feeddirs
@@ -225,14 +225,15 @@ def run_feed(serverurl, outdir):
 
 def url_exists(url):
     '''Does the URL exist? Return True or False.'''
+    print "Checking whether", url, "exists"
     try:
-
         urlfile = urllib2.urlopen(url)
         urlfile.close()
         print "Got it!"
         return True
     except urllib2.HTTPError, e:
         if e.code == 404:
+            print "It was a 404"
             return False
         print "\nOops, got some HTTP error other than a 404"
         raise(e)
@@ -250,7 +251,7 @@ def wait_for_feeds(baseurl):
 
         # Check for new directories appearing in the feeds dir,
         # and print them out as they appear.
-        feeddirs = parse_directory_page(urldir, outdir):
+        feeddirs = parse_directory_page(baseurl, outdir)
         if len(feeddirs) != len(save_feeddirs) :
             if feeddirs != save_feeddirs :
                 # Find the difference -- the new one that has appeared
@@ -283,7 +284,13 @@ if __name__ == '__main__':
         # We might have aborted some earlier attempt, or even kicked
         # off feeds from some other machine, but now need to download feeds.
         if not url_exists(baseurl + 'LOG'):
+            print "Running feeds from url", serverurl
             run_feed(serverurl, outdir)
+
+            # This isn't really right either, since if the feed
+            # has finished, the LOG file won't be there. We also
+            # should check whether there are any subdirs with a
+            # LOG file inside them.
 
         wait_for_feeds(baseurl)
         download_feeds(baseurl, os.path.join(outdir, dirdate))
