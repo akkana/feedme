@@ -131,9 +131,11 @@ def fetch_feed_dir(dirurl, outdir):
 
     index = fetch_url_to(dirurl + 'index.html',
                          os.path.join(outdir, 'index.html'))
-
-def parse_directory_page(urldir, outdir):
+    
+def parse_directory_page(urldir):
     '''Parse a directory page from the server, returning a list of subdirs.
+       Return None implies there was a problem reaching the urldir.
+       Return of [] means the urldir was there, but contains no subdirs.
     '''
     if not urldir.endswith('/'):
         urldir += '/'
@@ -144,11 +146,7 @@ def parse_directory_page(urldir, outdir):
         # dirlines = dirpage.split('\n')
         f.close()
     except urllib2.HTTPError:
-        errstr = "Couldn't find %s on server" % os.path.basename(urldir)
-        perror(errstr)
-        if is_android:
-            droid.vibrate()
-            droid.notify(errstr)
+        return None
 
     # Parse the directory contents to get the list of feeds
     # It's in a table tag, where valid entries will look like:
@@ -159,7 +157,7 @@ def parse_directory_page(urldir, outdir):
     except HTMLParser.HTMLParseError, e:
         perror("Couldn't parse directory page " + urldir + str(e))
         print "Parsed HTML began:", dirpage[:256]
-        return
+        return feeddirs
 
     for tag in soup.findAll('a'):
         try:
@@ -172,7 +170,14 @@ def parse_directory_page(urldir, outdir):
     return feeddirs
 
 def fetch_feeds_dir_recursive(urldir, outdir):
-    feeddirs = parse_directory_page(urldir, outdir)
+    feeddirs = parse_directory_page(urldir)
+    if feeddirs == None:
+        errstr = "Couldn't find %s on server" % os.path.basename(urldir)
+        perror(errstr)
+        if is_android:
+            droid.vibrate()
+            droid.notify(errstr)
+        return
 
     # now feeddirs[] should contain the subdirs we want to fetch.
     print "Will try to fetch feed dirs:", feeddirs
@@ -251,7 +256,7 @@ def wait_for_feeds(baseurl):
 
         # Check for new directories appearing in the feeds dir,
         # and print them out as they appear.
-        feeddirs = parse_directory_page(baseurl, outdir)
+        feeddirs = parse_directory_page(baseurl)
         if len(feeddirs) != len(save_feeddirs) :
             if feeddirs != save_feeddirs :
                 # Find the difference -- the new one that has appeared
@@ -271,6 +276,25 @@ def download_feeds(baseurl, outdir):
 
     print 'Feeds downloaded to ' + outdir
 
+def check_if_feedme_run(feedurl, dateurl):
+    '''Only initiate a feed if there isn't already a log file there,
+       either in the base dir (meaning a feed is still running)
+       or in any subdir (meaning it ran and has finished).
+       feedurl and dateurl are both expected to end with / already.
+       We might have aborted some earlier attempt, or even kicked
+       off feeds from some other machine, but now need to download feeds.
+       Return 0 if we think feedme has not yet run, 1 if we think it
+       is still running, 2 if we think it has finished.
+    '''
+
+    if url_exists(feedurl + 'LOG'):
+        return 1                     # still running
+
+    if url_exists(dateurl + 'LOG'):
+        return 2                     # ran and is now finished
+
+    return 0                         # has not yet run
+
 if __name__ == '__main__':
     if is_android:
         outdir = android_localdir
@@ -278,21 +302,25 @@ if __name__ == '__main__':
         outdir = os.path.expanduser(localdir)
     dirdate = time.strftime("%m-%d-%a")
 
-    baseurl = serverurl + 'feeds/' + dirdate + '/'
+    feedurl = serverurl + 'feeds/'
+    baseurl = feedurl + dirdate + '/'
+
+    already_ran = check_if_feedme_run(feedurl, baseurl)
+    if already_ran == 0:
+        print "Feedme has not yet run"
+    elif already_ran == 1:
+        print "Feedme is running already"
+    else:
+        print "Feedme already ran to completion"
+    sys.exit(0)
     try:
-        # Only initiate a feed if there isn't already a log file there.
-        # We might have aborted some earlier attempt, or even kicked
-        # off feeds from some other machine, but now need to download feeds.
-        if not url_exists(baseurl + 'LOG'):
+        if already_ran == 0:
             print "Running feeds from url", serverurl
             run_feed(serverurl, outdir)
 
-            # This isn't really right either, since if the feed
-            # has finished, the LOG file won't be there. We also
-            # should check whether there are any subdirs with a
-            # LOG file inside them.
+        if already_ran < 2:
+            wait_for_feeds(baseurl)
 
-        wait_for_feeds(baseurl)
         download_feeds(baseurl, os.path.join(outdir, dirdate))
 
     except KeyboardInterrupt:
