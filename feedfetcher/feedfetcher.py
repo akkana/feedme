@@ -257,12 +257,11 @@ def wait_for_feeds(baseurl):
         # Check for new directories appearing in the feeds dir,
         # and print them out as they appear.
         feeddirs = parse_directory_page(baseurl)
-        if len(feeddirs) != len(save_feeddirs) :
-            if feeddirs != save_feeddirs :
-                # Find the difference -- the new one that has appeared
-                for newfeed in set(feeddirs) - set(save_feeddirs) :
-                    print newfeed,
-                save_feeddirs = feeddirs
+        if not save_feeddirs or len(feeddirs) != len(save_feeddirs) :
+            # Find the difference -- the new one that has appeared
+            for newfeed in set(feeddirs) - set(save_feeddirs) :
+                print newfeed,
+            save_feeddirs = feeddirs
 
         time.sleep(10)
 
@@ -312,10 +311,10 @@ if __name__ == '__main__':
         print "Feedme is running already"
     else:
         print "Feedme already ran to completion"
-    sys.exit(0)
+
     try:
         if already_ran == 0:
-            print "Running feeds from url", serverurl
+            print "Initiating feedme:", serverurl
             run_feed(serverurl, outdir)
 
         if already_ran < 2:
