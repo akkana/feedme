@@ -99,12 +99,10 @@ def fetch_url_to(url, outfile):
         if not_a_local_link(link):
             continue
 
-        # We see a lot of "already exists -- not re-fetching" even
-        # on html pages (it makes sense on images) -- why?
-        # Check whether it's this:
-        if os.path.join(outdir, link) == outfile:
-            print outfile + ' has a recursive link to itself'
-        fetch_url_to(dirurl + link, os.path.join(outdir, link))
+        # Lots of pages have recursive links to themselves.
+        # Obviously no point in fetching those.
+        if os.path.join(outdir, link) != outfile:
+            fetch_url_to(dirurl + link, os.path.join(outdir, link))
 
     for tag in soup.findAll('img'):
         # BeautifulSoup doesn't support calls like 'href' in tag
@@ -257,11 +255,17 @@ def wait_for_feeds(baseurl):
         # Check for new directories appearing in the feeds dir,
         # and print them out as they appear.
         feeddirs = parse_directory_page(baseurl)
-        if not save_feeddirs or len(feeddirs) != len(save_feeddirs) :
-            # Find the difference -- the new one that has appeared
-            for newfeed in set(feeddirs) - set(save_feeddirs) :
+        # Can't do a simple set(feeddirs) - set(save_feeddirs) here:
+        # one of them might be None and that throws an error.
+        if feeddirs:
+            newdirs = set(feeddirs)
+            if save_feeddirs:
+                newdirs -= set(save_feeddirs)
+            for newfeed in newdirs:
                 print newfeed,
             save_feeddirs = feeddirs
+        else:
+            print "(no feeddirs yet)",
 
         time.sleep(10)
 
