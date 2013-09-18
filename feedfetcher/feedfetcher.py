@@ -228,15 +228,12 @@ def run_feed(serverurl, outdir):
 
 def url_exists(url):
     '''Does the URL exist? Return True or False.'''
-    print "Checking whether", url, "exists"
     try:
         urlfile = urllib2.urlopen(url)
         urlfile.close()
-        print "Got it!"
         return True
     except urllib2.HTTPError, e:
         if e.code == 404:
-            print "It was a 404"
             return False
         print "\nOops, got some HTTP error other than a 404"
         raise(e)
