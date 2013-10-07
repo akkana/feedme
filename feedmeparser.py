@@ -701,14 +701,17 @@ def read_config_file() :
     config = ConfigParser({'verbose' : 'false',
                            'levels' : '2',
                            'encoding' : '',  # blank means try several
-                           'page_start' : '', 'page_end':'',
-                           'single_page_pat' : '', 'skip_pat':'',
+                           'page_start' : '',
+                           'page_end':'',
+                           'single_page_pat' : '',
+                           'skip_pat' : '',
                            'nocache' : 'false',
                            'logfile' : '',
                            'save_days' : '7',
                            'skip_images' : 'true',
                            'nonlocal_images' : 'false',
                            'skip_links' : 'false',
+                           'skip_link_pat' : '',
                            'when' : '',   # Day, like tue, or month day, like 14
                            'min_width' : '25', # min # chars in an item link
                            'ascii' : 'false'})

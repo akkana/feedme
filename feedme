@@ -342,6 +342,9 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
     encoding = config.get(feedname, 'encoding')
     ascii = config.getboolean(feedname, 'ascii')
     skip_links = config.getboolean(feedname, 'skip_links')
+    skip_link_pat = feedmeparser.get_config_multiline(config,
+                                                      feedname,
+                                                      'skip_link_pat')
 
     # Is this a feed we should only check occasionally?
     """Does this feed specify only gathering at certain times?
@@ -450,6 +453,7 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
         try :
             #
             # Get the list of links (href) and a (hopefully) unique ID:
+            # XXX Is href[] ever even used? Is this clause obsolete?
             #
             if 'links' in item :
                 href = [i['href'].encode('utf-8') \
@@ -466,6 +470,19 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
                     if verbose :
                         msglog.msg("Item in " + href[0] + " had no ID or URL.")
                     next  # or return?
+
+            # Does the link match a pattern we're skipping?
+            if skip_link_pat :
+                skipping = False
+                for spat in skip_link_pat :
+                    if re.search(spat, item.link) :
+                        if verbose :
+                            print "Skipping", item.link, \
+                                "because it matches", spat
+                        skipping = True
+                        break
+                if skipping :
+                    continue
 
             # Filter out file types known not to work
             # XXX Only mp3 for now. Obviously, make this more general.
