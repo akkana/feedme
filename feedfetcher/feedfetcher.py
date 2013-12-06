@@ -13,10 +13,12 @@ import HTMLParser  # Needed for the exceptions used by BeautifulSoup
 import sys, os
 import time
 
+# import traceback
+
 ############# CONFIGURATION ########################################
 
 # Put your server base URL here, the dir that will contain
-# both feedme and feeds directories. It must end with a slash.
+# both feedme/ and feeds/ directories. It must end with a slash.
 serverurl = 'http://localhost/'
 
 # Where to download feeds if running locally.
@@ -28,6 +30,8 @@ localdir = '~/feeds'
 android_localdir = '/mnt/sdcard/external_sd/feeds/'
 
 ############# END CONFIGURATION ####################################
+
+errstr = ''
 
 # Are we on Android? Make it optional, for easier testing.
 try:
@@ -41,9 +45,12 @@ except ImportError:
     is_android = False
 
 def perror(s):
-    if is_android:
-        droid.makeToast(s)
+    global errstr
+    # makeToast is cool but takes way too long and might still not be seen.
+    #if is_android:
+    #    droid.makeToast(s)
     print s
+    errstr += '\n' + s
 
 def fetch_url_to(url, outfile):
     if os.path.exists(outfile):
@@ -53,14 +60,21 @@ def fetch_url_to(url, outfile):
     print "Fetching", url, "to", outfile
 
     # Read the URL. It may fail: not all referenced links
-    # are always successfully downloaded.
+    # were successfully downloaded to the server.
+    # But sometimes it fails for other reasons too,
+    # so we need to distinguish a "not found" from other causes.
     try:
         infile = urllib2.urlopen(url)
         contents = infile.read()
         infile.close()
-    except urllib2.HTTPError:
-        print "Couldn't fetch " + url
-        # Don't do perror because droid.makeToast() delays way too long.
+    except urllib2.HTTPError, e:
+        perror("Couldn't fetch %s: HTTPError code %s" % (url, str(e.code)))
+        return
+    except urllib2.URLError, e:
+        perror("Couldn't fetch %s: URLError args %s" % (url, str(e.args)))
+        return
+    except ValueError, e:
+        perror("Couldn't fetch %s: ValueError, %s" % (url, str(e)))
         return
 
     # Copy to the output file
@@ -81,7 +95,10 @@ def fetch_url_to(url, outfile):
         return
 
     def not_a_local_link(l):
-        if not link or ':' in link or '#' in link or link[0] == '/' \
+        '''If a link doesn't have a schema, consists only of an
+           absolute path or a named anchor like #, it's local.
+        '''
+        if not link or ':' in link or link.startswith('#') or link[0] == '/' \
                 or link.startswith('../'):
                 # I don't know why we see ../ links, but we do.
             return True
@@ -170,11 +187,11 @@ def parse_directory_page(urldir):
 def fetch_feeds_dir_recursive(urldir, outdir):
     feeddirs = parse_directory_page(urldir)
     if feeddirs == None:
-        errstr = "Couldn't find %s on server" % os.path.basename(urldir)
-        perror(errstr)
+        err = "Couldn't find %s on server" % os.path.basename(urldir)
+        perror(err)
         if is_android:
             droid.vibrate()
-            droid.notify(errstr)
+            droid.notify(err)
         return
 
     # now feeddirs[] should contain the subdirs we want to fetch.
@@ -236,6 +253,11 @@ def url_exists(url):
         if e.code == 404:
             return False
         print "\nOops, got some HTTP error other than a 404"
+        raise(e)
+
+    # We can also get various other errors, such as httplib.BadStatusLine
+    except Exception, e:
+        print "Problem checking whether URL exists!"
         raise(e)
 
 def wait_for_feeds(baseurl):
@@ -312,6 +334,7 @@ if __name__ == '__main__':
         print "Feedme is running already"
     else:
         print "Feedme already ran to completion"
+    sys.stdout.flush()
 
     try:
         if already_ran == 0:
@@ -327,3 +350,7 @@ if __name__ == '__main__':
         print "KeyboardInterrupt"
     except urllib2.URLError, e:
         print "Couldn't access server: " + str(e)
+
+    if errstr:
+        print "\n\n====== ERRORS ============"
+        print errstr
