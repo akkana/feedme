@@ -57,6 +57,15 @@ def fetch_url_to(url, outfile):
         print os.path.basename(outfile), "already exists -- not re-fetching"
         return
 
+    # If there's a named anchor appended, strip it from both url and filename.
+    # Pro Publica in particular has a lot of these.
+    if '#' in url:
+        print "Stripping named anchor from url", url
+        url = url[:url.find('#')]
+    if '#' in outfile:
+        print "Stripping named anchor from outfile", outfile
+        outfile = outfile[:outfile.find('#')]
+
     print "Fetching", url, "to", outfile
 
     # Read the URL. It may fail: not all referenced links
@@ -160,7 +169,9 @@ def parse_directory_page(urldir):
         dirpage = f.read()
         # dirlines = dirpage.split('\n')
         f.close()
-    except urllib2.HTTPError:
+    except urllib2.HTTPError, e:
+        perror("HTTP error parsing directory page: code is %d" \
+                % (e.code))
         return None
 
     # Parse the directory contents to get the list of feeds
@@ -252,12 +263,36 @@ def url_exists(url):
     except urllib2.HTTPError, e:
         if e.code == 404:
             return False
-        print "\nOops, got some HTTP error other than a 404"
+        perror("HTTP error checking whether URL %s exists! code %d" % (url, e.code))
+        raise(e)
+
+    except urllib2.URLError, e:
+        # type(e) is urllib2.URLError
+        # e.args is type tuple
+        # e.args[0] is type socket.gaierror
+        # e.args[1] is None
+        # e.reason is "[Errno 2] temporary failure in name resolution"
+        # e.reason is type socket.gaierror
+        # There is NO documentation on how to handle these,
+        # but from fiddling around, a socket.gaierror can be treated
+        # as a tuple where the 0th element is the errno.
+        #perror("URL error checking whether URL %s exists! type %s, arg type %s, args %s, reason: %s, reason is type %s" % (url, str(type(e)), str(type(e.args)), str(e.args), str(e.reason), type(e.reason)))
+        perror("URL error checking whether URL %s exists! errno %d" \
+                   % (url, e.reason[0]))
+        # Was it because we don't have a network at all?
+        # 2 = failure in address resolution, -2 = name or service not known.
+        # If it's one of these, give the user a chance to notice it and
+        # restart the network.
+        if e.reason[0] == 2 or e.reason[0] == -2:
+            droid.vibrate()
+            droid.makeToast("Network may be down!")
+            return False
         raise(e)
 
     # We can also get various other errors, such as httplib.BadStatusLine
     except Exception, e:
-        print "Problem checking whether URL exists!"
+        perror("Problem checking whether URL %s exists!\nException: %s" \
+                   % (url, str(e)))
         raise(e)
 
 def wait_for_feeds(baseurl):
