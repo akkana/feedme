@@ -271,7 +271,6 @@ def url_exists(url):
         # or how to find out the code,
         # but from fiddling around, it's a a socket.gaierror,
         # which can be treated as a tuple where the 0th element is the errno.
-        #perror("URL error checking whether URL %s exists! type %s, arg type %s, args %s, reason: %s, reason is type %s" % (url, str(type(e)), str(type(e.args)), str(e.args), str(e.reason), type(e.reason)))
         perror("URL error checking whether URL %s exists! errno %d" \
                    % (url, e.reason[0]))
         # Was it because we don't have a network at all?
