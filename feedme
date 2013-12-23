@@ -705,6 +705,15 @@ Which (default = s): """)
             if skip_links :
                 content = re.sub('<a href=.*>(.*?)</a>', '\\1', content)
 
+            # Skip any text specified in index_skip_pat.
+            # Some sites (*cough* Pro Publica *cough*) do weird things
+            # like putting huge <style> sections in the RSS.
+            index_skip_pats = feedmeparser.get_config_multiline(config,
+                                                      feedname,
+                                                      'index_skip_pat')
+            for pat in index_skip_pats :
+                content = re.sub(pat, '', content)
+
             indexstr += content
 
             if author :
