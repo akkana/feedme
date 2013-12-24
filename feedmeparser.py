@@ -712,6 +712,7 @@ def read_config_file() :
                            'nonlocal_images' : 'false',
                            'skip_links' : 'false',
                            'skip_link_pat' : '',
+                           'index_skip_pat' : '',
                            'when' : '',   # Day, like tue, or month day, like 14
                            'min_width' : '25', # min # chars in an item link
                            'ascii' : 'false'})
