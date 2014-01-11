@@ -360,7 +360,7 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
 
     #encoding = config.get(feedname, 'encoding')
 
-    print >>sys.stderr, "feedname:", feedname
+    print >>sys.stderr, "\n============\nfeedname:", feedname
     # Use underscores rather than spaces in the filename.
     feedfile = feedname.replace(" ", "_")
     # Also, make sure there are no colons (illegal in filenames):
@@ -477,7 +477,7 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
                 for spat in skip_link_pat :
                     if re.search(spat, item.link) :
                         if verbose :
-                            print "Skipping", item.link, \
+                            print >>sys.stderr, "Skipping", item.link, \
                                 "because it matches", spat
                         skipping = True
                         break
@@ -560,6 +560,7 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
                                 + ": " + str(e))
                     itemnum -= 1
                     pagenum -= 1
+                    suburls.remove(item.id)
                     continue
 
                 except KeyboardInterrupt :
@@ -758,9 +759,9 @@ Which (default = n): """)
             if verbose :
                 print >>sys.stderr, "Skipping item",
                 if 'link' in item :
-                    print item.link.encode('utf-8')
+                    print >>sys.stderr, item.link.encode('utf-8')
                 else :
-                    print "item has no link! item =", item
+                    print >>sys.stderr, "item has no link! item =", item
                 print >>sys.stderr, "error was", str(e).encode('utf-8')
 
                 print >>sys.stderr, str(sys.exc_info()[0])
