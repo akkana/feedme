@@ -66,6 +66,12 @@ def fetch_url_to(url, outfile):
         print "Stripping named anchor from outfile", outfile
         outfile = outfile[:outfile.find('#')]
 
+    # If there's a % in the url, e.g. if there's a filename with a space
+    # like file%20name.jpg (Los Alamos Daily Post loves to do this),
+    # apache on the server end will urldecode it. So encode the % to %25
+    # to prevent that from happening:
+    url = url.replace('%', '%25')
+
     print "Fetching", url, "to", outfile
 
     # Read the URL. It may fail: not all referenced links
