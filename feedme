@@ -184,15 +184,15 @@ class MsgLog :
 
     def msg(self, s) :
         self.msgstr += "\n" + s
-        print "MESSAGE:", s.encode('ascii', 'backslashreplace')
+        print >>sys.stderr, "MESSAGE:", s.encode('ascii', 'backslashreplace')
 
     def warn(self, s) :
         self.msgstr += "\n" + s
-        print "WARNING:", s.encode('ascii', 'backslashreplace')
+        print  >>sys.stderr,"WARNING:", s.encode('ascii', 'backslashreplace')
 
     def err(self, s) :
         self.errstr += "\n" + s
-        print "ERROR:", s.encode('ascii', 'backslashreplace')
+        print  >>sys.stderr,"ERROR:", s.encode('ascii', 'backslashreplace')
         #traceback.print_stack()
 
     def get_msgs(self) :
@@ -558,8 +558,12 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
                     # So don't increment pagenum or itemnum for the next story.
                     msglog.warn("Didn't find any content on " + item.link
                                 + ": " + str(e))
+                    # It is so annoying needing to repeat these
+                    # lines every time! Isn't there a way I can define
+                    # a subfunction that knows about this function's
+                    # local variables?
                     itemnum -= 1
-                    pagenum -= 1
+                    #pagenum -= 1
                     suburls.remove(item.id)
                     continue
 
@@ -599,11 +603,11 @@ Which (default = s): """)
                     msglog.err("IO or HTTP error: " + errmsg)
                     if verbose :
                         print >>sys.stderr, "=============="
-                    #raise  # so this entry won't get stored or cached
 
-                    # We didn't get this item, so don't list it in the index:
                     itemnum -= 1
-                    pagenum -= 1
+                    suburls.remove(item.id)
+
+                    #raise  # so this entry won't get stored or cached
 
                     continue   # Move on to next story
 
@@ -631,10 +635,8 @@ Which (default = s): """)
                         errmsg += traceback.format_exc(sys.exc_info()[2])
                         msglog.err(errmsg)
 
-                    # We didn't get this item, so don't list it in the index:
                     itemnum -= 1
-                    pagenum -= 1
-
+                    suburls.remove(item.id)
                     continue
 
                 except Exception as e :
@@ -654,6 +656,9 @@ Which (default = s): """)
                     msglog.err("Unknown error: " + errmsg)
                     if verbose :
                         print >>sys.stderr, "=============="
+
+                    # Are we sure we didn't get anything?
+                    # Should we decrement itemnum, etc. ?
                     continue   # Move on to next story, ensure we get index
 
             # Done with if levels > 1 clause
