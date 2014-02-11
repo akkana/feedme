@@ -916,8 +916,11 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
         cache, cachefile = init_cache()
         # Figure out the last time we ran feedme.
         # We'll use this for feeds that only update at certain times.
-        statbuf = os.stat(cachefile)
-        last_time = statbuf.st_mtime
+        try :
+            statbuf = os.stat(cachefile)
+            last_time = statbuf.st_mtime
+        except OSError :    # probably the cache is new and got File Not Found
+            last_time = 0
 
     # logfilename = config.get('DEFAULT', 'logfile')
     # if logfilename :
