@@ -176,8 +176,8 @@ def parse_directory_page(urldir):
         # dirlines = dirpage.split('\n')
         f.close()
     except urllib2.HTTPError, e:
-        perror("HTTP error parsing directory page: code is %d" \
-                % (e.code))
+        perror("HTTP error parsing directory page %s: code is %d" \
+                % (urldir, e.code))
         return None
 
     # Parse the directory contents to get the list of feeds
