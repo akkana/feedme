@@ -578,13 +578,20 @@ n: Skip to next site
 
 Which (default = s): """)
                     if response[0] == 'n' :      # next site
-                        return
+                        # XXX We should write an index.html here
+                        # with anything we've gotten so far.
+                        # Ideally we'd break out of the
+                        # for item in feed.entries : loop.
+                        # Wonder if there's a way to do that in python?
+                        # Failing that, and hoping it's the only
+                        # enclosing loop:
+                        print "Breaking -- hopefully we'll write an index.html"
+                        break
+                        #return
                     elif response[0] != 'c' :    # next story (default)
                         continue
                     # If the response was 'c', we continue and just
                     # ignore the interrupt.
-                    # Anything written so far will remain written --
-                    # though we probably won't have an index file.
 
                 except (IOError, urllib2.HTTPError) as e :
                     # Collect info about what went wrong:
