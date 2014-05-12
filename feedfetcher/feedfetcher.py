@@ -68,8 +68,11 @@ def fetch_url_to(url, outfile):
 
     # If there's a % in the url, e.g. if there's a filename with a space
     # like file%20name.jpg (Los Alamos Daily Post loves to do this),
-    # apache on the server end will urldecode it. So encode the % to %25
-    # to prevent that from happening:
+    # apache on the server end will urldecode it.
+    # Tried encoding the % to %25 to prevent that from happening,
+    # and that prevents throwing error but the photos still don't download.
+    # It's best to make sure feedme doesn't save any URLs like that
+    # in the first place.
     url = url.replace('%', '%25')
 
     print "Fetching", url, "to", outfile
@@ -176,6 +179,8 @@ def parse_directory_page(urldir):
         # dirlines = dirpage.split('\n')
         f.close()
     except urllib2.HTTPError, e:
+        # This always happens the first time, but if it happens
+        # repeatedly then it indicates a problem.
         perror("HTTP error parsing directory page %s: code is %d" \
                 % (urldir, e.code))
         return None
