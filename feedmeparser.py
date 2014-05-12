@@ -465,8 +465,10 @@ tree = lxml.html.fromstring(html)
                 base = os.path.basename(src)
                 # Clean up the basename, since it might have illegal chars.
                 # Only allow alphanumerics or others in a short whitelist.
+                # Don't allow % in the whitelist -- it causes problems
+                # with recursively copying the files over http later.
                 base = ''.join([x for x in base if x.isalpha() or x.isdigit()
-                                or x in '%-_.='])
+                                or x in '-_.='])
                 if not base : base = '_unknown.img'
                 imgfilename = os.path.join(self.newdir, base)
                 try :
