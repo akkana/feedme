@@ -208,7 +208,7 @@ else:
 
         # Save an HTML copy to the archive file:
         if archivefp :
-            print >>archivefp, "<a href='%s'>%s</a>" % (url, url)
+            print >>archivefp, "<a href='%s'>%s</a><br>" % (url, url)
 
     print >>ofp, """</channel>
 </rss>"""
