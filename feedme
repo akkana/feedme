@@ -678,8 +678,11 @@ Which (default = s): """)
 
             # Plucker named anchors don't work unless preceded by a <p>
      # http://www.mail-archive.com/plucker-list@rubberchicken.org/msg07314.html
-            # and the previous message.
             indexstr += "<p><a name=\"%d\">&nbsp;</a>" % itemnum
+
+            # Make sure the link is at least some minimum width.
+            # This is for viewers that have special areas defined on the
+            # screen, e.g. areas for paging up/down or adjusting brightness.
             minwidth = config.getint(feedname, 'min_width')
             if len(item.title) < minwidth :
                 #item.title += '&nbsp;' * (minwidth - len(item.title) - 2) + '__'
@@ -710,13 +713,18 @@ Which (default = s): """)
                 content = "[No content]"
 
             # There's an increasing trend to load up RSS pages with images.
-            # Try to remove them.
+            # Try to remove them, as well as any links that contain
+            # only an image.
             if config.getboolean(feedname, 'skip_images') :
+                content = re.sub('<a [^>]*href=.*> *<img .*?></a>', '', content)
                 content = re.sub('<img .*?>', '', content)
 
             # Try to get rid of embedded links if skip_links is true:
             if skip_links :
                 content = re.sub('<a href=.*>(.*?)</a>', '\\1', content)
+            # If we're keeping links, don't keep empty ones:
+            else :
+                content = re.sub('<a  [^>]*href=.*> *</a>', '', content)
 
             # Skip any text specified in index_skip_pat.
             # Some sites (*cough* Pro Publica *cough*) do weird things
