@@ -352,7 +352,7 @@ tree = lxml.html.fromstring(html)
         #    print "start tag", tag, attrs
 
         if self.skipping :
-            #print "Inside a skipped section"
+            # print "Skipping start tag", tag, "inside a skipped section"
             return
 
         # meta refreshes won't work when we're offline, but we
@@ -521,6 +521,9 @@ tree = lxml.html.fromstring(html)
         if tag == self.skipping :
             self.skipping = False
             # print >>sys.stderr, "Ending a skippable", tag, "section"
+            return
+        if self.skipping :
+            # print "Skipping end tag", tag, "inside a skipped section"
             return
         if self.tag_skippable(tag) or self.tag_skippable_section(tag) :
             # print >>sys.stderr, "Skipping end", tag
