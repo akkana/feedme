@@ -617,9 +617,13 @@ tree = lxml.html.fromstring(html)
         if tag == 'script' or tag == 'style' :
             return True
 
-        # base and meta tags can confuse the HTML displayer program
-        # into looking remotely for images we've copied locally:
-        if tag == 'base' or tag == 'script' :
+        # base tags can confuse the HTML displayer program
+        # into looking remotely for images we've copied locally.
+        if tag == 'base' :
+            return True
+
+        # Omit generic objects, which are probably flash or video or some such.
+        if tag == 'object' :
             return True
 
         # Omit form elements, since it's too easy to land on them accidentally
