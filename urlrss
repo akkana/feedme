@@ -119,15 +119,16 @@ if 'xtraurls' in form:
 
 else:
     # Mount the device's SD card if it isn't already mounted:
-    if not os.path.ismount(devicepath) :
-        subprocess.call(["mount", devicepath])
-        # Ignore return value: it will be nonzero if already mounted.
-        # So check to see if it's mounted now:
+    if devicepath:
         if not os.path.ismount(devicepath) :
-            print "Can't mount %s!" % devicepath
-            sys.exit(1)
-    else: print "Device is already mounted."
-    urlfiles.append(os.path.join(devicepath, "feeds", "saved-urls"))
+            subprocess.call(["mount", devicepath], shell=False)
+            # Ignore return value: it will be nonzero if already mounted.
+            # So check to see if it's mounted now:
+            if not os.path.ismount(devicepath) :
+                print "Can't mount %s!" % devicepath
+                sys.exit(1)
+        else: print "Device is already mounted."
+        urlfiles.append(os.path.join(devicepath, "feeds", "saved-urls"))
 
 # Loop over all the url files to get our list of urls:
 for urlfile in urlfiles :
@@ -238,7 +239,7 @@ if html_output :
 
     # Start feedme running in the background, so we can return immediately.
     print >>sys.stderr, "<p>Trying to run %s ..." % feedme_exec
-    subprocess.Popen([feedme_exec],
+    subprocess.Popen([feedme_exec], shell=False,
                      stdout=devnull, stderr=devnull)
     print >>sys.stderr, "<p>Feedme should be running now."
 
