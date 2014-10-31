@@ -78,7 +78,7 @@ class FeedmeHTMLParser():
                 print >>sys.stderr, "Adding referrer", referrer
             request.add_header('Referer', referrer)
 
-        response = urllib2.urlopen(request)
+        response = urllib2.urlopen(request, timeout=100)
         # Lots of ways this can fail.
         # e.g. ValueError, "unknown url type"
         # or BadStatusLine: ''

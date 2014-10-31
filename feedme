@@ -33,6 +33,7 @@ import traceback
 
 import feedparser
 import urllib2
+import socket
 
 # We now use a separate file for the parsing and such:
 import feedmeparser
@@ -224,7 +225,7 @@ class tee() :
         self.fd2.flush()
 
 #
-# Interrupt handler: prompt for what to do.
+# Ctrl-C Interrupt handler: prompt for what to do.
 #
 def handle_keyboard_interrupt(msg) :
     # os.isatty() doesn't work, so:
@@ -565,6 +566,37 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
                     itemnum -= 1
                     #pagenum -= 1
                     suburls.remove(item.id)
+                    continue
+
+                # Catch timeouts.
+                # If we get a timeout on a story,
+                # we should assume the whole site has gone down,
+                # and skip over the rest of the site.
+                # In Python 2.6, instead of raising socket.timeout
+                # a timeout will raise urllib2.URLerror with
+                # e.reason set to socket.timeout. 
+                except socket.timeout, e:
+                    errmsg = "Socket.timeout error on title "
+                    errmsg += item.title.encode('utf-8', 'replace')
+                    errmsg += "\n"
+                    errmsg += "Breaking -- hopefully we'll write index.html"
+                    msglog.err(errmsg)
+                    break
+ 
+                # Handle timeouts in Python 2.6
+                except urllib2.URLError, e:
+                    if isinstance(e.reason, socket.timeout):
+                        errmsg = "URLError Socket.timeout on title "
+                        errmsg += item.title.encode('utf-8', 'replace')
+                        errmsg += "\n"
+                        errmsg += "Breaking -- hopefully we'll write index.html"
+                        msglog.err(errmsg)
+                        break
+
+                    # Some other type of URLError.
+                    errmsg = "URLError on " + item.link + "\n"
+                    errmsg += str(e) + '<br>\n'
+                    msglog.err(errmsg)
                     continue
 
                 except KeyboardInterrupt :
