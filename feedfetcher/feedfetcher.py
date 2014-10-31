@@ -160,7 +160,11 @@ def fetch_feed_dir(dirurl, outdir):
 
     # Make sure the directory exists
     if not os.access(outdir, os.W_OK):
-        os.makedirs(outdir, 0755)
+        try:
+            os.makedirs(outdir, 0755)
+        except Exception as e:
+            perror("Couldn't make directory %s" % outdir)
+            raise e
 
     index = fetch_url_to(dirurl + 'index.html',
                          os.path.join(outdir, 'index.html'))
