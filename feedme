@@ -389,9 +389,11 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
     # "xml.sax._exceptions.SAXException: Read failed (no details available)"
     # which will kill our whole process, so guard against that.
     # Sadly, feedparser usually doesn't give any details about what went wrong.
+    socket.setdefaulttimeout(100)
     try :
         print "Running: feedparser.parse(", sitefeedurl, ")"
         feed = feedparser.parse(sitefeedurl)
+
     # except xml.sax._exceptions.SAXException, e :
     except Exception, e :
         print "Couldn't parse feed: URL:", sitefeedurl
