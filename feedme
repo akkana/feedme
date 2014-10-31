@@ -581,6 +581,8 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
                     errmsg += "\n"
                     errmsg += "Breaking -- hopefully we'll write index.html"
                     msglog.err(errmsg)
+                    if config.get(feedname, 'continue_on_timeout') == 'true':
+                        continue
                     break
  
                 # Handle timeouts in Python 2.6
@@ -591,6 +593,9 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
                         errmsg += "\n"
                         errmsg += "Breaking -- hopefully we'll write index.html"
                         msglog.err(errmsg)
+                        if config.get(feedname,
+                                      'continue_on_timeout') == 'true':
+                            continue
                         break
 
                     # Some other type of URLError.
