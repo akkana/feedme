@@ -773,11 +773,12 @@ Which (default = s): """)
                                                       'index_skip_pat')
             for pat in index_skip_pats :
                 content = re.sub(pat, '', content)
+                author = re.sub(pat, '', author)
 
             indexstr += content
 
             if author :
-                indexstr += "\n<br><i>by: " + author + "</i><br>"
+                indexstr += "\n<br><i>By: " + author + "</i><br>"
 
             # After the content, add another link to the title,
             # in case the user wants to click through after reading
