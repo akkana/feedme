@@ -41,6 +41,7 @@ class FeedmeHTMLParser():
         self.feedname = feedname
         self.outfile = None
         self.skipping = None
+        self.user_agent = 'Feedme v. 0.9'
 
     def fetch_url(self, url, newdir, newname, title=None, author=None,
                   footer='', referrer=None) :
@@ -78,7 +79,7 @@ class FeedmeHTMLParser():
                 print >>sys.stderr, "Adding referrer", referrer
             request.add_header('Referer', referrer)
 
-        request.add_header('User-Agent', 'Feedme v. 0.9')
+        request.add_header('User-Agent', self.user_agent)
         response = urllib2.urlopen(request, timeout=100)
         # Lots of ways this can fail.
         # e.g. ValueError, "unknown url type"
@@ -104,6 +105,7 @@ class FeedmeHTMLParser():
         # but sadly, that means we need another request object
         # to parse out the host and prefix:
         real_request = urllib2.Request(self.cururl)
+        real_request.add_header('User-Agent', self.user_agent)
 
         # feed() is going to need to know the host, to rewrite urls.
         # So save it, based on any redirects we've had:
@@ -455,6 +457,7 @@ tree = lxml.html.fromstring(html)
             # urllib2 can't parse out the host part without first
             # creating a Request object:
             req = urllib2.Request(src)
+            req.add_header('User-Agent', self.user_agent)
 
             # For now, only fetch images that come from the HTML's host:
             try :
