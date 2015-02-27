@@ -568,6 +568,10 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
                     itemnum -= 1
                     #pagenum -= 1
                     suburls.remove(item.id)
+
+                    # Include a note in the indexstr
+                    indexstr += '<p>No content for <a href="%s">%s</a>\n' \
+                                % (item.link, item.title)
                     continue
 
                 # Catch timeouts.
@@ -757,6 +761,11 @@ Which (default = s): """)
             if config.getboolean(feedname, 'skip_images') :
                 content = re.sub('<a [^>]*href=.*> *<img .*?></a>', '', content)
                 content = re.sub('<img .*?>', '', content)
+            # But if we're not skipping images, then we need to rewrite
+            # image URLs to the local URLs we would have created in
+            # feedmeparser.parse().
+            else:
+                content = parser.rewrite_images(content)
 
             # Try to get rid of embedded links if skip_links is true:
             if skip_links :

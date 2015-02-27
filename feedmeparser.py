@@ -9,6 +9,7 @@ import re
 from ConfigParser import ConfigParser
 #from HTMLParser import HTMLParser
 import lxml.html
+import urlparse
 
 # XXX integrate output_encode!
 def output_encode(s, encoding) :
@@ -42,6 +43,7 @@ class FeedmeHTMLParser():
         self.outfile = None
         self.skipping = None
         self.user_agent = 'Feedme v. 0.9'
+        self.remapped_images = {}
 
     def fetch_url(self, url, newdir, newname, title=None, author=None,
                   footer='', referrer=None) :
@@ -325,6 +327,26 @@ class FeedmeHTMLParser():
 
         # Eventually we can print it with lxml.html.tostring(tree)
 
+    def rewrite_images(self, content):
+        """Rewrite img src tags to point to local images we downloaded earlier.
+           We already rewrote the img tags in the HTML file, but feedme
+           may need us to rewrite img tags embedded in the RSS content.
+        """
+        # And yes, BeautifulSoup would be more straightforward for this task.
+        # But we're already using lxml.html for all the rest of the parsing.
+
+        tree = lxml.html.fromstring(content)
+        for e in tree.iter() :
+            if e.tag == 'img' and 'src' in e.keys() :
+                try:
+                    src = self.make_absolute(e.attrib['src'])
+                    if src in self.remapped_images.keys():
+                        e.attrib['src'] = self.remapped_images[src]
+                except KeyError:
+                    pass
+
+        return lxml.html.tostring(tree)
+
     def crawl_tree(self, tree) :
         """For testing:
 import lxml.html
@@ -492,6 +514,7 @@ tree = lxml.html.fromstring(html)
 
                     # If we got this far, then we have a local image,
                     # so go ahead and rewrite the url:
+                    self.remapped_images[src] = base
                     attrs['src'] = base
 
                 # handle download errors
@@ -607,14 +630,15 @@ tree = lxml.html.fromstring(html)
         # May want to switch to lxml.html.make_links_absolute(base_href, resolve_base_href=True)
         if not url :
             return url
+
         if '://' in url :
             return url       # already absolute
 
         if url[0] == '/' :
-            return self.prefix + url
+            return urlparse.urljoin(self.prefix, url)
 
         # It's relative, so append it to the current url minus cur filename:
-        return os.path.dirname(self.cururl) + '/' + url
+        return os.path.join(os.path.dirname(self.cururl), url)
         
     def tag_skippable_section(self, tag):
         """Skip certain types of tags we don't want in simplified HTML.
