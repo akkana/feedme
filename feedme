@@ -765,7 +765,8 @@ Which (default = s): """)
             # image URLs to the local URLs we would have created in
             # feedmeparser.parse().
             else:
-                content = parser.rewrite_images(content)
+                if content.strip():
+                    content = parser.rewrite_images(content)
 
             # Try to get rid of embedded links if skip_links is true:
             if skip_links :
