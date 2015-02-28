@@ -44,6 +44,7 @@ class FeedmeHTMLParser():
         self.skipping = None
         self.user_agent = 'Feedme v. 0.9'
         self.remapped_images = {}
+        self.base_href = None
 
     def fetch_url(self, url, newdir, newname, title=None, author=None,
                   footer='', referrer=None) :
@@ -335,17 +336,22 @@ class FeedmeHTMLParser():
         # And yes, BeautifulSoup would be more straightforward for this task.
         # But we're already using lxml.html for all the rest of the parsing.
 
-        tree = lxml.html.fromstring(content)
-        for e in tree.iter() :
-            if e.tag == 'img' and 'src' in e.keys() :
-                try:
-                    src = self.make_absolute(e.attrib['src'])
-                    if src in self.remapped_images.keys():
-                        e.attrib['src'] = self.remapped_images[src]
-                except KeyError:
-                    pass
+        try:
+            tree = lxml.html.fromstring(content)
+            for e in tree.iter() :
+                if e.tag == 'img' and 'src' in e.keys() :
+                    try:
+                        src = self.make_absolute(e.attrib['src'])
+                        if src in self.remapped_images.keys():
+                            e.attrib['src'] = self.remapped_images[src]
+                    except KeyError:
+                        pass
 
-        return lxml.html.tostring(tree)
+            return lxml.html.tostring(tree)
+        except Exception, e:
+            print >>sys.stderr, "Couldn't rewrite images in content:", str(e)
+            print >>sys.stderr, "content: '" + content + "'"
+            return content
 
     def crawl_tree(self, tree) :
         """For testing:
@@ -416,6 +422,10 @@ tree = lxml.html.fromstring(html)
                 # XXX Note that this won't skip the </meta> tag, unfortunately,
                 # and tag_skippable_section can't distinguish between
                 # meta refresh and any other meta tags.
+
+        if tag == 'base' and 'href' in attrs.keys():
+            self.base_href = attrs['href']
+            return
 
         # Delete any style tags used for color or things like display:none
         if 'style' in attrs.keys() :
@@ -499,7 +509,7 @@ tree = lxml.html.fromstring(html)
                 imgfilename = os.path.join(self.newdir, base)
                 try :
                     if not os.path.exists(imgfilename) :
-                        print >>sys.stderr, "Fetching", src
+                        print >>sys.stderr, "Fetching", src, "to", imgfilename
                         f = urllib2.urlopen(req)
                         # Lots of things can go wrong with downloading
                         # the image, such as exceptions.IOError from
@@ -519,11 +529,18 @@ tree = lxml.html.fromstring(html)
 
                 # handle download errors
                 except urllib2.HTTPError, e :
-                    print "HTTP Error:", e.code, src
+                    print >>sys.stderr, "HTTP Error:", e.code, "on", src
+                    # Since we couldn't download, point instead to the
+                    # absolute URL, so it will at least work with a
+                    # live net connection.
+                    attrs['src'] = src
                 except urllib2.URLError, e :
-                    print "URL Error:", e.reason, src
+                    print >>sys.stderr, "URL Error:", e.reason, "on", src
+                    attrs['src'] = src
                 except Exception, e :
-                    print "Error downloading image:", str(e), src
+                    print >>sys.stderr, "Error downloading image:", str(e), \
+                        "on", src
+                    attrs['src'] = src
             else :
                 # Looks like it's probably a nonlocal image.
                 # Possibly this could be smarter about finding similar domains,
@@ -627,12 +644,22 @@ tree = lxml.html.fromstring(html)
         return host1.split('.')[-2:] == host2.split('.')[-2:]
 
     def make_absolute(self, url) :
-        # May want to switch to lxml.html.make_links_absolute(base_href, resolve_base_href=True)
+        '''Make URLs, particularly img src, absolute according to
+           the current page location and any base href we've seen.
+        '''
+        # May want to switch to lxml.html.make_links_absolute(base_href,
+        # resolve_base_href=True)
+
         if not url :
             return url
 
         if '://' in url :
             return url       # already absolute
+
+        # If we have a base href then it doesn't matter whether it's
+        # relative or absolute.
+        if self.base_href:
+            return urlparse.urljoin(self.base_href, url)
 
         if url[0] == '/' :
             return urlparse.urljoin(self.prefix, url)
@@ -672,8 +699,9 @@ tree = lxml.html.fromstring(html)
             return True
 
         # Don't want embedded <head> stuff
-        if tag == 'head' :
-            return True
+        # Unfortunately, skipping the <head> means we miss meta and base.
+        #if tag == 'head' :
+        #    return True
 
         return False
         
