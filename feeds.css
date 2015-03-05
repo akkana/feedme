@@ -1,0 +1,24 @@
+body { 
+  color: white !important;
+  background: #000 !important;
+  font-size: .9em;
+}
+
+a:link, a:hover, a:active { color: #ffff00 !important; }
+
+a:visited { color: #ffdd00 !important; }
+
+/* Space out the feeds list page so there's space for a finger */
+div.index { margin-top: 1em; margin-bottom: 1.45em; }
+
+/* Android's default preformatted font is tiny in 1.6.
+ * But it's fine in 2.3.
+tt, pre { font-size: 1.2em; }
+ */
+
+/* Hack to get XKCD What-If images to display.
+ * They're transparent PNG, so we'd otherwise see them as black on black.
+ */
+.illustration { background-color: white; }
+
+img { max-width: 100%; }
