@@ -10,6 +10,7 @@ from ConfigParser import ConfigParser
 #from HTMLParser import HTMLParser
 import lxml.html
 import urlparse
+from PIL import Image
 
 # XXX integrate output_encode!
 def output_encode(s, encoding) :
@@ -497,6 +498,8 @@ tree = lxml.html.fromstring(html)
                                                          'nonlocal_images')
             except :
                 nonlocal_images = False
+
+            # Are we fetching the image to cache it locally?
             if nonlocal_images or self.same_host(req.get_host(), self.host) :
                 base = os.path.basename(src)
                 # Clean up the basename, since it might have illegal chars.
@@ -547,8 +550,38 @@ tree = lxml.html.fromstring(html)
                 # or having a list of allowed image domains.
                 print >>sys.stderr, req.get_host(), "and", self.host, "are too different -- not fetching"
 
+            # Are we limiting image width to the width of the device?
+            try:
+                maxwidth = int(self.config.get(self.feedname, 'image_maxwidth'))
+                if maxwidth > 0 :
+                    if 'width' in attrs.keys() and 'height' in attrs.keys():
+                        oldwidth = int(attrs['width'])
+                        if oldwidth > maxwidth:
+                            oldheight = int(attrs['height'])
+                            attrs['width'] = str(maxwidth)
+                            attrs['height'] = str(int(oldheight *
+                                                      maxwidth/oldwidth))
+                            #print "From tags, set width, height to %s, %s" % \
+                            #    (attrs['width'], attrs['height'])
+                    # If width and height weren't both specified,
+                    # we have to look at the downloaded image.
+                    elif imgfilename:
+                        print "from image"
+                        img = Image.open(imgfilename)
+                        if img.size[0] > maxwidth:
+                            attrs['width'] = str(maxwidth)
+                            attrs['height'] = str(int(img.size[1] *
+                                                      maxwidth/img.size[0]))
+                            #print "From image, set width, height to %s, %s" % \
+                            #    (attrs['width'], attrs['height'])
+                        # Supposedly PIL will close automatically;
+                        # there's no explicit close().
+            except Exception, e:
+                print "Error getting maxwidth", str(e)
+                pass
+
         # Now we've done any needed processing to the tag and its attrs.
-        # t's time to write them to the output file.
+        # it's time to write them to the output file.
         for attr in attrs.keys() :
             self.outfile.write(' ' + attr.encode(self.encoding,
                                                  'xmlcharrefreplace'))
