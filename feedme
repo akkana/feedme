@@ -217,6 +217,8 @@ class tee() :
             self.fd2.close()
 
     def write(self, text) :
+        if isinstance(text, unicode):
+            text = text.encode('utf-8')
         self.fd1.write(text)
         self.fd2.write(text)
 
