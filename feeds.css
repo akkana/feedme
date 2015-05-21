@@ -1,7 +1,7 @@
 body { 
   color: white !important;
   background: #000 !important;
-  font-size: .9em;
+  font-size: 1.1em;
 }
 
 a:link, a:hover, a:active { color: #ffff00 !important; }
@@ -21,4 +21,4 @@ tt, pre { font-size: 1.2em; }
  */
 .illustration { background-color: white; }
 
-img { max-width: 100%; }
+img { max-width: 100%; height: auto; !important; }
