@@ -382,16 +382,16 @@ tree = lxml.html.fromstring(html)
         #if self.config.getboolean(self.feedname, 'verbose') :
         #    print "start tag", tag, attrs
 
-        if self.skipping :
-            # print "Skipping start tag", tag, "inside a skipped section"
-            return
-
         # meta refreshes won't work when we're offline, but we
         # might want to display them to give the user the option.
         # <meta http-equiv="Refresh" content="0; URL=http://blah"></meta>
+        # meta charset is the other meta tag we care about.
         # All other meta tags will be skipped, so do this test
         # before checking for tag_skippable.
         if tag == 'meta' :
+            if 'charset' in attrs.keys() and attrs['charset'] :
+                self.encoding = attrs['charset']
+                return
             if 'http-equiv' in attrs.keys() and \
                     attrs['http-equiv'].lower() == 'refresh' :
                 self.outfile.write("Meta refresh suppressed.<br />")
@@ -422,6 +422,10 @@ tree = lxml.html.fromstring(html)
                 # XXX Note that this won't skip the </meta> tag, unfortunately,
                 # and tag_skippable_section can't distinguish between
                 # meta refresh and any other meta tags.
+
+        if self.skipping :
+            # print "Skipping start tag", tag, "inside a skipped section"
+            return
 
         if tag == 'base' and 'href' in attrs.keys():
             self.base_href = attrs['href']
@@ -700,8 +704,16 @@ tree = lxml.html.fromstring(html)
 
         # Don't want embedded <head> stuff
         # Unfortunately, skipping the <head> means we miss meta and base.
-        #if tag == 'head' :
-        #    return True
+        # Missing meta is a problem because it means we don't get the charset.
+        # XXX But note: we probably won't see the charset anyway, because
+        # we'll look for it in the first head, the one we create ourselves,
+        # rather than the one that comes from the original page.
+        # We really need to merge the minimal information from the page
+        # head into the generated one.
+        # Meanwhile, these tags may do more harm than good.
+        # We definitely need to remove <link type="text/css".
+        if tag == 'head' :
+            return True
 
         return False
         
