@@ -34,6 +34,7 @@ import traceback
 import feedparser
 import urllib2
 import socket
+import posixpath
 
 # We now use a separate file for the parsing and such:
 import feedmeparser
@@ -1050,9 +1051,30 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
         print >>sys.stderr, "\n====== Errors ====="
         print >>sys.stderr, msgs.encode('utf-8', 'backslashreplace')
 
-    # Now we're done. It's time to move the log file into its final place.
-    os.rename(logfilename,
-              os.path.join(feeddir, time.strftime("%m-%d-%a"), 'LOG'))
+    try :
+        # Now we're done. It's time to move the log file into its final place.
+        datestr = time.strftime("%m-%d-%a")
+        datedir = os.path.join(feeddir, datestr)
+        os.rename(logfilename,
+                  os.path.join(datedir, 'LOG'))
+
+        # and make a manifest listing all the files we downloaded.
+        # This will be used remotely, so we don't want the local
+        # path in it; everything is relative to this directory.
+        # XXX Temporarily, we'll only do it for me, so Dave doesn't
+        # get MANIFEST files cluttering up his directories.
+        if 'akkana' in datedir or 'shallowsky' in datedir :
+            discardchars = len(datedir)
+            print "Discarding", discardchars, "characters"
+            manifest = open(os.path.join(datedir, 'MANIFEST'), 'w')
+            for root, dirs, files in os.walk(datedir) :
+                shortroot = root[discardchars+1:]
+                if shortroot :
+                    print >>manifest, shortroot + '/'
+                for f in files :
+                    print >>manifest, posixpath.join(shortroot, f)
+    except OSError :
+        print >>sys.stderr, "Couldn't move LOG or create MANIFEST"
 
     # Clean up old directories:
     clean_up(config)
