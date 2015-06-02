@@ -158,8 +158,9 @@ else:
 
     try :
         ofp = open(rssfile, "w")
-    except :
+    except Exception, e:
         print >>sys.stderr, "Couldn't write to RSS file", rssfile, line_sep
+        print >>sys.stderr, e
         sys.exit(1)
 
     print >>ofp, """<rss version="0.91">
