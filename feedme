@@ -602,6 +602,7 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
                         errmsg += "\n"
                         errmsg += "Breaking -- hopefully we'll write index.html"
                         msglog.err(errmsg)
+                        indexstr += "<p>" + errmsg
                         if config.get(feedname,
                                       'continue_on_timeout') == 'true':
                             continue
@@ -611,6 +612,7 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
                     errmsg = "URLError on " + item.link + "\n"
                     errmsg += str(e) + '<br>\n'
                     msglog.err(errmsg)
+                    indexstr += "<p>" + errmsg
                     continue
 
                 except KeyboardInterrupt :
