@@ -10,6 +10,7 @@ from ConfigParser import ConfigParser
 #from HTMLParser import HTMLParser
 import lxml.html
 import urlparse
+from cookielib import CookieJar
 
 # XXX integrate output_encode!
 def output_encode(s, encoding) :
@@ -83,7 +84,11 @@ class FeedmeHTMLParser():
             request.add_header('Referer', referrer)
 
         request.add_header('User-Agent', self.user_agent)
-        response = urllib2.urlopen(request, timeout=100)
+        # Allow for cookies in the request: some sites, notably nytimes.com,
+        # degrade to an infinite redirect loop if cookies aren't enabled.
+        cj = CookieJar()
+        opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
+        response = opener.open(request, timeout=100)
         # Lots of ways this can fail.
         # e.g. ValueError, "unknown url type"
         # or BadStatusLine: ''
