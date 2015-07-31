@@ -612,7 +612,7 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
                     errmsg = "URLError on " + item.link + "\n"
                     errmsg += str(e) + '<br>\n'
                     msglog.err(errmsg)
-                    indexstr += "<p>" + errmsg
+                    indexstr += "<p><b>" + errmsg + "</b>"
                     continue
 
                 except KeyboardInterrupt :
