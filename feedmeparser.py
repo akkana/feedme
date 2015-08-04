@@ -11,6 +11,8 @@ from ConfigParser import ConfigParser
 import lxml.html
 import urlparse
 from cookielib import CookieJar
+import StringIO
+import gzip
 
 # XXX integrate output_encode!
 def output_encode(s, encoding) :
@@ -84,6 +86,11 @@ class FeedmeHTMLParser():
             request.add_header('Referer', referrer)
 
         request.add_header('User-Agent', self.user_agent)
+
+        # A few sites, like http://nymag.com, gzip their http.
+        # Python doesn't handle that automatically: we have to ask for it.
+        request.add_header('Accept-encoding', 'gzip')
+
         # Allow for cookies in the request: some sites, notably nytimes.com,
         # degrade to an infinite redirect loop if cookies aren't enabled.
         cj = CookieJar()
@@ -155,6 +162,9 @@ class FeedmeHTMLParser():
 
         link = response.geturl()
 
+        # Is the URL gzipped? If so, we'll need to uncompress it.
+        is_gzip = response.info().get('Content-Encoding') == 'gzip'
+
         # Read the content of the link:
         # This can die with socket.error, "connection reset by peer"
         # And it may not set html, so initialize it first:
@@ -172,6 +182,10 @@ class FeedmeHTMLParser():
             print >>sys.stderr, "Didn't read anything from response.read()"
             raise NoContentError
 
+        if is_gzip :
+            buf = StringIO.StringIO(html)
+            f = gzip.GzipFile(fileobj=buf)
+            html = f.read()
 
         #print >>sys.stderr, "response.read() returned type", type(html)
         # Want to end up with unicode. In case it's str, decode it:
