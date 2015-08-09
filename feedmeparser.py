@@ -204,21 +204,21 @@ class FeedmeHTMLParser():
         page_ends = get_config_multiline(self.config, self.feedname, 'page_end')
         if len(page_starts) > 0 :
             for page_start in page_starts :
-                print "looking for page_start", page_start
+                print >>sys.stderr, "looking for page_start", page_start
                 match = html.find(page_start)
                 if match >= 0:
                     if verbose :
-                        print "Found page_start", page_start
+                        print >>sys.stderr, "Found page_start", page_start
                     html = html[match:]
                     break
 
         if len(page_ends) > 0 :
             for page_end in page_ends :
-                print "looking for page_end", page_end
+                print >>sys.stderr, "looking for page_end", page_end
                 match = html.find(page_end)
                 if match >= 0:
                     if verbose :
-                        print "Found page_end", page_end
+                        print >>sys.stderr, "Found page_end", page_end
                     html = html[0 : match]
 
         # Skip anything matching any of the skip_pats.
