@@ -75,6 +75,15 @@ class FeedmeHTMLParser():
         # e.g. inside <script> tags.
         self.skipping = None
 
+        # Do we need to do any substitution on the URL first?
+        urlsub = get_config_multiline(self.config, self.feedname,
+                                           'url_substitute')
+        if urlsub:
+            print >>sys.stderr, "Substituting", urlsub[0], "to", urlsub[1]
+            print >>sys.stderr, "Rewriting:", url
+            url = re.sub(urlsub[0], urlsub[1], url)
+            print >>sys.stderr, "Became:   ", url
+
         # For the sub-pages, we're getting HTML, not RSS.
         # Nobody seems to have RSS pointing to RSS.
         request = urllib2.Request(url)
@@ -227,7 +236,7 @@ class FeedmeHTMLParser():
         if len(skip_pats) > 0 :
             for skip in skip_pats :
                 if verbose :
-                    print >>sys.stderr, "Trying to skip", skip
+                    print >>sys.stderr, "Trying to skip '%s'" % skip
                     #print >>sys.stderr, "in", html.encode('utf-8')
                     #sys.stderr.flush()
                 # flags=DOTALL doesn't exist in re.sub until 2.7,
@@ -800,6 +809,7 @@ def read_config_file() :
                            'page_start' : '',
                            'page_end':'',
                            'single_page_pat' : '',
+                           'url_substitute' : '',
                            'skip_pat' : '',
                            'nocache' : 'false',
                            'logfile' : '',
