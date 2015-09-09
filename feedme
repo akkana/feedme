@@ -40,7 +40,7 @@ import posixpath
 import feedmeparser
 
 has_ununicode=True
-try :
+try:
     import ununicode
 except ImportError, e:
     has_ununicode=False
@@ -48,12 +48,12 @@ except ImportError, e:
 #
 # Clean up old feed directories
 #
-def clean_up(config) :
-    try :
+def clean_up(config):
+    try:
         days = int(config.get('DEFAULT', 'save_days'))
         feeddir = config.get('DEFAULT', 'dir')
         feeddir = feedmeparser.sub_tilde(feeddir)
-    except :
+    except:
         print >>sys.stderr, \
             "Error trying to get save_days and feed dir; can't clean up"
         return
@@ -62,22 +62,22 @@ def clean_up(config) :
         days, "days from", feeddir
 
     now = time.time()
-    for dir in os.listdir(feeddir) :
+    for dir in os.listdir(feeddir):
         d = os.path.join(feeddir, dir)
 
         # Only clean up directories, not files sitting in the feeds dir.
         if not os.path.isdir(d):
             continue
 
-        try :
+        try:
             howold = (now - os.path.getctime(d)) / 60 / 60 / 24
-            if howold > days :
+            if howold > days:
                 print >>sys.stderr, "Deleting", d
-                if os.path.isdir(d) :
+                if os.path.isdir(d):
                     shutil.rmtree(d)
-                else :
+                else:
                     os.unlink(d)
-        except Exception, e :
+        except Exception, e:
             print "Couldn't unlink", d, str(e)
 
 ##################################################################
@@ -85,28 +85,28 @@ def clean_up(config) :
 # Define functions for each output format you need to support.
 #
 
-def run_conversion_cmd(appargs) :
-    if True or verbose :
+def run_conversion_cmd(appargs):
+    if True or verbose:
         cmd = " ".join(appargs)
         print >>sys.stderr, "Running:", cmd
         sys.stdout.flush()
 
     retval = os.spawnvp(os.P_WAIT, appargs[0], appargs)
     #retval = os.system(cmd)
-    if retval != 0 :
+    if retval != 0:
         raise OSError(retval, "Couldn't run: " + ' '.join(appargs))
 
 #
 # Generate a Plucker file
 #
-def make_plucker_file(indexfile, feedname, levels, ascii) :
+def make_plucker_file(indexfile, feedname, levels, ascii):
     day = time.strftime("%a")
     docname = day + " " + feedname
     cleanfilename = day + "_" + feedname.replace(" ", "_")
 
     # Make sure the plucker directory exists:
     pluckerdir = os.path.join(feedmeparser.sub_tilde("~/.plucker"), "feedme")
-    if not os.path.exists(pluckerdir) :
+    if not os.path.exists(pluckerdir):
         os.makedirs(pluckerdir)
 
     # Run plucker. This should eventually be configurable --
@@ -122,7 +122,7 @@ def make_plucker_file(indexfile, feedname, levels, ascii) :
                 "--maxdepth", str(levels),
                 "--zlib-compression", "--beamable",
                 "-H", "file://" + indexfile ]
-    if not ascii :
+    if not ascii:
         appargs.append("--charset=utf-8")
 
     run_conversion_cmd(appargs)
@@ -131,13 +131,13 @@ def make_plucker_file(indexfile, feedname, levels, ascii) :
 # http://calibre-ebook.com/user_manual/conversion.html
 #
 def make_calibre_file(indexfile, feedname, extension, levels, ascii,
-                      author, flags) :
+                      author, flags):
     day = time.strftime("%a")
     # Prepend daynum to the filename because fbreader can only sort by filename
     #daynum = time.strftime("%w")
     cleanfilename = day + "_" + feedname.replace(" ", "_")
     outdir = os.path.join(config.get('DEFAULT', 'dir'), extension[1:])
-    if not os.access(outdir, os.W_OK) :
+    if not os.access(outdir, os.W_OK):
         os.makedirs(outdir)
 
     appargs = [ "ebook-convert",
@@ -147,9 +147,9 @@ def make_calibre_file(indexfile, feedname, extension, levels, ascii,
                 # directory should be configurable too, probably
                 os.path.join(outdir, cleanfilename + extension),
                 "--authors", author ]
-    for flag in flags :
+    for flag in flags:
         appargs.append(flag)
-    if True or verbose :
+    if True or verbose:
         cmd = " ".join(appargs)
         print >>sys.stderr, "Running:", cmd
         sys.stdout.flush()
@@ -159,7 +159,7 @@ def make_calibre_file(indexfile, feedname, extension, levels, ascii,
 #
 # Generate a fictionbook2 file
 #
-def make_fb2_file(indexfile, feedname, levels, ascii) :
+def make_fb2_file(indexfile, feedname, levels, ascii):
     make_calibre_file(indexfile, feedname, ".fb2", levels, ascii,
                       "feedme", flags = [ "--disable-font-rescaling" ] )
 
@@ -167,7 +167,7 @@ def make_fb2_file(indexfile, feedname, levels, ascii) :
 # Generate an ePub file
 # http://calibre-ebook.com/user_manual/cli/ebook-convert-3.html#html-input-to-epub-output
 #
-def make_epub_file(indexfile, feedname, levels, ascii) :
+def make_epub_file(indexfile, feedname, levels, ascii):
     make_calibre_file(indexfile, feedname, ".epub", levels, ascii,
                       time.strftime("%m-%d %a") + " feeds",
                       flags = [ '--no-default-epub-cover',
@@ -179,71 +179,71 @@ def make_epub_file(indexfile, feedname, levels, ascii) :
 ##################################################################
 # MsgLog: Print messages and also batch them up to print at the end:
 #
-class MsgLog :
-    def __init__(self) :
+class MsgLog:
+    def __init__(self):
         self.msgstr = ""
         self.errstr = ""
 
-    def msg(self, s) :
+    def msg(self, s):
         self.msgstr += "\n" + s
         print >>sys.stderr, "MESSAGE:", s.encode('ascii', 'backslashreplace')
 
-    def warn(self, s) :
+    def warn(self, s):
         self.msgstr += "\n" + s
         print  >>sys.stderr,"WARNING:", s.encode('ascii', 'backslashreplace')
 
-    def err(self, s) :
+    def err(self, s):
         self.errstr += "\n" + s
         print  >>sys.stderr,"ERROR:", s.encode('ascii', 'backslashreplace')
         #traceback.print_stack()
 
-    def get_msgs(self) :
+    def get_msgs(self):
         return self.msgstr
 
-    def get_errs(self) :
+    def get_errs(self):
         return self.errstr
 
 # file-like class that can optionally send output to a log file. Inspired by
 # http://www.redmountainsw.com/wordpress/archives/python-subclassing-file-types
 # and with help from KirkMcDonald.
-class tee() :
-    def __init__(self, _fd1, _fd2) :
+class tee():
+    def __init__(self, _fd1, _fd2):
         self.fd1 = _fd1
         self.fd2 = _fd2
 
-    def __del__(self) :
-        if self.fd1 != sys.stdout and self.fd1 != sys.stderr :
+    def __del__(self):
+        if self.fd1 != sys.stdout and self.fd1 != sys.stderr:
             self.fd1.close()
-        if self.fd2 != sys.stdout and self.fd2 != sys.stderr :
+        if self.fd2 != sys.stdout and self.fd2 != sys.stderr:
             self.fd2.close()
 
-    def write(self, text) :
+    def write(self, text):
         if isinstance(text, unicode):
             text = text.encode('utf-8')
         self.fd1.write(text)
         self.fd2.write(text)
 
-    def flush(self) :
+    def flush(self):
         self.fd1.flush()
         self.fd2.flush()
 
 #
 # Ctrl-C Interrupt handler: prompt for what to do.
 #
-def handle_keyboard_interrupt(msg) :
+def handle_keyboard_interrupt(msg):
     # os.isatty() doesn't work, so:
-    if not hasattr(sys.stdin, "isatty") :
+    if not hasattr(sys.stdin, "isatty"):
         print "Interrupt, and not running interactively. Exiting."
         sys.exit(1)
 
     response = raw_input(msg)
-    if response == '' :
+    if response == '':
         return '\0'
-    if response[0] == 'q' :
+    if response[0] == 'q':
         sys.exit(1)
     return response[0]
 
-def falls_between(when, time1, time2) :
+def falls_between(when, time1, time2):
     """Does a given day-of-week or day-of-month fall between
        the two given times? It is presumed that time1 <= time2.
        If when == "Tue", did we cross a tuesday getting from time1 to time2?
@@ -252,17 +252,17 @@ def falls_between(when, time1, time2) :
        If when matches time2, return True.
     """
     print >>sys.stderr, "Does", when, "fall between", time1, "and", time2, "?"
-    if not when or type(when) is str and len(when) <= 0 :
+    if not when or type(when) is str and len(when) <= 0:
         return True
 
     # We need both times both in seconds since epoch and in struct_time:
-    def both_time_types(t) :
+    def both_time_types(t):
         """Given a time that might be either seconds since epoch or struct_time,
            return a tuple of (seconds, struct_time).
         """
-        if type(t) is time.struct_time :
+        if type(t) is time.struct_time:
             return time.mktime(t), t
-        elif type(t) is int or type(t) is float :
+        elif type(t) is int or type(t) is float:
             return t, time.localtime(t)
         else : raise ValueError("%s not int or struct_time" % str(t))
 
@@ -273,22 +273,22 @@ def falls_between(when, time1, time2) :
 
     daysdiff = (t2 - t1) / 60. / 60. / 24.
     print >>sys.stderr, "daysdiff is", daysdiff
-    if daysdiff < 0 :
+    if daysdiff < 0:
         msglog.err("daysdiff < 0!!! " + str(daysdiff))
 
     # Is it a day of the month?
-    try :
+    try:
         day_of_month = int(when)
         print >>sys.stderr, "It's a day of the month:", day_of_month,
         print >>sys.stderr, "compared to", st1.tm_mday, "and", st2.tm_mday
 
         # It is a day of the month! How many days in between the two dates?
-        if daysdiff > 31 :
+        if daysdiff > 31:
             return True
 
         # Now we know the two dates differ by less than a month.
         # Are time1 and time2 both in the same month? Then it's easy.
-        if st1.tm_mon == st2.tm_mon :
+        if st1.tm_mon == st2.tm_mon:
             return st1.tm_mday <= day_of_month and st2.tm_mday >= day_of_month
 
         # Else time1 is the month prior to time2, so:
@@ -297,23 +297,23 @@ def falls_between(when, time1, time2) :
     except ValueError :  # Not an integer, probably a string.
         pass
 
-    if type(when) is not str :
+    if type(when) is not str:
         raise ValueError("%s must be a string or integer" % when)
 
     # Okay, not a day of the month. Is it a day of the week?
     # We have to start with Monday because struct_time.tm_wday does.
     weekdays = [ 'mo', 'tu', 'we', 'th', 'fr', 'sa', 'su' ]
-    if len(when) < 2 :
+    if len(when) < 2:
         raise ValueError("%s too short: days must have at least 2 chars" % when)
 
     when = when[0:2].lower()
-    if when not in weekdays :
+    if when not in weekdays:
         raise ValueError("%s is a string but not a day" % when)
 
     # Whew -- we know it's a day of the week.
 
     # Has more than a week passed? Then it encompasses all weekdays.
-    if daysdiff > 7 :
+    if daysdiff > 7:
         print >>sys.stderr, "More than a week has passed"
         return True
 
@@ -326,13 +326,13 @@ def falls_between(when, time1, time2) :
 #
 # Get a single feed
 #
-def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
+def get_feed(feedname, config, cache, cachefile, last_time, msglog):
     """Fetch a single feed"""
     # Mandatory arguments:
-    try :
+    try:
         sitefeedurl = config.get(feedname, 'url')
         feeddir = config.get(feedname, 'dir')
-    except :
+    except:
         msglog.err("Error reading feedme.conf entry for: " + feedname)
         return
 
@@ -356,8 +356,8 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
        cache file was written?
     """
     when = config.get(feedname, "when")
-    if when and when != '' and last_time :
-        if not falls_between(when, last_time, time.localtime()) :
+    if when and when != '' and last_time:
+        if not falls_between(when, last_time, time.localtime()):
             print >>sys.stderr, "Skipping", feedname, "-- not", when
             return
         print >>sys.stderr, "Yes, it's time to feed:", when
@@ -373,11 +373,11 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
     outdir = os.path.join(feeddir,  feedfile)
     print >>sys.stderr, "outdir:", outdir
 
-    if cache == None :
+    if cache == None:
         nocache = True
-    else :
+    else:
         nocache = (config.get(feedname, 'nocache') == 'true')
-    if verbose and nocache :
+    if verbose and nocache:
         msglog.msg(feedname + ": Ignoring cache")
 
     global VersionString
@@ -393,30 +393,30 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
     # which will kill our whole process, so guard against that.
     # Sadly, feedparser usually doesn't give any details about what went wrong.
     socket.setdefaulttimeout(100)
-    try :
+    try:
         print "Running: feedparser.parse(", sitefeedurl, ")"
         feed = feedparser.parse(sitefeedurl)
 
-    # except xml.sax._exceptions.SAXException, e :
-    except Exception, e :
+    # except xml.sax._exceptions.SAXException, e:
+    except Exception, e:
         print "Couldn't parse feed: URL:", sitefeedurl
         print str(e)
         traceback.print_stack()
         return
 
     # feedparser has no error return! One way is to check len(feed.feed).
-    if len(feed.feed) == 0 :
+    if len(feed.feed) == 0:
         msglog.err("Can't read " + sitefeedurl)
         return
     # XXX Sometimes feeds die a few lines later getting feed.feed.title.
     # Here's a braindead guard against it -- but why isn't this
     # whole clause inside a try? It should be.
-    if not 'title' in feed.feed :
+    if not 'title' in feed.feed:
         msglog.msg(sitefeedurl + " lacks a title!")
         feed.feed.title = '[' + feedname + ']'
         #return
 
-    if not nocache :
+    if not nocache:
         if sitefeedurl not in cache:
             cache[sitefeedurl] = []
         feedcache = cache[sitefeedurl]
@@ -455,69 +455,69 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
     # We'll increment itemnum as soon as we start showing entries,
     # so start it negative so anchor links will start at zero.
     itemnum = -1
-    for item in feed.entries :
-        try :
+    for item in feed.entries:
+        try:
             #
             # Get the list of links (href) and a (hopefully) unique ID:
             # XXX Is href[] ever even used? Is this clause obsolete?
             #
-            if 'links' in item :
+            if 'links' in item:
                 href = [i['href'].encode('utf-8') \
                             for i in item.links if i['rel'] == 'alternate']
             else:
                 href = []
 
-            if not 'id' in item :
-                if len(href) > 0 :
+            if not 'id' in item:
+                if len(href) > 0:
                     item.id = href[0]
-                    if verbose :
+                    if verbose:
                         msglog.msg("Using URL " + href[0] + " for ID.")
                 else:
-                    if verbose :
+                    if verbose:
                         msglog.msg("Item in " + href[0] + " had no ID or URL.")
                     next  # or return?
 
             # Does the link match a pattern we're skipping?
-            if skip_link_pat :
+            if skip_link_pat:
                 skipping = False
-                for spat in skip_link_pat :
-                    if re.search(spat, item.link) :
-                        if verbose :
+                for spat in skip_link_pat:
+                    if re.search(spat, item.link):
+                        if verbose:
                             print >>sys.stderr, "Skipping", item.link, \
                                 "because it matches", spat
                         skipping = True
                         break
-                if skipping :
+                if skipping:
                     continue
 
             # Filter out file types known not to work
             # XXX Only mp3 for now. Obviously, make this more general.
             # Wish we could do this using the server's type rather than
             # file extension!
-            if item.link.endswith("mp3") :
+            if item.link.endswith("mp3"):
                 print >>sys.stderr, "Filtering out mp3 link", item.link
                 continue
 
             # Make sure ids don't have named anchors appended:
             anchor_index = item.id.rfind('#')
-            if anchor_index >= 0 :
+            if anchor_index >= 0:
                 anchor = item.id[anchor_index:]
                 item.id = item.id[0:anchor_index]
-            else :
+            else:
                 anchor = ""
 
             # See if we've already seen this page:
-            try :
+            try:
                 pagenum = suburls.index(item.id)
                 # We've already seen a link to this URL. It's probably
                 # a link to a different named anchor within the same file.
-            except ValueError :
+            except ValueError:
                 # Haven't seen it before. But is it in the cache already?
-                if not nocache :
+                if not nocache:
                     # We want it in the cache, whether it's new or not:
                     newfeedcache.append(item.id)
                     if item.id in feedcache:
-                        if verbose :
+                        if verbose:
                             msglog.msg(item.id + " already cached -- skipping")
                         continue
 
@@ -526,7 +526,7 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
                 pagenum = len(suburls) - 1
 
             itemnum += 1
-            if verbose :
+            if verbose:
                 print >>sys.stderr, "\nItem:", item.title.encode('utf-8',
                                                                  'replace')
 
@@ -534,14 +534,14 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
             # pagenum is the html file of the subentry, e.g. 3.html.
 
             # Make the parent directory if we haven't already
-            if not os.access(outdir, os.W_OK) :
-                if verbose :
+            if not os.access(outdir, os.W_OK):
+                if verbose:
                     print >>sys.stderr, "Making", outdir
                 os.makedirs(outdir)
 
-            if 'author' in item :
+            if 'author' in item:
                 author = item.author
-            else :
+            else:
                 author = None
 
             #
@@ -559,7 +559,7 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
                       "<center><a href=\"%d.html\">&gt;-%d-&gt;</a></center>" \
                                          % (itemnum, itemnum))
 
-                except feedmeparser.NoContentError as e :
+                except feedmeparser.NoContentError as e:
                     # fetch_url didn't manage to get the page or write a file.
                     # So don't increment pagenum or itemnum for the next story.
                     msglog.warn("Didn't find any content on " + item.link
@@ -615,7 +615,7 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog) :
                     indexstr += "<p><b>" + errmsg + "</b>"
                     continue
 
-                except KeyboardInterrupt :
+                except KeyboardInterrupt:
                     response = handle_keyboard_interrupt("""
 *** Caught keyboard interrupt reading a story! ***\n
 Options:
@@ -641,11 +641,11 @@ Which (default = s): """)
                     # If the response was 'c', we continue and just
                     # ignore the interrupt.
 
-                except (IOError, urllib2.HTTPError) as e :
+                except (IOError, urllib2.HTTPError) as e:
                     # Collect info about what went wrong:
                     errmsg = "Couldn't read " + item.link + "\n"
                     #errmsg += "Title: " + item.title.encode('utf-8', 'replace')
-                    if verbose :
+                    if verbose:
                         #errmsg += "Item summary was:\n------\n"
                         #errmsg += item.summary + "\n------\n"
                         errmsg += str(e) + '<br>\n'
@@ -653,10 +653,10 @@ Which (default = s): """)
                         #errmsg += str(sys.exc_info()[1]) + '<br>\n'
                         #errmsg += traceback.format_exc(sys.exc_info()[2])
 
-                    if verbose :
+                    if verbose:
                         print >>sys.stderr, "=============="
                     msglog.err("IO or HTTP error: " + errmsg)
-                    if verbose :
+                    if verbose:
                         print >>sys.stderr, "=============="
 
                     itemnum -= 1
@@ -666,7 +666,7 @@ Which (default = s): """)
 
                     continue   # Move on to next story
 
-                except ValueError, e :
+                except ValueError, e:
                     # urllib2 is supposed to throw a urllib2.URLError for
                     # "unknown url type", but in practice it throws ValueError.
                     # See this e.g. for doubleclick ad links in the latimes
@@ -680,12 +680,12 @@ Which (default = s): """)
                     errmsg += "\n"
                     # print >>sys.stderr, errmsg
                     # msglog.err will print it, no need to print it again.
-                    if str(sys.exc_info()[1]).startswith("unknown url type:") :
+                    if str(sys.exc_info()[1]).startswith("unknown url type:"):
                         # Don't show stack trace for unknown URL types,
                         # since it's a known error.
                         errmsg += str(sys.exc_info()[1]) + " - couldn't load\n"
                         msglog.warn(errmsg)
-                    else :
+                    else:
                         errmsg += "ValueError on url " + item.link + "\n"
                         errmsg += traceback.format_exc(sys.exc_info()[2])
                         msglog.err(errmsg)
@@ -694,11 +694,11 @@ Which (default = s): """)
                     suburls.remove(item.id)
                     continue
 
-                except Exception as e :
+                except Exception as e:
                     # An unknown error, so report it complete with traceback.
                     errmsg = "Unknown error reading " + item.link + "\n"
                     errmsg += "Title: " + item.title.encode('utf-8', 'replace')
-                    if verbose :
+                    if verbose:
                         errmsg += "\nItem summary was:\n------\n"
                         errmsg += item.summary + "\n------\n"
                         errmsg += str(e) + '<br>\n'
@@ -706,10 +706,10 @@ Which (default = s): """)
                         errmsg += str(sys.exc_info()[1]) + '<br>\n'
                         errmsg += traceback.format_exc(sys.exc_info()[2])
 
-                    if verbose :
+                    if verbose:
                         print >>sys.stderr, "=============="
                     msglog.err("Unknown error: " + errmsg)
-                    if verbose :
+                    if verbose:
                         print >>sys.stderr, "=============="
 
                     # Are we sure we didn't get anything?
@@ -732,19 +732,19 @@ Which (default = s): """)
             # This is for viewers that have special areas defined on the
             # screen, e.g. areas for paging up/down or adjusting brightness.
             minwidth = config.getint(feedname, 'min_width')
-            if len(item.title) < minwidth :
+            if len(item.title) < minwidth:
                 #item.title += '&nbsp;' * (minwidth - len(item.title) - 2) + '__'
                 item.title += '. ' * (minwidth - len(item.title)) + '__'
 
-            if levels > 1 :
+            if levels > 1:
                 itemlink = '<a href=\"' + fnam + anchor + '\">'
                 indexstr += itemlink + '<b>' + item.title + '</b></a>\n'
-            else :
+            else:
                 # For a single-level site, don't put links over each entry.
-                if skip_links :
+                if skip_links:
                     itemlink = None
                     indexstr += "\n<b>" + item.title + "</b>\n"
-                else :
+                else:
                     itemlink = '<a href=\"' + item.link + '\">'
                     indexstr += "\n" + itemlink + item.title + "</a>\n"
 
@@ -755,15 +755,15 @@ Which (default = s): """)
             # Add either the content or the summary:
             if 'summary_detail' in item:
                 content = item.summary_detail.value + "\n"
-            elif 'content' in item :
+            elif 'content' in item:
                 content = item.content[0].value + "\n"
-            else :
+            else:
                 content = "[No content]"
 
             # There's an increasing trend to load up RSS pages with images.
             # Try to remove them, as well as any links that contain
             # only an image.
-            if config.getboolean(feedname, 'skip_images') :
+            if config.getboolean(feedname, 'skip_images'):
                 content = re.sub('<a [^>]*href=.*> *<img .*?></a>', '', content)
                 content = re.sub('<img .*?>', '', content)
             # But if we're not skipping images, then we need to rewrite
@@ -774,10 +774,10 @@ Which (default = s): """)
                     content = parser.rewrite_images(content)
 
             # Try to get rid of embedded links if skip_links is true:
-            if skip_links :
+            if skip_links:
                 content = re.sub('<a href=.*>(.*?)</a>', '\\1', content)
             # If we're keeping links, don't keep empty ones:
-            else :
+            else:
                 content = re.sub('<a  [^>]*href=.*> *</a>', '', content)
 
             # Skip any text specified in index_skip_pat.
@@ -786,34 +786,34 @@ Which (default = s): """)
             index_skip_pats = feedmeparser.get_config_multiline(config,
                                                       feedname,
                                                       'index_skip_pat')
-            for pat in index_skip_pats :
+            for pat in index_skip_pats:
                 content = re.sub(pat, '', content)
                 author = re.sub(pat, '', author)
 
             indexstr += content
 
-            if author :
+            if author:
                 indexstr += "\n<br><i>By: " + author + "</i><br>"
 
             # After the content, add another link to the title,
             # in case the user wants to click through after reading
             # the content:
             sublen = 16
-            if len(item.title) > sublen :
+            if len(item.title) > sublen:
                 # Truncate the title to sublen characters, and
                 # temove any HTML tags, otherwise we'll likely have
                 # tags like <i> that open but don't close
                 short_title = re.sub('<.*?>', '', item.title[0:sublen]) \
                     + "..."
 
-            else :
+            else:
                 short_title = item.title
-            if itemlink :
+            if itemlink:
                 indexstr += "\n<br>[[" + itemlink + short_title + "</a>]]\n\n"
 
         # If there was an error parsing this entry, we won't save
         # a file so decrement the itemnum and loop to the next entry.
-        except KeyboardInterrupt :
+        except KeyboardInterrupt:
             sys.stderr.flush()
             response = handle_keyboard_interrupt("""
 *** Caught keyboard interrupt while finishing a site! ***\n
@@ -823,19 +823,19 @@ c: Continue trying to finish this site
 n: Skip to next site
 
 Which (default = n): """)
-            if response[0] == 'c' :
+            if response[0] == 'c':
                 continue
-            if response[0] == 'q' :
+            if response[0] == 'q':
                 sys.exit(1)
             # Default is to skip to the next site:
             return
         except Exception, e :    # probably an HTTPError, bad URL
             itemnum -= 1
-            if verbose :
+            if verbose:
                 print >>sys.stderr, "Skipping item",
-                if 'link' in item :
+                if 'link' in item:
                     print >>sys.stderr, item.link.encode('utf-8')
-                else :
+                else:
                     print >>sys.stderr, "item has no link! item =", item
                 print >>sys.stderr, "error was", str(e).encode('utf-8')
 
@@ -845,13 +845,13 @@ Which (default = n): """)
 
     # Only write the index.html file if there was content that
     # wasn't already in the cache.
-    if itemnum >= 0 :
+    if itemnum >= 0:
         # If the RSS page ended with a story we didn't include,
         # either because it's old or because it had no content we could show,
         # we'll have an extra ">->" line. Try to remove it.
         # (Ugh, python re has no cleaner way of getting the last match.)
         m = None
-        for m in re.finditer(next_item_pattern, indexstr) :
+        for m in re.finditer(next_item_pattern, indexstr):
             pass
         if m:
             print >>sys.stderr, "Removing final next-item pattern"
@@ -860,12 +860,12 @@ Which (default = n): """)
                 + indexstr[m.end():]
         
         indexfile = os.path.join(outdir, "index.html")
-        if verbose :
+        if verbose:
             print  >>sys.stderr, "Writing", indexfile
         index = open(indexfile, "w")
-        if ascii :
+        if ascii:
             index.write(feedmeparser.output_encode(indexstr, 'ascii'))
-        else :
+        else:
             index.write(feedmeparser.output_encode(indexstr, encoding))
 
         # Before the downloaded string, insert a final named anchor.
@@ -882,18 +882,18 @@ Which (default = n): """)
         ####################################################
         # Generate the output files
         #
-        if 'plucker' in formats :
+        if 'plucker' in formats:
             make_plucker_file(indexfile, feedname, levels, ascii)
-        if 'fb2' in formats :
+        if 'fb2' in formats:
             make_fb2_file(indexfile, feedname, levels, ascii)
-        if 'epub' in formats :
+        if 'epub' in formats:
             make_epub_file(indexfile, feedname, levels, ascii)
 
         #
         # All done. Update the cache file.
         #
-        if not nocache :
-            if verbose :
+        if not nocache:
+            if verbose:
                 print >>sys.stderr, feedname, ": Updating cache file"
             # Dump the new cache, not the old one:
             # XXX Find out how long this is taking.
@@ -902,22 +902,22 @@ Which (default = n): """)
             cache[sitefeedurl] = newfeedcache
             cPickle.dump(cache, open(cachefile, 'w'))
             print >>sys.stderr, "Writing cache took", time.time() - t, "seconds"
-        elif verbose :
+        elif verbose:
             print >>sys.stderr, feedname, ": Not updating cache file"
 
-    else :
+    else:
         print >>sys.stderr, feedname, ": no new content"
 
         # We may have made the directory. If so, remove it:
         # if there's no index file then there's no way to access anything there.
-        if os.path.exists(outdir) :
+        if os.path.exists(outdir):
             print >>sys.stderr, "Removing directory", outdir
             shutil.rmtree(outdir)
 
 #
 # Find the cache file and load it, but don't parse yet
 #
-def init_cache() :
+def init_cache():
     #
     # Load the cache file
     #
@@ -928,15 +928,15 @@ def init_cache() :
         cachefile = os.path.join(feedmeparser.sub_tilde('~/.cache'),
                                  'feedme', 'feedme.dat')
 
-    if not os.path.exists(cachefile) :
+    if not os.path.exists(cachefile):
         dirname = os.path.dirname(cachefile)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
         cache = {}
-    elif not os.access(cachefile, os.W_OK) :
+    elif not os.access(cachefile, os.W_OK):
         print >>sys.stderr, "Error: can't write cache file", cachefile
         sys.exit(1)
-    else :
+    else:
         # Make a backup of the cache file, in case something goes wrong:
         shutil.copy2(cachefile, cachefile + ".bak")
         cache = cPickle.load(open(cachefile))
@@ -973,27 +973,27 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
 
     sections = config.sections()
 
-    if options.show_sites :
-        for feedname in sections :
+    if options.show_sites:
+        for feedname in sections:
             print feedname
         sys.exit(0)
 
-    if options.nocache :
+    if options.nocache:
         cache = None
         cachefile = None
         last_time = None
-    else :
+    else:
         cache, cachefile = init_cache()
         # Figure out the last time we ran feedme.
         # We'll use this for feeds that only update at certain times.
-        try :
+        try:
             statbuf = os.stat(cachefile)
             last_time = statbuf.st_mtime
         except OSError :    # probably the cache is new and got File Not Found
             last_time = 0
 
     # logfilename = config.get('DEFAULT', 'logfile')
-    # if logfilename :
+    # if logfilename:
     #     logfilename = feedmeparser.sub_tilde(logfilename)
 
     # Ignore the config file logfile setting, and log to feeds/LOG.
@@ -1011,49 +1011,49 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
     outputlog = open(logfilename, "w", buffering=1)
     sys.stderr = tee(stderrsav, outputlog)
 
-    try :
-        if len(args) == 0 :
-            for feedname in sections :
+    try:
+        if len(args) == 0:
+            for feedname in sections:
                 # This can hang if feedparser hangs parsing the initial RSS.
                 # So give the user a chance to ^C out of one feed
                 # without stopping the whole run:
-                try :
+                try:
                     get_feed(feedname, config, cache, cachefile,
                              last_time, msglog)
-                except KeyboardInterrupt :
+                except KeyboardInterrupt:
                     print >>sys.stderr, "Interrupt! Skipping feed", feedname
                     handle_keyboard_interrupt("Type q to quit, anything else to skip to next feed: ")
                     # We don't actually have to check the return value;
                     # handle_keyboard_interrupt will quit if the user types q.
 
         #sys.exit(1)
-        else :
-            for arg in args :
+        else:
+            for arg in args:
                 print >>sys.stderr, 'Getting feed for', arg
                 get_feed(arg, config, cache, cachefile, last_time, msglog)
 
     # This causes a lot of premature exits. Not sure why we end up
     # here rather than in the inner KeyboardInterrupt section.
-    except KeyboardInterrupt :
+    except KeyboardInterrupt:
         print >>sys.stderr, "Caught keyboard interrupt at the wrong time!"
         print traceback.format_exc(sys.exc_info()[2])
         #sys.exit(1)
-    except OSError, e :
+    except OSError, e:
         print >>sys.stderr, "Caught an OSError"
         print >>sys.stderr, e
         #sys.exit(e.errno)
 
     # Dump any errors we encountered.
     msgs = msglog.get_msgs()
-    if msgs :
+    if msgs:
         print >>sys.stderr, "\n===== Messages ===="
         print >>sys.stderr, msgs.encode('utf-8', 'backslashreplace')
     msgs = msglog.get_errs()
-    if msgs :
+    if msgs:
         print >>sys.stderr, "\n====== Errors ====="
         print >>sys.stderr, msgs.encode('utf-8', 'backslashreplace')
 
-    try :
+    try:
         # Now we're done. It's time to move the log file into its final place.
         datestr = time.strftime("%m-%d-%a")
         datedir = os.path.join(feeddir, datestr)
@@ -1065,17 +1065,17 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
         # path in it; everything is relative to this directory.
         # XXX Temporarily, we'll only do it for me, so Dave doesn't
         # get MANIFEST files cluttering up his directories.
-        if 'akkana' in datedir or 'shallowsky' in datedir :
+        if 'akkana' in datedir or 'shallowsky' in datedir:
             discardchars = len(datedir)
             print "Discarding", discardchars, "characters"
             manifest = open(os.path.join(datedir, 'MANIFEST'), 'w')
-            for root, dirs, files in os.walk(datedir) :
+            for root, dirs, files in os.walk(datedir):
                 shortroot = root[discardchars+1:]
-                if shortroot :
+                if shortroot:
                     print >>manifest, shortroot + '/'
-                for f in files :
+                for f in files:
                     print >>manifest, posixpath.join(shortroot, f)
-    except OSError :
+    except OSError:
         print >>sys.stderr, "Couldn't move LOG or create MANIFEST"
 
     # Clean up old directories:

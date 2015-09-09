@@ -10,7 +10,7 @@
 import unicodedata
 import types
 
-def toascii(line, errfilename = None, in_encoding = 'utf-8') :
+def toascii(line, errfilename = None, in_encoding = 'utf-8'):
     """
     Convert a line to plain ascii, making reasonable substitutions
     for accented characters, curly quotes, emdashes etc.
@@ -32,10 +32,10 @@ def toascii(line, errfilename = None, in_encoding = 'utf-8') :
     errfile = [ None, errfilename ]
 
     # Log an error, giving some context around the problematic area:
-    def log_error(uni, start, end, msg="error") :
+    def log_error(uni, start, end, msg="error"):
         contextsize = 15
-        if errfile[0] == None :
-            if errfilename == None :
+        if errfile[0] == None:
+            if errfilename == None:
                 return
             errfile[0] = open(errfile[1], "a")
         unilen = len(uni)
@@ -51,23 +51,23 @@ def toascii(line, errfilename = None, in_encoding = 'utf-8') :
 
     # If it's a string, decode it to Unicode.
     # If it's already unicode, no need to do that.
-    if type(line) == types.StringType :
-        if in_encoding == '' :
+    if type(line) == types.StringType:
+        if in_encoding == '':
             in_encoding = 'utf-8'
             # Slower but safer: try decoding with utf-8 then iso8859-15
         line = line.decode(in_encoding, 'replace')
-    elif type(line) != types.UnicodeType :
+    elif type(line) != types.UnicodeType:
         return "toascii needs either string or unicode, not" + str(type(line))
 
     normalized = unicodedata.normalize('NFKD', line)
-    while normalized != None :
-        try :
+    while normalized != None:
+        try:
             output += normalized.encode('ascii', 'strict')
             # or ignore, replace, etc.
             normalized = None
             break
 
-        except UnicodeEncodeError, e :
+        except UnicodeEncodeError, e:
             # At this point, e has these useful attributes:
             # e.encoding: 'ascii'
             # e.args: (encoding, unicode, start, end?, message)
@@ -185,10 +185,10 @@ def toascii(line, errfilename = None, in_encoding = 'utf-8') :
             # smart enough to notice most multi-char sequences, so
             # in practice it's always e.args[2]+1.
             bad_u = normalized[e.args[2]:]
-            if xlate.has_key(bad_u[0]) :
+            if xlate.has_key(bad_u[0]):
                 s += xlate[bad_u[0:1]]
                 normalized = normalized[e.args[2] + 1 : ]
-            else :
+            else:
                 s += bad_u[0].encode('ascii', 'backslashreplace')
                 log_error(e.args[1], e.args[2], e.args[3], e.args[4])
                 normalized = normalized[e.args[3]:]
@@ -197,7 +197,7 @@ def toascii(line, errfilename = None, in_encoding = 'utf-8') :
             output += s
             continue
 
-    if errfile[0] != None :
+    if errfile[0] != None:
         errfile[0].close()
     return output
 
@@ -206,11 +206,11 @@ def toascii(line, errfilename = None, in_encoding = 'utf-8') :
 #
 if __name__ == '__main__':
     import sys
-    if len(sys.argv) > 1 :
+    if len(sys.argv) > 1:
         fp = open(sys.argv[1], "r")
-    else :
+    else:
         fp = sys.stdin
-    while True :
+    while True:
         line = fp.readline()
         if not line : break
 

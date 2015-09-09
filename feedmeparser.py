@@ -15,32 +15,32 @@ import StringIO
 import gzip
 
 # XXX integrate output_encode!
-def output_encode(s, encoding) :
-    if encoding == 'ascii' and has_ununicode :
+def output_encode(s, encoding):
+    if encoding == 'ascii' and has_ununicode:
         #return unicodedata.normalize('NFKD', s).encode('ascii', 'ignore')
         # valid values in encode are replace and ignore
         return ununicode.toascii(s,
                                  in_encoding=encoding,
                                  errfilename=os.path.join(outdir,
                                                           "errors"))
-    elif isinstance(s, unicode) :
+    elif isinstance(s, unicode):
         return s.encode('utf-8', 'backslashreplace')
-    else :
+    else:
         return s
 
-def get_config_multiline(config, feedname, configname) :
+def get_config_multiline(config, feedname, configname):
     configlines = config.get(feedname, configname)
-    if configlines != '' :
+    if configlines != '':
         configlines = configlines.split('\n')
-    else :
+    else:
         configlines = []
     return configlines
 
-class NoContentError(Exception) :
+class NoContentError(Exception):
     pass
 
 class FeedmeHTMLParser():
-    def __init__(self, config, feedname) :
+    def __init__(self, config, feedname):
         self.config = config
         self.feedname = feedname
         self.outfile = None
@@ -50,7 +50,7 @@ class FeedmeHTMLParser():
         self.base_href = None
 
     def fetch_url(self, url, newdir, newname, title=None, author=None,
-                  footer='', referrer=None) :
+                  footer='', referrer=None):
         """Read a URL from the web. Parse it, rewriting any links,
            downloading any images and making any other changes needed
            according to the config file and current feed name.
@@ -59,16 +59,16 @@ class FeedmeHTMLParser():
            Raises NoContentError if it can't get the page.
         """
         verbose = self.config.getboolean(self.feedname, 'verbose')
-        if verbose :
+        if verbose:
             print >>sys.stderr, "Fetching link", url, \
                 "to", newdir + "/" + newname
 
         self.newdir = newdir
         self.newname = newname
         self.cururl = url
-        if type(title) is unicode :
+        if type(title) is unicode:
             title = title.encode('utf-8', 'replace')
-        if type(author) is unicode :
+        if type(author) is unicode:
             author = author.encode('utf-8', 'replace')
 
         # A flag to indicate when we're skipping everything --
@@ -89,8 +89,8 @@ class FeedmeHTMLParser():
         request = urllib2.Request(url)
 
         # If we're after the single-page URL, we may need a referrer
-        if referrer :
-            if verbose :
+        if referrer:
+            if verbose:
                 print >>sys.stderr, "Adding referrer", referrer
             request.add_header('Referer', referrer)
 
@@ -118,7 +118,7 @@ class FeedmeHTMLParser():
         # we can actually get a content type. If it's not
         # text/something, that's bad.
         ctype = response.headers['content-type']
-        if ctype and ctype != '' and ctype[0:4] != 'text' :
+        if ctype and ctype != '' and ctype[0:4] != 'text':
             print >>sys.stderr, url, "isn't text -- skipping"
             response.close()
             raise ContentsNotTextError
@@ -141,17 +141,17 @@ class FeedmeHTMLParser():
         # urllib2 unfortunately doesn't read unicode,
         # so try to figure out the current encoding:
         self.encoding = self.config.get(self.feedname, 'encoding')
-        if not self.encoding or self.encoding == '' :
+        if not self.encoding or self.encoding == '':
             self.encoding = response.headers.getparam('charset')
             #print >>sys.stderr, "getparam charset returned", self.encoding
             enctype = response.headers['content-type'].split('charset=')
-            if len(enctype) > 1 :
+            if len(enctype) > 1:
                 self.encoding = enctype[-1]
                 #print >>sys.stderr, "enctype gave", self.encoding
-            else :
+            else:
                 #print >>sys.stderr, "Defaulting to utf-8"
                 self.encoding = 'utf-8'
-        if verbose :
+        if verbose:
             print >>sys.stderr, "final encoding is", self.encoding
 
         outfilename = os.path.join(self.newdir, self.newname)
@@ -166,7 +166,7 @@ class FeedmeHTMLParser():
 <h1>%s</h1>\n
 """ % (self.encoding, title, title))
 
-        if author :
+        if author:
             self.outfile.write("By: %s\n<p>\n" % author)
 
         link = response.geturl()
@@ -178,12 +178,12 @@ class FeedmeHTMLParser():
         # This can die with socket.error, "connection reset by peer"
         # And it may not set html, so initialize it first:
         html = None
-        try :
+        try:
             html = response.read()
         # XXX Need to guard against IncompleteRead -- but what class owns it??
-        #except httplib.IncompleteRead, e :
+        #except httplib.IncompleteRead, e:
         #    print >>sys.stderr, "Ignoring IncompleteRead on", url
-        except Exception, e :
+        except Exception, e:
             print >>sys.stderr, "Unknown error from response.read()", url
 
         # html can be undefined here. If so, no point in doing anything else.
@@ -191,14 +191,14 @@ class FeedmeHTMLParser():
             print >>sys.stderr, "Didn't read anything from response.read()"
             raise NoContentError
 
-        if is_gzip :
+        if is_gzip:
             buf = StringIO.StringIO(html)
             f = gzip.GzipFile(fileobj=buf)
             html = f.read()
 
         #print >>sys.stderr, "response.read() returned type", type(html)
         # Want to end up with unicode. In case it's str, decode it:
-        if type(html) is str :
+        if type(html) is str:
             # But sometimes this raises errors anyway, even using
             # the page's own encoding, so use 'replace':
             html = html.decode(self.encoding, 'replace')
@@ -211,31 +211,31 @@ class FeedmeHTMLParser():
         page_starts = get_config_multiline(self.config, self.feedname,
                                            'page_start')
         page_ends = get_config_multiline(self.config, self.feedname, 'page_end')
-        if len(page_starts) > 0 :
-            for page_start in page_starts :
+        if len(page_starts) > 0:
+            for page_start in page_starts:
                 print >>sys.stderr, "looking for page_start", page_start
                 match = html.find(page_start)
                 if match >= 0:
-                    if verbose :
+                    if verbose:
                         print >>sys.stderr, "Found page_start", page_start
                     html = html[match:]
                     break
 
-        if len(page_ends) > 0 :
-            for page_end in page_ends :
+        if len(page_ends) > 0:
+            for page_end in page_ends:
                 print >>sys.stderr, "looking for page_end", page_end
                 match = html.find(page_end)
                 if match >= 0:
-                    if verbose :
+                    if verbose:
                         print >>sys.stderr, "Found page_end", page_end
                     html = html[0 : match]
 
         # Skip anything matching any of the skip_pats.
         # It may eventually be better to do this in the HTML parser.
         skip_pats = get_config_multiline(self.config, self.feedname, 'skip_pat')
-        if len(skip_pats) > 0 :
-            for skip in skip_pats :
-                if verbose :
+        if len(skip_pats) > 0:
+            for skip in skip_pats:
+                if verbose:
                     print >>sys.stderr, "Trying to skip '%s'" % skip
                     #print >>sys.stderr, "in", html.encode('utf-8')
                     #sys.stderr.flush()
@@ -266,7 +266,7 @@ class FeedmeHTMLParser():
 
         # Did we write anything real, any real content?
         # XXX Currently this requires text, might want to add img tags.
-        if not self.wrote_data :
+        if not self.wrote_data:
             print >>sys.stderr, "Didn't get any content for", title
             self.outfile.close()
             os.remove(outfilename)
@@ -288,8 +288,8 @@ class FeedmeHTMLParser():
             # when we're called recursively, url will be the single
             # page url so we won't make another recursive call.
             singlefile = outfilename + ".single"
-            try :
-                if verbose :
+            try:
+                if verbose:
                     print >>sys.stderr, \
                         "Trying to fetch single-page url with referrer =", \
                         response.geturl(), "instead of", url
@@ -300,36 +300,36 @@ class FeedmeHTMLParser():
                 # If the fetch succeeded and we have a single-page file,
                 # replace the original file with it
                 # and remove the original.
-                if os.path.exists(singlefile) :
+                if os.path.exists(singlefile):
                     #os.rename(outfilename, outfilename + '.1')
                     os.remove(outfilename)
                     os.rename(singlefile, outfilename)
-                    if verbose :
+                    if verbose:
                         print >>sys.stderr, "Removing", outfilename, \
                             "and renaming", singlefile
-                else :
+                else:
                     print >>sys.stderr, \
                         "Tried to fetch single-page file but apparently failed"
-            except (IOError, urllib2.HTTPError) as e :
+            except (IOError, urllib2.HTTPError) as e:
                 print >>sys.stderr, "Couldn't read single-page URL", \
                     self.single_page_url
                 print >>sys.stderr, e
 
-    def feed(self, uhtml) :
+    def feed(self, uhtml):
         """Duplicate, in a half-assed way, HTMLParser.feed() but
            using lxml.html since it handles real-world documents.
            Input is expected to be unicode.
         """
         # Parse the whole document.
         # (Trying valiantly to recover from lxml errors.)
-        try :
+        try:
             tree = lxml.html.fromstring(uhtml)
-        except ValueError :
+        except ValueError:
             print "ValueError!"
             # Idiot lxml.html that doesn't give any sensible way
             # to tell what really went wrong:
             if str(sys.exc_info()[1]).startswith(
-                "Unicode strings with encoding declaration") :
+                "Unicode strings with encoding declaration"):
                 # This seems to happen because somehow the html gets
                 # something like this inserted at the beginning:
                 # <?xml version="1.0" encoding="utf-8"?>
@@ -348,7 +348,7 @@ class FeedmeHTMLParser():
                 print >>sys.stderr, uhtml[:512].encode('utf-8',
                                                        'xmlcharrefreplace'),
                 print '...'
-            else :
+            else:
                 raise ValueError
 
         # Iterate over the DOM tree:
@@ -366,8 +366,8 @@ class FeedmeHTMLParser():
 
         try:
             tree = lxml.html.fromstring(content)
-            for e in tree.iter() :
-                if e.tag == 'img' and 'src' in e.keys() :
+            for e in tree.iter():
+                if e.tag == 'img' and 'src' in e.keys():
                     try:
                         src = self.make_absolute(e.attrib['src'])
                         if src in self.remapped_images.keys():
@@ -381,33 +381,33 @@ class FeedmeHTMLParser():
             print >>sys.stderr, "content: '" + content + "'"
             return content
 
-    def crawl_tree(self, tree) :
+    def crawl_tree(self, tree):
         """For testing:
 import lxml.html
 html = '<html><body onload="" color="white">\n<p>Hi  ! Ma&ntilde;ana!\n<a href="/my/path/to/link.html">my link</a>\n</body></html>\n'
 tree = lxml.html.fromstring(html)
 """
         #print "Crawling:", tree.tag, "attrib", tree.attrib
-        if type(tree.tag) is str :
+        if type(tree.tag) is str:
             # lxml.html gives comments tag = <built-in function Comment>
             # This is not documented anywhere and there seems to be
             # no way to ask "Is this element a comment?"
             # So we only handle tags that are type str.
             self.handle_starttag(tree.tag, tree.attrib)
-            if tree.text :
+            if tree.text:
                 #print tree.tag, "contains text", tree.text
                 self.handle_data(tree.text)
-            for node in tree :
+            for node in tree:
                 self.crawl_tree(node)
             self.handle_endtag(tree.tag)
         # print the tail even if it was a comment -- the tail is
         # part of the parent tag, not the current tag.
-        if tree.tail :
+        if tree.tail:
             #print tree.tag, "contains text", tree.tail
             self.handle_data(tree.tail)
 
     def handle_starttag(self, tag, attrs):
-        #if self.config.getboolean(self.feedname, 'verbose') :
+        #if self.config.getboolean(self.feedname, 'verbose'):
         #    print "start tag", tag, attrs
 
         # meta refreshes won't work when we're offline, but we
@@ -416,30 +416,30 @@ tree = lxml.html.fromstring(html)
         # meta charset is the other meta tag we care about.
         # All other meta tags will be skipped, so do this test
         # before checking for tag_skippable.
-        if tag == 'meta' :
-            if 'charset' in attrs.keys() and attrs['charset'] :
+        if tag == 'meta':
+            if 'charset' in attrs.keys() and attrs['charset']:
                 self.encoding = attrs['charset']
                 return
             if 'http-equiv' in attrs.keys() and \
-                    attrs['http-equiv'].lower() == 'refresh' :
+                    attrs['http-equiv'].lower() == 'refresh':
                 self.outfile.write("Meta refresh suppressed.<br />")
-                if 'content' in attrs.keys() :
+                if 'content' in attrs.keys():
                     content = attrs['content'].split(';')
-                    if len(content) > 1 :
+                    if len(content) > 1:
                         href = content[1].strip()
-                    else :
+                    else:
                         href = content[0].strip()
                     # XXX Next comparison might be better done with re,
                     # in case of spaces around the =.
                     print >>sys.stderr, "href is '" +  href + "'"
-                    if href.upper().startswith('URL=') :
+                    if href.upper().startswith('URL='):
                         href = href[4:]
                     self.outfile.write('<a href="' + href + '">'
                                        + href + '</a>')
 
                     # Also set the refresh target as the single_page_url.
                     # Maybe we can actually get it here.
-                    if not self.single_page_url :
+                    if not self.single_page_url:
                         self.single_page_url = \
                             self.make_absolute(href)
                         print >>sys.stderr, \
@@ -451,7 +451,7 @@ tree = lxml.html.fromstring(html)
                 # and tag_skippable_section can't distinguish between
                 # meta refresh and any other meta tags.
 
-        if self.skipping :
+        if self.skipping:
             # print "Skipping start tag", tag, "inside a skipped section"
             return
 
@@ -460,43 +460,43 @@ tree = lxml.html.fromstring(html)
             return
 
         # Delete any style tags used for color or things like display:none
-        if 'style' in attrs.keys() :
+        if 'style' in attrs.keys():
             style = attrs['style']
-            if re.search('display: *none', style) :
+            if re.search('display: *none', style):
                 return    # Yes, discard the whole style tag
-            if re.search('color:', style) :
+            if re.search('color:', style):
                 return
-            if re.search('background', style) :
+            if re.search('background', style):
                 return
 
         # Some tags, we always skip
-        if self.tag_skippable_section(tag) :
+        if self.tag_skippable_section(tag):
             self.skipping = tag
             # print >>sys.stderr, "Starting a skippable", tag, "section"
             return
 
-        if self.tag_skippable(tag) :
+        if self.tag_skippable(tag):
             # print >>sys.stderr, "skipping start", tag, "tag"
             return
 
         #print "type(tag) =", type(tag)
         self.outfile.write('<' + tag.encode(self.encoding, 'xmlcharrefreplace'))
 
-        if tag == 'a' :
-            if 'href' in attrs.keys() :
+        if tag == 'a':
+            if 'href' in attrs.keys():
                 href = attrs['href']
                 #print >>sys.stderr, "a href", href
 
                 # See if this matches the single-page pattern,
                 # if we're not already following one:
-                if not self.single_page_url :
+                if not self.single_page_url:
                     #print "we're not in the single page already"
                     single_page_pats = get_config_multiline(self.config,
                                                             self.feedname,
                                                             'single_page_pat')
-                    for single_page_pat in single_page_pats :
+                    for single_page_pat in single_page_pats:
                         m = re.search(single_page_pat, href)
-                        if m :
+                        if m:
                             self.single_page_url = \
                                 self.make_absolute(href[m.start():m.end()])
                             print >>sys.stderr, \
@@ -510,12 +510,12 @@ tree = lxml.html.fromstring(html)
                 attrs['href'] = self.make_absolute(href)
             #print "a attrs now are", attrs
 
-        elif tag == 'img' and 'src' in attrs.keys() :
+        elif tag == 'img' and 'src' in attrs.keys():
             src = attrs['src']
 
             # Make relative URLs absolute
             src = self.make_absolute(src)
-            if not src :
+            if not src:
                 return
 
             # urllib2 can't parse out the host part without first
@@ -524,12 +524,12 @@ tree = lxml.html.fromstring(html)
             req.add_header('User-Agent', self.user_agent)
 
             # For now, only fetch images that come from the HTML's host:
-            try :
+            try:
                 nonlocal_images = self.config.getboolean(self.feedname,
                                                          'nonlocal_images')
-            except :
+            except:
                 nonlocal_images = False
-            if nonlocal_images or self.same_host(req.get_host(), self.host) :
+            if nonlocal_images or self.same_host(req.get_host(), self.host):
                 base = os.path.basename(src)
                 # Clean up the basename, since it might have illegal chars.
                 # Only allow alphanumerics or others in a short whitelist.
@@ -539,8 +539,8 @@ tree = lxml.html.fromstring(html)
                                 or x in '-_.='])
                 if not base : base = '_unknown.img'
                 imgfilename = os.path.join(self.newdir, base)
-                try :
-                    if not os.path.exists(imgfilename) :
+                try:
+                    if not os.path.exists(imgfilename):
                         print >>sys.stderr, "Fetching", src, "to", imgfilename
                         f = urllib2.urlopen(req)
                         # Lots of things can go wrong with downloading
@@ -551,7 +551,7 @@ tree = lxml.html.fromstring(html)
                         # Write to our local file
                         local_file.write(f.read())
                         local_file.close()
-                    #else :
+                    #else:
                     #    print "Not downloading, already have", imgfilename
 
                     # If we got this far, then we have a local image,
@@ -560,20 +560,20 @@ tree = lxml.html.fromstring(html)
                     attrs['src'] = base
 
                 # handle download errors
-                except urllib2.HTTPError, e :
+                except urllib2.HTTPError, e:
                     print >>sys.stderr, "HTTP Error:", e.code, "on", src
                     # Since we couldn't download, point instead to the
                     # absolute URL, so it will at least work with a
                     # live net connection.
                     attrs['src'] = src
-                except urllib2.URLError, e :
+                except urllib2.URLError, e:
                     print >>sys.stderr, "URL Error:", e.reason, "on", src
                     attrs['src'] = src
-                except Exception, e :
+                except Exception, e:
                     print >>sys.stderr, "Error downloading image:", str(e), \
                         "on", src
                     attrs['src'] = src
-            else :
+            else:
                 # Looks like it's probably a nonlocal image.
                 # Possibly this could be smarter about finding similar domains,
                 # or having a list of allowed image domains.
@@ -581,10 +581,10 @@ tree = lxml.html.fromstring(html)
 
         # Now we've done any needed processing to the tag and its attrs.
         # t's time to write them to the output file.
-        for attr in attrs.keys() :
+        for attr in attrs.keys():
             self.outfile.write(' ' + attr.encode(self.encoding,
                                                  'xmlcharrefreplace'))
-            if attrs[attr] and type(attrs[attr]) is str :
+            if attrs[attr] and type(attrs[attr]) is str:
                 # make sure attr[1] doesn't have any embedded double-quotes
                 val = attrs[attr].replace('"', '\"').encode(self.encoding,
                                                             'xmlcharrefreplace')
@@ -594,24 +594,24 @@ tree = lxml.html.fromstring(html)
 
     def handle_endtag(self, tag):
         #print "end tag", tag
-        if tag == self.skipping :
+        if tag == self.skipping:
             self.skipping = False
             # print >>sys.stderr, "Ending a skippable", tag, "section"
             return
-        if self.skipping :
+        if self.skipping:
             # print "Skipping end tag", tag, "inside a skipped section"
             return
-        if self.tag_skippable(tag) or self.tag_skippable_section(tag) :
+        if self.tag_skippable(tag) or self.tag_skippable_section(tag):
             # print >>sys.stderr, "Skipping end", tag
             return
 
         # Some tags don't have ends, and it can cause problems:
         # e.g. <br></br> displays as two breaks, not one.
-        if tag in [ "br", "img" ] :
+        if tag in [ "br", "img" ]:
             return
 
         # Don't close the body or html -- caller may want to add a footer.
-        if tag == "body" or tag == 'html' :
+        if tag == "body" or tag == 'html':
             return
 
         # print >>sys.stderr, "Writing end tag", tag
@@ -621,25 +621,25 @@ tree = lxml.html.fromstring(html)
     def handle_data(self, data):
         # XXX lxml.etree.tostring() might be a cleaner way of printing
         # these nodes: http://lxml.de/tutorial.html
-        if self.skipping :
+        if self.skipping:
             #print >>sys.stderr, "Skipping data"
             return
 
         # If it's not just whitespace, make a note that we've written something.
-        if data.strip() :
+        if data.strip():
             self.wrote_data = True
 
-        if type(data) is unicode :
+        if type(data) is unicode:
             #print >>sys.stderr, "Unicode data is", \
             #    data.encode(self.encoding, 'xmlcharrefreplace')
             self.outfile.write(data.encode(self.encoding, 'xmlcharrefreplace'))
-        elif type(data) is str :
+        elif type(data) is str:
             #print >>sys.stderr, "Writing some ascii data:", data
             self.outfile.write(data)
-        else :
+        else:
             print >>sys.stderr, "Data isn't str or unicode! type =", type(title)
 
-    # def handle_charref(self, num) :
+    # def handle_charref(self, num):
     #     # I don't think we ever actually get here -- lxml.html.fromstring()
     #     # already replaces all html entities with the numeric unicode
     #     # equivalent whether we want that or not, and we have to write
@@ -647,26 +647,26 @@ tree = lxml.html.fromstring(html)
     #     # If we really really wanted to we might be able to keep the
     #     # page's original entities by calling fromstring(cgi.urlescape(html))
     #     # html before 
-    #     if self.skipping :
+    #     if self.skipping:
     #         #print "Skipping charref"
     #         return
     #     self.outfile.write('&#' + num.encode(self.encoding,
     #                                          'xmlcharrefreplace') + ';')
 
-    # def handle_entityref(self, name) :
-    #     if self.skipping :
+    # def handle_entityref(self, name):
+    #     if self.skipping:
     #         #print "Skipping entityref"
     #         return
     #     self.outfile.write('&' + name.encode(self.encoding,
     #                                          'xmlcharrefreplace') + ';')
 
-    def same_host(self, host1, host2) :
+    def same_host(self, host1, host2):
         """Are two hosts close enough for the purpose of downloading images?"""
 
         # host can be None:
-        if not host1 and not host2 :
+        if not host1 and not host2:
             return True
-        if not host1 or not host2 :
+        if not host1 or not host2:
             return False
 
         # For now, a simplistic comparison:
@@ -675,17 +675,17 @@ tree = lxml.html.fromstring(html)
         # exceptions for akamai, etc.
         return host1.split('.')[-2:] == host2.split('.')[-2:]
 
-    def make_absolute(self, url) :
+    def make_absolute(self, url):
         '''Make URLs, particularly img src, absolute according to
            the current page location and any base href we've seen.
         '''
         # May want to switch to lxml.html.make_links_absolute(base_href,
         # resolve_base_href=True)
 
-        if not url :
+        if not url:
             return url
 
-        if '://' in url :
+        if '://' in url:
             return url       # already absolute
 
         # If we have a base href then it doesn't matter whether it's
@@ -693,7 +693,7 @@ tree = lxml.html.fromstring(html)
         if self.base_href:
             return urlparse.urljoin(self.base_href, url)
 
-        if url[0] == '/' :
+        if url[0] == '/':
             return urlparse.urljoin(self.prefix, url)
 
         # It's relative, so append it to the current url minus cur filename:
@@ -704,21 +704,21 @@ tree = lxml.html.fromstring(html)
            This skips everything until the matching end tag.
         """
         # script and style tags aren't helpful in minimal offline reading
-        if tag == 'script' or tag == 'style' :
+        if tag == 'script' or tag == 'style':
             return True
 
         # base tags can confuse the HTML displayer program
         # into looking remotely for images we've copied locally.
-        if tag == 'base' :
+        if tag == 'base':
             return True
 
         # Omit generic objects, which are probably flash or video or some such.
-        if tag == 'object' :
+        if tag == 'object':
             return True
 
         # Omit form elements, since it's too easy to land on them accidentally
         # when scrolling and trigger an unwanted Android onscreen keyboard:
-        if tag == 'input' or tag == 'textarea' :
+        if tag == 'input' or tag == 'textarea':
             return True
 
         # Omit iframes -- they badly confuse Android's WebView
@@ -727,7 +727,7 @@ tree = lxml.html.fromstring(html)
         # iframe in the page, and this doesn't seem to be a bug
         # that's getting fixed any time soon).
         # We don't want iframes in simplified HTML anyway.
-        if tag == 'iframe' :
+        if tag == 'iframe':
             return True
 
         # Don't want embedded <head> stuff
@@ -740,7 +740,7 @@ tree = lxml.html.fromstring(html)
         # head into the generated one.
         # Meanwhile, these tags may do more harm than good.
         # We definitely need to remove <link type="text/css".
-        if tag == 'head' :
+        if tag == 'head':
             return True
 
         return False
@@ -750,7 +750,7 @@ tree = lxml.html.fromstring(html)
            This will not remove tags inside the skipped tag, only the
            skipped tag itself.
         """
-        if tag == 'form' :
+        if tag == 'form':
             return True
 
         # If we're skipping images, we could either omit them
@@ -758,38 +758,38 @@ tree = lxml.html.fromstring(html)
         # so that a network-connected viewer can still fetch them.
         # For now, let's opt to remove them.
         if tag == 'img' and \
-                self.config.getboolean(self.feedname, 'skip_images') :
+                self.config.getboolean(self.feedname, 'skip_images'):
             return True
 
         if tag == 'a' and \
-                self.config.getboolean(self.feedname, 'skip_links') :
+                self.config.getboolean(self.feedname, 'skip_links'):
             return True
 
         # Embedded <body> tags often have unfortunate color settings.
         # Embedded <html> tags don't seem to do any harm, but seem wrong.
-        if tag == 'body' or tag == 'html' or tag == 'meta' :
+        if tag == 'body' or tag == 'html' or tag == 'meta':
             return True
 
         # Font tags are almost always to impose colors that don't
         # work against an arbitrary background.
-        if tag == 'font' :
+        if tag == 'font':
             return True
 
         return False
 
-def sub_tilde(name) :
+def sub_tilde(name):
     """Do what os.path.expanduser does, but also allow $HOME in paths"""
     # config.get alas doesn't substitute $HOME or ~
-    if name[0:2] == "~/" :
+    if name[0:2] == "~/":
         name = os.path.join(os.environ['HOME'], name[2:])
-    elif name[0:6] == "$HOME/" :
+    elif name[0:6] == "$HOME/":
         name = os.path.join(os.environ['HOME'], name[6:])
     return name
 
 #
 # Read the configuration file (don't act on it yet)
 #
-def read_config_file() :
+def read_config_file():
     #
     # Read the config file
     #

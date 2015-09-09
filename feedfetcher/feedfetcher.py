@@ -193,7 +193,7 @@ def parse_directory_page(urldir):
     # It's in a table tag, where valid entries will look like:
     # <tr><td valign="top"><img src="/icons/folder.gif" alt="[DIR]"></td><td><a href="BBC_News_Science/">BBC_News_Science/</a></td><td align="right">28-Jun-2013 18:42  </td><td align="right">  - </td><td>&nbsp;</td></tr>
     feeddirs = []
-    try :
+    try:
         soup = BeautifulSoup.BeautifulSoup(dirpage)
     except HTMLParser.HTMLParseError, e:
         perror("Couldn't parse directory page " + urldir + str(e))
@@ -244,7 +244,7 @@ def run_feed(serverurl, outdir):
         saved.close()
         # Now rename the saved file so we won't get those urls again.
         bakpath = savedpath + '.bak'
-        if os.path.exists(bakpath) :
+        if os.path.exists(bakpath):
             os.unlink(bakpath)
         os.rename(savedpath, bakpath)
     except:
