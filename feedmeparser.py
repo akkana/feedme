@@ -213,7 +213,8 @@ class FeedmeHTMLParser():
         page_ends = get_config_multiline(self.config, self.feedname, 'page_end')
         if len(page_starts) > 0:
             for page_start in page_starts:
-                print >>sys.stderr, "looking for page_start", page_start
+                if verbose:
+                    print >>sys.stderr, "looking for page_start", page_start
                 match = html.find(page_start)
                 if match >= 0:
                     if verbose:
@@ -223,7 +224,8 @@ class FeedmeHTMLParser():
 
         if len(page_ends) > 0:
             for page_end in page_ends:
-                print >>sys.stderr, "looking for page_end", page_end
+                if verbose:
+                    print >>sys.stderr, "looking for page_end", page_end
                 match = html.find(page_end)
                 if match >= 0:
                     if verbose:
@@ -322,6 +324,8 @@ class FeedmeHTMLParser():
         """
         # Parse the whole document.
         # (Trying valiantly to recover from lxml errors.)
+        if verbose:
+            print "feed(): starting with", len(uhtml), "bytes"
         try:
             tree = lxml.html.fromstring(uhtml)
         except ValueError:

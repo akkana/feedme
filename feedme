@@ -845,7 +845,7 @@ Which (default = n): """)
 
     # Only write the index.html file if there was content that
     # wasn't already in the cache.
-    if itemnum >= 0:
+    if itemnum >= 0 or nocache:
         # If the RSS page ended with a story we didn't include,
         # either because it's old or because it had no content we could show,
         # we'll have an extra ">->" line. Try to remove it.
