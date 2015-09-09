@@ -22,9 +22,9 @@ import cgi
 # CONFIGURATION
 ##############################
 # Path to mount the device:
-if len(sys.argv) > 1 :
+if len(sys.argv) > 1:
     devicepath = sys.argv[1]
-else :
+else:
     devicepath = "/droidsd"
 
 # Where to look for the saved URL files.
@@ -120,25 +120,25 @@ if 'xtraurls' in form:
 else:
     # Mount the device's SD card if it isn't already mounted:
     if devicepath:
-        if not os.path.ismount(devicepath) :
+        if not os.path.ismount(devicepath):
             subprocess.call(["mount", devicepath], shell=False)
             # Ignore return value: it will be nonzero if already mounted.
             # So check to see if it's mounted now:
-            if not os.path.ismount(devicepath) :
+            if not os.path.ismount(devicepath):
                 print "Can't mount %s!" % devicepath
                 sys.exit(1)
         else: print "Device is already mounted."
         urlfiles.append(os.path.join(devicepath, "feeds", "saved-urls"))
 
 # Loop over all the url files to get our list of urls:
-for urlfile in urlfiles :
-    try :
+for urlfile in urlfiles:
+    try:
         ifp = open(urlfile)
         print >>sys.stderr, "Reading URLs from", urlfile, line_sep
-    except :
+    except:
         continue
 
-    for line in ifp :
+    for line in ifp:
         line = line.strip()
         if not line : continue
         urls.append(line)
@@ -146,9 +146,9 @@ for urlfile in urlfiles :
     ifp.close()
     os.unlink(urlfile)
 
-if not urls :
+if not urls:
     print >>sys.stderr, "No saved URLs", line_sep
-    if os.path.exists(rssfile) :
+    if os.path.exists(rssfile):
         os.unlink(rssfile)
 
 else:
@@ -156,7 +156,7 @@ else:
     # We have URLs to save. So open the output files.
     #
 
-    try :
+    try:
         ofp = open(rssfile, "w")
     except Exception, e:
         print >>sys.stderr, "Couldn't write to RSS file", rssfile, line_sep
@@ -169,28 +169,28 @@ else:
   <description>Saved URLs %s</description>
   <language>en</language>""" % datetime.datetime.now().ctime()
 
-    try :
+    try:
         archivefp = open(urlarchive, "a")
         print >>archivefp, "\n<h4>Feedme URLs %s</h4>" \
             % datetime.datetime.now().ctime()
-    except :
+    except:
         print >>sys.stderr, "Couldn't open archive file", urlarchive, line_sep
         archivefp = None
 
-    for url in urls :
+    for url in urls:
         # Follow it and see if it's a redirect -- we want the real, final url.
-        try :
+        try:
             print >>sys.stderr, url, "...",
             sys.stdout.flush()
             urlobj = urllib2.urlopen(url, timeout=60)
             newurl = urlobj.geturl()
             urlobj.close()
-            if newurl != url :
+            if newurl != url:
                 print >>sys.stderr, "redirected to", newurl, line_sep
                 url = newurl
-            else :
+            else:
                 print  >>sys.stderr,".", line_sep
-        except :
+        except:
             pass
 
         # The XML parser we use in feedme will sometimes barf on ampersands:
@@ -209,23 +209,23 @@ else:
 </item>""" % (escaped_url, escaped_url, escaped_url)
 
         # Save an HTML copy to the archive file:
-        if archivefp :
+        if archivefp:
             print >>archivefp, "<a href='%s'>%s</a><br>" % (url, url)
 
     print >>ofp, """</channel>
 </rss>"""
 
     ofp.close()
-    if archivefp :
+    if archivefp:
         archivefp.close()
 
-    if urls :
+    if urls:
         print >>sys.stderr, "Saved %s urls to %s and %s" % (len(urls),
                                                             rssfile, urlarchive)
 
 # Done making the Xtra RSS file (if any).
 
-if html_output :
+if html_output:
     # If we're being run as a CGI, it's because someone wants us
     # to kick off a feedme process. So do so:
     # Don't need to pass env= in the next call,
