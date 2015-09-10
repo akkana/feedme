@@ -324,8 +324,6 @@ class FeedmeHTMLParser():
         """
         # Parse the whole document.
         # (Trying valiantly to recover from lxml errors.)
-        if verbose:
-            print "feed(): starting with", len(uhtml), "bytes"
         try:
             tree = lxml.html.fromstring(uhtml)
         except ValueError:
