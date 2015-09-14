@@ -62,13 +62,13 @@ debuglog = serverhome + 'feeds/log-urlrss'
 urls = []
 
 # We need to be able to handle either text or HTML output:
-html_output = False
+cgi_mode = False
 line_sep = ''
 
 # See if we're being called as a CGI script:
 form = cgi.FieldStorage()
 if 'xtraurls' in form:
-    html_output = True
+    cgi_mode = True
     if debuglog:
         debuglog = open(debuglog, 'w')
     formurls = form['xtraurls'].value.strip().split('\n')
@@ -78,8 +78,6 @@ if 'xtraurls' in form:
         # no way of knowing we're being run from a CGI.
         if url != 'none':
             urls.append(url)
-
-    html_output = True
 
     # Don't want to rely on config/cache files in the homedir of
     # whatever user might be running the web server.
@@ -104,18 +102,10 @@ if 'xtraurls' in form:
         print >>debuglog, 'HOME:', os.environ['HOME']
 
     line_sep = '<br>'
-    print '''Content-type: text/html
+    print '''Content-type: text/plain
 
-<html>
-<head>
-<title>Extra URLs</title>
-</head>
-
-<body>
-
-<h1>Extra URLs</h1>
-
-<p>'''
+Extra URLs
+'''
 
 else:
     # Mount the device's SD card if it isn't already mounted:
@@ -180,16 +170,16 @@ else:
     for url in urls:
         # Follow it and see if it's a redirect -- we want the real, final url.
         try:
-            print >>sys.stderr, url, "...",
+            print url, "...",
             sys.stdout.flush()
             urlobj = urllib2.urlopen(url, timeout=60)
             newurl = urlobj.geturl()
             urlobj.close()
             if newurl != url:
-                print >>sys.stderr, "redirected to", newurl, line_sep
+                print "redirected to", newurl, line_sep
                 url = newurl
             else:
-                print  >>sys.stderr,".", line_sep
+                print ".", line_sep
         except:
             pass
 
@@ -225,7 +215,7 @@ else:
 
 # Done making the Xtra RSS file (if any).
 
-if html_output:
+if cgi_mode:
     # If we're being run as a CGI, it's because someone wants us
     # to kick off a feedme process. So do so:
     # Don't need to pass env= in the next call,
@@ -239,12 +229,8 @@ if html_output:
     devnull = open(os.devnull, 'wb')
 
     # Start feedme running in the background, so we can return immediately.
-    print >>sys.stderr, "<p>Trying to run %s ..." % feedme_exec
+    print >>sys.stderr, "Trying to run %s ..." % feedme_exec
     subprocess.Popen([feedme_exec], shell=False,
                      stdout=devnull, stderr=devnull)
-    print >>sys.stderr, "<p>Feedme should be running now."
-
-    print '''</ul>
-</body>
-</html>'''
+    print >>sys.stderr, "Feedme should be running now."
 

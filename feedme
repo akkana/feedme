@@ -1065,9 +1065,13 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
         # path in it; everything is relative to this directory.
         # XXX Temporarily, we'll only do it for me, so Dave doesn't
         # get MANIFEST files cluttering up his directories.
+        # MANIFEST should end with .EOF. on a line by itself
+        # to avoid race conditions where the fetcher thinks it's
+        # read the manifest while the file is still being written.
         if 'akkana' in datedir or 'shallowsky' in datedir:
             discardchars = len(datedir)
             print "Discarding", discardchars, "characters"
+            print >>sys.stderr, "Writing MANIFEST"
             manifest = open(os.path.join(datedir, 'MANIFEST'), 'w')
             for root, dirs, files in os.walk(datedir):
                 shortroot = root[discardchars+1:]
@@ -1075,8 +1079,13 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
                     print >>manifest, shortroot + '/'
                 for f in files:
                     print >>manifest, posixpath.join(shortroot, f)
-    except OSError:
+            print >>sys.stderr, "Trying to write the special code at end of MANIFEST"
+            print >>manifest, ".EOF."
+            print >>sys.stderr, "Wrote the special code"
+            manifest.close()
+    except OSError, e:
         print >>sys.stderr, "Couldn't move LOG or create MANIFEST"
+        print e
 
     # Clean up old directories:
     clean_up(config)
