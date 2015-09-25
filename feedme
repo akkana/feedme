@@ -17,11 +17,59 @@
 
 # Goals for feedme 0.9: use real HTML parsing, not rexexp; add image fetching
 
-#
-# Important TODO:
-# - Figure out why we get repeat stories on sites like BBC.
+ConfigHelp = """Configuration options:
 
-VersionString = "FeedMe 0.9"
+Configuration options most useful in a DEFAULT section,
+applicable to all feeds:
+  ascii
+    Convert all pages to plain ASCII. Useful for reading devices like Palm
+    that can't display other character sets reliably.
+  dir
+    Where to save the collected pages.
+    See save_days for how long they will be kept.
+  formats
+    Comma-separated list of output formats.
+    Default "none", which will result in HTML output.
+    Other options: epub, fb2, plucker.
+  logfile
+    Save output (including debugging) to this log.
+  verbose
+    Print lots of debugging chatter while feeding.
+  min_width
+    The minimum number of characters in an item link. Links shorter than this
+    will be padded to this length (to make tapping easier). Default 25.
+  save_days
+    How long to retain feeds locally.
+
+Configuration options you might want to reset for specific feeds:
+  continue_on_timeout
+    Normally, if one page times out, feedme will assume the site is down.
+    On sites that link to content from many different URLs, set this
+    to false.
+  encoding
+    Normally feedme will try to guess the encoding from the page.
+    But some pages lie, so use this to override that.
+  levels
+    Level 1: only save the RSS page.
+    Level 2: save sub-pages.
+  nocache
+    Don't check whether we've seen an entry before: collect everything.
+  nonlocal_images
+    Normally feedme will ignore images from other domains (usually ads).
+    But some sites link to images from all over; set this to true in that case.
+  skip_images
+    Don't save images. Default true.
+  skip_links:
+    For sites with levels=1 where you just want a single news feed and
+    never want to click on anything (e.g. slashdot), this can eliminate
+    distracting links that you might tap on accidentally while scrolling.
+  url
+    The RSS URL for the site.
+  when
+    When to check this site, if not every time.
+    May be a weekday, e.g. Sat, or a month date, e.g. 1 to check only
+    on the first day of any month.
+"""
 
 import cPickle
 import time
@@ -36,7 +84,7 @@ import urllib2
 import socket
 import posixpath
 
-# We now use a separate file for the parsing and such:
+# Our module for parsing HTML inside feeds:
 import feedmeparser
 
 has_ununicode=True
@@ -380,8 +428,8 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog):
     if verbose and nocache:
         msglog.msg(feedname + ": Ignoring cache")
 
-    global VersionString
-    downloaded_string ="\n<hr><i>(Downloaded by " + VersionString + ")</i>\n"
+    downloaded_string ="\n<hr><i>(Downloaded by " + \
+        feedmeparser.VersionString + ")</i>\n"
 
     # feedparser doesn't understand file:// URLs, so translate those
     # to a local file:
@@ -949,10 +997,10 @@ def init_cache():
 if __name__ == '__main__':
     from optparse import OptionParser
 
-    usage = """Usage: %prog [site ...]
+    usage = """%prog [site ...]
 If no site is specified, feedme will update all the feeds in
 ~/.config/feedme.conf."""
-    LongVersion = VersionString + "0.8: an RSS feed reader.\n\
+    LongVersion = feedmeparser.VersionString + ": an RSS feed reader.\n\
 Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
 
     optparser = OptionParser(usage=usage, version=LongVersion)
@@ -965,6 +1013,9 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
     optparser.add_option("-l", "--log", metavar="logfile",
                          action="store", dest="log_file_name",
                          help="Save output to a log file")
+    optparser.add_option("-c", "--config-help",
+                         action="store_true", dest="config_help",
+                         help="Print help on configuration files")
     (options, args) = optparser.parse_args()
 
     config = feedmeparser.read_config_file()
@@ -972,6 +1023,11 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
     msglog = MsgLog()
 
     sections = config.sections()
+
+    if options.config_help:
+        print LongVersion
+        print ConfigHelp
+        sys.exit(0)
 
     if options.show_sites:
         for feedname in sections:

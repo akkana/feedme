@@ -14,6 +14,8 @@ from cookielib import CookieJar
 import StringIO
 import gzip
 
+VersionString = "FeedMe 1.0b1"
+
 # XXX integrate output_encode!
 def output_encode(s, encoding):
     if encoding == 'ascii' and has_ununicode:
@@ -40,12 +42,13 @@ class NoContentError(Exception):
     pass
 
 class FeedmeHTMLParser():
+    
     def __init__(self, config, feedname):
         self.config = config
         self.feedname = feedname
         self.outfile = None
         self.skipping = None
-        self.user_agent = 'Feedme v. 0.9'
+        self.user_agent = VersionString
         self.remapped_images = {}
         self.base_href = None
 
