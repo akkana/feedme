@@ -61,9 +61,8 @@ debuglog = serverhome + 'feeds/log-urlrss'
 
 urls = []
 
-# We need to be able to handle either text or HTML output:
+# We need to be able to run either as a CGI or from the command line.
 cgi_mode = False
-line_sep = ''
 
 # See if we're being called as a CGI script:
 form = cgi.FieldStorage()
@@ -101,7 +100,6 @@ if 'xtraurls' in form:
         print >>debuglog, "feedme exec:", feedme_exec
         print >>debuglog, 'HOME:', os.environ['HOME']
 
-    line_sep = '<br>'
     print '''Content-type: text/plain
 
 Extra URLs
@@ -124,7 +122,7 @@ else:
 for urlfile in urlfiles:
     try:
         ifp = open(urlfile)
-        print >>sys.stderr, "Reading URLs from", urlfile, line_sep
+        print >>sys.stderr, "Reading URLs from", urlfile
     except:
         continue
 
@@ -137,7 +135,7 @@ for urlfile in urlfiles:
     os.unlink(urlfile)
 
 if not urls:
-    print >>sys.stderr, "No saved URLs", line_sep
+    print >>sys.stderr, "No saved URLs"
     if os.path.exists(rssfile):
         os.unlink(rssfile)
 
@@ -149,7 +147,7 @@ else:
     try:
         ofp = open(rssfile, "w")
     except Exception, e:
-        print >>sys.stderr, "Couldn't write to RSS file", rssfile, line_sep
+        print >>sys.stderr, "Couldn't write to RSS file", rssfile
         print >>sys.stderr, e
         sys.exit(1)
 
@@ -164,7 +162,7 @@ else:
         print >>archivefp, "\n<h4>Feedme URLs %s</h4>" \
             % datetime.datetime.now().ctime()
     except:
-        print >>sys.stderr, "Couldn't open archive file", urlarchive, line_sep
+        print >>sys.stderr, "Couldn't open archive file", urlarchive
         archivefp = None
 
     for url in urls:
@@ -176,10 +174,10 @@ else:
             newurl = urlobj.geturl()
             urlobj.close()
             if newurl != url:
-                print "redirected to", newurl, line_sep
+                print "redirected to", newurl
                 url = newurl
-            else:
-                print ".", line_sep
+
+            print "\n"
         except:
             pass
 
