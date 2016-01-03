@@ -657,8 +657,8 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog):
                         break
 
                     # Some other type of URLError.
-                    errmsg = "URLError on " + item.link + "\n"
-                    errmsg += str(e) + '<br>\n'
+                    errmsg = 'URLError on <a href="%s">%s</a><br>\n%s<br>\n' \
+                             % (item.link, item.link, str(e))
                     msglog.err(errmsg)
                     indexstr += "<p><b>" + errmsg + "</b>"
                     continue
