@@ -45,7 +45,7 @@ Configuration options you might want to reset for specific feeds:
   continue_on_timeout
     Normally, if one page times out, feedme will assume the site is down.
     On sites that link to content from many different URLs, set this
-    to false.
+    to true.
   encoding
     Normally feedme will try to guess the encoding from the page.
     But some pages lie, so use this to override that.
@@ -284,7 +284,15 @@ def handle_keyboard_interrupt(msg):
         print "Interrupt, and not running interactively. Exiting."
         sys.exit(1)
 
-    response = raw_input(msg)
+    try:
+        response = raw_input(msg)
+    except exceptions.EOFError:
+        # This happens if we're run from a script rather than interactively
+        # and yet someone sends a SIGINT, perhaps because we're timing out
+        # and someone logged in to kick us back into operation.
+        # In this case, pretend the user typed 'n',
+        # meaning skip to next site.
+        return 'n'
     if response == '':
         return '\0'
     if response[0] == 'q':
@@ -299,7 +307,6 @@ def falls_between(when, time1, time2):
        If when == none, return True.
        If when matches time2, return True.
     """
-    print >>sys.stderr, "Does", when, "fall between", time1, "and", time2, "?"
     if not when or type(when) is str and len(when) <= 0:
         return True
 
@@ -315,20 +322,15 @@ def falls_between(when, time1, time2):
         else : raise ValueError("%s not int or struct_time" % str(t))
 
     (t1, st1) = both_time_types(time1)
-    print >>sys.stderr, "Time1:", t1, st1
     (t2, st2) = both_time_types(time2)
-    print >>sys.stderr, "Time2:", t2, st2
 
     daysdiff = (t2 - t1) / 60. / 60. / 24.
-    print >>sys.stderr, "daysdiff is", daysdiff
     if daysdiff < 0:
         msglog.err("daysdiff < 0!!! " + str(daysdiff))
 
     # Is it a day of the month?
     try:
         day_of_month = int(when)
-        print >>sys.stderr, "It's a day of the month:", day_of_month,
-        print >>sys.stderr, "compared to", st1.tm_mday, "and", st2.tm_mday
 
         # It is a day of the month! How many days in between the two dates?
         if daysdiff > 31:
@@ -362,13 +364,9 @@ def falls_between(when, time1, time2):
 
     # Has more than a week passed? Then it encompasses all weekdays.
     if daysdiff > 7:
-        print >>sys.stderr, "More than a week has passed"
         return True
 
     day_of_week = weekdays.index(when)
-    print >>sys.stderr, when, "is weekday #", day_of_week,
-    print >>sys.stderr, "compared to", st1.tm_wday, "and", st2.tm_wday
-    print >>sys.stderr, "Will return", (st2.tm_wday - day_of_week) % 7, '<', daysdiff
     return (st2.tm_wday - day_of_week) % 7 < daysdiff
 
 #

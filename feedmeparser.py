@@ -826,6 +826,7 @@ def read_config_file():
                            'index_skip_pat' : '',
                            'when' : '',   # Day, like tue, or month day, like 14
                            'min_width' : '25', # min # chars in an item link
+                           'continue_on_timeout' : 'false',
                            'ascii' : 'false'})
     config.read(conffile)
     return config
