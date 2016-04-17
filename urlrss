@@ -52,7 +52,7 @@ feedme_exec = serverhome + 'feedme/feedme'
 # This will only be used in CGI mode.
 # Set to None for no debugging.
 # If you've set serverhome you can probably leave this alone.
-debuglog = serverhome + 'feeds/log-urlrss'
+debuglogfile = serverhome + 'feeds/log-urlrss'
 
 ##############################
 # END CONFIGURATION
@@ -61,15 +61,52 @@ debuglog = serverhome + 'feeds/log-urlrss'
 
 urls = []
 
+debuglog = None
+
 # We need to be able to run either as a CGI or from the command line.
 cgi_mode = False
+
+def find_process(progname, uid):
+    '''Find the lowest numbered process running a program named progname
+       with user ID uid, which can be either integer or string.
+       This is just a quickie function, which probably has all
+       sorts of edge cases where it fails.
+    '''
+    bname = os.path.basename(progname)
+    print >>sys.stderr, "Trying to find a process named", bname, "with uid", uid
+    pids = [pid for pid in os.listdir('/proc') if pid.isdigit()]
+    for pid in pids:
+        try:
+            with open(os.path.join('/proc', pid, 'cmdline'), 'rb') as procfd:
+                args = procfd.read().split('\x00')
+                # The script name, feedme, probably isn't actually the first
+                # argument; the first is probably python, then feedme.
+                cname = os.path.basename(args[0])
+                if cname.startswith("python"):
+                    cname = os.path.basename(args[1])
+                if cname != bname:
+                    continue
+            # The process name matches. Does the UID?
+            with open(os.path.join('/proc', pid, 'status'), 'r') as procfd:
+                procuid = None
+                for line in procfd:
+                    if line.startswith("Uid:"):
+                        procuid = line.split()[1]
+            if str(uid) == procuid:
+                args[-1] = pid
+                return args
+        except IOError: # proc has already terminated
+            continue
+    # Didn't find a process.
+    return None
 
 # See if we're being called as a CGI script:
 form = cgi.FieldStorage()
 if 'xtraurls' in form:
     cgi_mode = True
-    if debuglog:
-        debuglog = open(debuglog, 'w')
+    if debuglogfile:
+        debuglog = open(debuglogfile, 'w')
+
     formurls = form['xtraurls'].value.strip().split('\n')
     for url in formurls:
         # We have to pass xtraurls=none in the case of no URLs,
@@ -99,6 +136,22 @@ if 'xtraurls' in form:
         print >>debuglog, "urlarchive:", urlarchive
         print >>debuglog, "feedme exec:", feedme_exec
         print >>debuglog, 'HOME:', os.environ['HOME']
+
+    # If we're run as a CGI, then we'll be expected to start
+    # a new feedme process. But if there's already one running,
+    # that could cause problems, so check first.
+    # A good first check is whether there's a feedme_exec process
+    # running as the current user.
+    feedmeproc = find_process(feedme_exec, os.getuid())
+    if feedmeproc:
+        if debuglog:
+            print >>debuglog, "feedme already running, pid", feedmeproc[-1]
+        print '''Content-type: text/plain
+
+Feedme is already running! PID %s''' % feedmeproc[-1]
+        sys.exit(0)
+    if debuglog:
+        print >>debuglog, "feedme isn't running yet -- whew!"
 
     print '''Content-type: text/plain
 
@@ -227,8 +280,26 @@ if cgi_mode:
     devnull = open(os.devnull, 'wb')
 
     # Start feedme running in the background, so we can return immediately.
-    print >>sys.stderr, "Trying to run %s ..." % feedme_exec
-    subprocess.Popen([feedme_exec], shell=False,
-                     stdout=devnull, stderr=devnull)
-    print >>sys.stderr, "Feedme should be running now."
-
+    # Most of the time we want very little output, so the CGI finishes.
+    if True:
+        print >>sys.stderr, "Trying to run %s ..." % feedme_exec
+        subprocess.Popen([feedme_exec], shell=False,
+                         stdout=devnull, stderr=devnull)
+    else:
+        # But if there's a problem with urlrss, for debugging,
+        # you may want to change that True to a False so you can
+        # see the output in the browser.
+        pp = subprocess.Popen([feedme_exec], shell=False,
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        print >>sys.stderr, \
+            "Feedme should be running now. Will try to capture output."
+        output = pp.communicate()
+        print >>sys.stderr, "\n==== stdin:"
+        print >>sys.stderr, output[0]
+        print >>sys.stderr, "\n==== stderr:"
+        print >>sys.stderr, output[1]
+        print "\n==== stdin:"
+        print output[0]
+        print "\n==== stderr:"
+        print output[1]
+    
