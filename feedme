@@ -985,7 +985,13 @@ def init_cache():
     else:
         # Make a backup of the cache file, in case something goes wrong:
         shutil.copy2(cachefile, cachefile + ".bak")
-        cache = cPickle.load(open(cachefile))
+        try:
+            cache = cPickle.load(open(cachefile))
+        except:
+            # I don't know what causes a bad pickle line,
+            # but cPickle.BadPickleGet can happen
+            # and can be very hard to debug when it does.
+            cache = {}
 
     return cache, cachefile
 
