@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 
-# feedme: read RSS/Atom feeds and convert to Plucker files.
-# Copyright 2009,2011 Akkana Peck <akkana@shallowsky.com>
-# Based on feedread, Copyright (C) 2009 Benjamin M. A'Lee <bma@subvert.org.uk>
+# feedme: download RSS/Atom feeds and convert to HTML, epub, Plucker,
+# or other formats suitable for offline reading on a handheld device,
+# 
+# Copyright 2009-2016 by Akkana Peck <akkana@shallowsky.com>
+# and licensed under the GPLv2 or later.
+#
+# Some older code taken from feedread,
+# Copyright (C) 2009 Benjamin M. A'Lee <bma@subvert.org.uk>
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -963,7 +968,7 @@ Which (default = n): """)
 #
 # Find the cache file and load it, but don't parse yet
 #
-def init_cache():
+def init_cache(initcache=False):
     #
     # Load the cache file
     #
@@ -974,7 +979,7 @@ def init_cache():
         cachefile = os.path.join(feedmeparser.sub_tilde('~/.cache'),
                                  'feedme', 'feedme.dat')
 
-    if not os.path.exists(cachefile):
+    if initcache or not os.path.exists(cachefile):
         dirname = os.path.dirname(cachefile)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
@@ -987,11 +992,21 @@ def init_cache():
         shutil.copy2(cachefile, cachefile + ".bak")
         try:
             cache = cPickle.load(open(cachefile))
-        except:
-            # I don't know what causes a bad pickle line,
+        except Exception, e:
+            # I don't know what causes a pickle error,
             # but cPickle.BadPickleGet can happen
             # and can be very hard to debug when it does.
-            cache = {}
+            msglog.err("Error reading cache!", str(e).encode('utf-8'))
+            msglog.err(str(sys.exc_info()[0]).encode('utf-8'))
+            msglog.err(str(sys.exc_info()[1]).encode('utf-8'))
+            print >>sys.stderr, traceback.format_exc(sys.exc_info()[2])
+
+            # Refuse to run: unexpectedly running a whole feedme
+            # without a cache is too painful.
+            print >>sys.stderr, """
+Exiting. Use -N to re-load all previously cached stories
+and reinitialize the cache."""
+            sys.exit(1)
 
     return cache, cachefile
 
@@ -1011,6 +1026,9 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
     optparser.add_option("-n", "--nocache",
                          action="store_true", dest="nocache",
                          help="Don't consult the cache, or update it")
+    optparser.add_option("-N", "--initcache",
+                         action="store_true", dest="initcache",
+                         help="Don't read the cache, but do update it")
     optparser.add_option("-s", "--show-sites",
                          action="store_true", dest="show_sites",
                          help="Show available sites")
@@ -1043,7 +1061,7 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
         cachefile = None
         last_time = None
     else:
-        cache, cachefile = init_cache()
+        cache, cachefile = init_cache(options.initcache)
         # Figure out the last time we ran feedme.
         # We'll use this for feeds that only update at certain times.
         try:
