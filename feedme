@@ -909,26 +909,32 @@ Which (default = n): """)
             indexstr = indexstr[:m.start()] \
                 + "<br>\n<center><i>[end]</i></center>\n<br>\n" \
                 + indexstr[m.end():]
-        
-        indexfile = os.path.join(outdir, "index.html")
-        if verbose:
-            print  >>sys.stderr, "Writing", indexfile
-        index = open(indexfile, "w")
-        if ascii:
-            index.write(feedmeparser.output_encode(indexstr, 'ascii'))
-        else:
-            index.write(feedmeparser.output_encode(indexstr, encoding))
 
-        # Before the downloaded string, insert a final named anchor.
-        # On some sites we get a bug where we accidentally write a >>
-        # when there are really no further stories. So give it a
-        # place to go. Though if the removal of the final >->
-        # succeeded, this should no longer be needed.
-        index.write("<p><a name=\"%d\">&nbsp;</a>\n" % (itemnum+1))
+        try:
+            indexfile = os.path.join(outdir, "index.html")
+            if verbose:
+                print  >>sys.stderr, "Writing", indexfile
+            with open(indexfile, "w") as index:
+                if ascii:
+                    index.write(feedmeparser.output_encode(indexstr, 'ascii'))
+                else:
+                    index.write(feedmeparser.output_encode(indexstr, encoding))
 
-        index.write(downloaded_string)
-        index.write("\n</body>\n</html>\n")
-        index.close()
+                # Before the downloaded string, insert a final named anchor.
+                # On some sites we get a bug where we accidentally write a >>
+                # when there are really no further stories. So give it a
+                # place to go. Though if the removal of the final >->
+                # succeeded, this should no longer be needed.
+                index.write("<p><a name=\"%d\">&nbsp;</a>\n" % (itemnum+1))
+
+                index.write(downloaded_string)
+                index.write("\n</body>\n</html>\n")
+                index.close()
+        except Exception, e:
+            msglog.err("Error writing index file!", str(e).encode('utf-8'))
+            msglog.err(str(sys.exc_info()[0]).encode('utf-8'))
+            msglog.err(str(sys.exc_info()[1]).encode('utf-8'))
+            print >>sys.stderr, traceback.format_exc(sys.exc_info()[2])
 
         ####################################################
         # Generate the output files
