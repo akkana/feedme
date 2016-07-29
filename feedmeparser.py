@@ -53,7 +53,7 @@ class FeedmeHTMLParser():
         self.base_href = None
 
     def fetch_url(self, url, newdir, newname, title=None, author=None,
-                  footer='', referrer=None):
+                  footer='', referrer=None, user_agent=None):
         """Read a URL from the web. Parse it, rewriting any links,
            downloading any images and making any other changes needed
            according to the config file and current feed name.
@@ -97,7 +97,12 @@ class FeedmeHTMLParser():
                 print >>sys.stderr, "Adding referrer", referrer
             request.add_header('Referer', referrer)
 
-        request.add_header('User-Agent', self.user_agent)
+        if user_agent:
+            print "Using User-Agent of", user_agent
+            request.add_header('User-Agent', user_agent)
+        else:
+            print "Using default User-Agent of", self.user_agent
+            request.add_header('User-Agent', self.user_agent)
 
         # A few sites, like http://nymag.com, gzip their http.
         # Python doesn't handle that automatically: we have to ask for it.
@@ -827,6 +832,7 @@ def read_config_file():
                            'when' : '',   # Day, like tue, or month day, like 14
                            'min_width' : '25', # min # chars in an item link
                            'continue_on_timeout' : 'false',
+                           'user_agent' : None,
                            'ascii' : 'false'})
     config.read(conffile)
     return config

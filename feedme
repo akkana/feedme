@@ -401,6 +401,8 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog):
                                                       feedname,
                                                       'skip_link_pat')
 
+    user_agent = config.get(feedname, 'user_agent')
+
     # Is this a feed we should only check occasionally?
     """Does this feed specify only gathering at certain times?
        If so, has such a time passed since the last time the
@@ -608,7 +610,8 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog):
                                      outdir, fnam,
                                      item.title, author,
                       "<center><a href=\"%d.html\">&gt;-%d-&gt;</a></center>" \
-                                         % (itemnum, itemnum))
+                                         % (itemnum, itemnum),
+                                     user_agent=user_agent)
 
                 except feedmeparser.NoContentError as e:
                     # fetch_url didn't manage to get the page or write a file.
