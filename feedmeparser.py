@@ -171,8 +171,7 @@ class FeedmeHTMLParser():
 </head>
 
 <body>
-<h1>%s</h1>\n
-""" % (self.encoding, title, title))
+""" % (self.encoding, title))
 
         if author:
             self.outfile.write("By: %s\n<p>\n" % author)
@@ -270,6 +269,11 @@ class FeedmeHTMLParser():
 
         # Keep a record of whether we've seen any content:
         self.wrote_data = False
+
+        # Does the page have an H1 header already? If not,
+        # we can manufacture one.
+        if not re.search("<h1", html, re.IGNORECASE):
+            self.outfile.write("<h1>%s</h1>\n" % title)
 
         # Iterate through the HTML, making any necessary simplifications:
         self.feed(html)
