@@ -89,6 +89,9 @@ import urllib2
 import socket
 import posixpath
 
+# sheesh, this is apparently the recommended way to parse RFC 2822 dates:
+import email.utils as email_utils
+
 # Our module for parsing HTML inside feeds:
 import feedmeparser
 
@@ -374,6 +377,48 @@ def falls_between(when, time1, time2):
     day_of_week = weekdays.index(when)
     return (st2.tm_wday - day_of_week) % 7 < daysdiff
 
+def last_time_this_feed(feeddir):
+    '''Return the last time we fetched a given feed.
+       This is most useful for debugging feeds that randomly show old entries.
+       Pass in the intended outdir, e.g. .../feeds/08-11-Thu/feedname
+       Returns seconds since epoch.
+    '''
+    feeddir, feedname = os.path.split(feeddir)
+    feeddir = os.path.dirname(feeddir)
+
+    newest_mtime = 0
+    newest_mtime_dir = None
+    newest_parsed_time = 0
+    newest_parsed_dir = None
+    for d in os.listdir(feeddir):
+        dpath = os.path.join(feeddir, d)
+        if os.path.isdir(dpath):
+            oldfeeddir = os.path.join(dpath, feedname)
+            if os.path.isdir(oldfeeddir):
+                # We could do this one of two ways.
+                # d has a name like "08-03-Wed", so we could parse that.
+                # Or we could use the last modified date of the directory.
+                # Use both, and compare them.
+                # These are both time.struct_time.
+                modtime = os.stat(oldfeeddir).st_mtime
+                if modtime > newest_mtime:
+                    newest_mtime = modtime
+                    newest_mtime_dir = d
+                parsed_time = time.strptime(d, "%m-%d-%a")
+                if parsed_time > newest_parsed_time:
+                    newest_parsed_time = parsed_time
+                    newest_parsed_dir = d
+
+    if newest_mtime_dir != newest_parsed_dir:
+        msglog.warn("Last time we fetched %s was %s, but dir was %s" \
+                    % (feedname, strftime("%m-%d-%a-%y", newest_mtime),
+                       newest_parsed_dir))
+    else:
+        msglog.msg("Last time we fetched %s was %s" % (feedname,
+                                                       newest_parsed_dir))
+
+    return newest_mtime
+
 #
 # Get a single feed
 #
@@ -425,6 +470,10 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog):
     print >>sys.stderr, "feedfile:", feedfile
     outdir = os.path.join(feeddir,  feedfile)
     print >>sys.stderr, "outdir:", outdir
+
+    # When did we last run this feed?
+    # This code is probably brittle so wrap it in try/except.
+    last_fed_this = last_time_this_feed(outdir)
 
     if cache == None:
         nocache = True
@@ -565,6 +614,9 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog):
                 # We've already seen a link to this URL. It's probably
                 # a link to a different named anchor within the same file.
             except ValueError:
+                pagenum = None
+
+            if not pagenum:
                 # Haven't seen it before. But is it in the cache already?
                 if not nocache:
                     # We want it in the cache, whether it's new or not:
@@ -577,6 +629,38 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog):
                 # Add it to the cache and suburls.
                 suburls.append(item.id)
                 pagenum = len(suburls) - 1
+
+                # Sanity check: is the pubDate newer than the last
+                # time we ran feedme? This isn't necessarily a reason
+                # not to get it.
+                # item.pubDate is a unicode string, supposed to be in format
+                # Thu, 11 Aug 2016 14:46:50 GMT (or +0000)
+                # email.utiles.parsedate returns a tuple.
+                # Pass it to time.mktime() to get seconds since epoch.
+                # XXX
+                try:
+                    pub_date = time.mktime(email_utils.parsedate(item.published))
+                except:
+                    pub_date = Nnne
+                if verbose:
+                    print "**** pubDate is", pub_date, \
+                        "(type", type(pub_date), ")", \
+                        "and we last updated at", last_fed_this
+                # See if it's newer or older. If it's older,
+                # we've probably seen it already; give a warning.
+                if pub_date and last_fed_this:
+                    if pub_date < last_fed_this and (verbose or not nocache):
+                        msglog.warn("%s is older (%s) than the last time we updated this feed (%s)" \
+                                    % (item.id, item.published,
+                                       time.strftime("%m-%d-%a-%y",
+                                                time.gmtime(last_fed_this))))
+                    else:
+                        print "%s: last updated %s, pubDate is %s" \
+                            % (item.id, item.published,
+                               time.strftime("%m-%d-%a-%y",
+                                             time.gmtime(last_fed_this)))
+                elif verbose and not pub_date:
+                    print >>sys.stderr, item.id, ": No pub_date"
 
             itemnum += 1
             if verbose:
@@ -934,7 +1018,7 @@ Which (default = n): """)
                 index.write("\n</body>\n</html>\n")
                 index.close()
         except Exception, e:
-            msglog.err("Error writing index file!", str(e).encode('utf-8'))
+            msglog.err("Error writing index file! " + str(e).encode('utf-8'))
             msglog.err(str(sys.exc_info()[0]).encode('utf-8'))
             msglog.err(str(sys.exc_info()[1]).encode('utf-8'))
             print >>sys.stderr, traceback.format_exc(sys.exc_info()[2])
