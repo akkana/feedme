@@ -641,11 +641,7 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog):
                 try:
                     pub_date = time.mktime(email_utils.parsedate(item.published))
                 except:
-                    pub_date = Nnne
-                if verbose:
-                    print "**** pubDate is", pub_date, \
-                        "(type", type(pub_date), ")", \
-                        "and we last updated at", last_fed_this
+                    pub_date = None
                 # See if it's newer or older. If it's older,
                 # we've probably seen it already; give a warning.
                 if pub_date and last_fed_this:
