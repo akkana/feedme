@@ -42,7 +42,7 @@ class NoContentError(Exception):
     pass
 
 class FeedmeHTMLParser():
-    
+
     def __init__(self, config, feedname):
         self.config = config
         self.feedname = feedname

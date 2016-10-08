@@ -404,7 +404,15 @@ def last_time_this_feed(feeddir):
                 if modtime > newest_mtime:
                     newest_mtime = modtime
                     newest_mtime_dir = d
-                parsed_time = time.strptime(d, "%m-%d-%a")
+
+                # As of October 2016 suddenly strptime has a new error mode
+                # where it can get a ValueError: unconverted data remains.
+                # Guard against this:
+                try:
+                    parsed_time = time.strptime(d, "%m-%d-%a")
+                except:
+                    msglog.msg("Skipping directory %s" % d)
+                    continue
                 if parsed_time > newest_parsed_time:
                     newest_parsed_time = parsed_time
                     newest_parsed_dir = d
