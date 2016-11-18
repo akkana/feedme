@@ -505,7 +505,27 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog):
     socket.setdefaulttimeout(100)
     try:
         print "Running: feedparser.parse(", sitefeedurl, ")"
-        feed = feedparser.parse(sitefeedurl)
+
+        # Feedparser sometimes makes bogus decisions about charsets.
+        # For instance, on http://www.lamonitor.com/todaysnews/rss.xml
+        # some versions of feedparser (actually, some version of some
+        # underlying library it uses, but since feedparser's documentation
+        # is so sketchy and it's so inflexible, it's impossible to tell
+        # exactly where the problem is) will ignore the encoding specified
+        # in the feed and randomly decide to use something else.
+        # For instance, http://www.lamonitor.com/todaysnews/rss.xml
+        # specifies encoding="utf-8", but on Debian Jessie the parsed feed
+        # has 'encoding': u'iso-8859-2'.
+        # (Debian Stretch gets the right answer of utf-8. Even though
+        # the versions of feedfetcher, chardet and urllib2 are identical.)
+        # But if we fetch the RSS explicitly with urllib2 and pass it
+        # as a string to feedfetcher.parse(), it doesn't do this.
+        # feed = feedparser.parse(sitefeedurl)
+        response = urllib2.urlopen(sitefeedurl)
+        rss_str = response.read()
+        feed = feedparser.parse(rss_str)
+        rss_str = None
+        response = None
 
     # except xml.sax._exceptions.SAXException, e:
     except Exception, e:
@@ -518,6 +538,7 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog):
     if len(feed.feed) == 0:
         msglog.err("Can't read " + sitefeedurl)
         return
+
     # XXX Sometimes feeds die a few lines later getting feed.feed.title.
     # Here's a braindead guard against it -- but why isn't this
     # whole clause inside a try? It should be.
