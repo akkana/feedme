@@ -105,8 +105,11 @@ class FeedmeHTMLParser():
             request.add_header('User-Agent', self.user_agent)
 
         # A few sites, like http://nymag.com, gzip their http.
-        # Python doesn't handle that automatically: we have to ask for it.
-        request.add_header('Accept-encoding', 'gzip')
+        # urllib2 doesn't handle that automatically: we have to ask for it.
+        # But some other sites, like the LA Monitor, return bad content
+        # if you ask for gzip.
+        if self.config.getboolean(self.feedname, 'allow_gzip'):
+            request.add_header('Accept-encoding', 'gzip')
 
         # Allow for cookies in the request: some sites, notably nytimes.com,
         # degrade to an infinite redirect loop if cookies aren't enabled.
