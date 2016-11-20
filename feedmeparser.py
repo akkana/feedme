@@ -819,7 +819,7 @@ def read_config_file():
     if not os.access(conffile, os.R_OK):
         print >>sys.stderr, "Error: no config file in", conffile
         sys.exit(1)
-    
+
     config = ConfigParser({'verbose' : 'false',
                            'levels' : '2',
                            'encoding' : '',  # blank means try several
@@ -840,7 +840,8 @@ def read_config_file():
                            'min_width' : '25', # min # chars in an item link
                            'continue_on_timeout' : 'false',
                            'user_agent' : None,
-                           'ascii' : 'false'})
+                           'ascii' : 'false',
+                           'allow_gzip' : 'true'})
     config.read(conffile)
     return config
 

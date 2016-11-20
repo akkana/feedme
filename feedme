@@ -2,18 +2,18 @@
 
 # feedme: download RSS/Atom feeds and convert to HTML, epub, Plucker,
 # or other formats suitable for offline reading on a handheld device,
-# 
+#
 # Copyright 2009-2016 by Akkana Peck <akkana@shallowsky.com>
 # and licensed under the GPLv2 or later.
 #
 # Some older code taken from feedread,
 # Copyright (C) 2009 Benjamin M. A'Lee <bma@subvert.org.uk>
-# 
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
