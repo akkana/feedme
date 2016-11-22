@@ -495,8 +495,11 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog):
 
     # feedparser doesn't understand file:// URLs, so translate those
     # to a local file:
-    if sitefeedurl.startswith('file://'):
-        sitefeedurl = sitefeedurl[7:]
+    # Ironically, with newer changes to feedparser, now file://
+    # is the only type it *does* handle reliably, and anything else
+    # we have to fetch for it before it can parse.
+    # if sitefeedurl.startswith('file://'):
+    #     sitefeedurl = sitefeedurl[7:]
 
     # feedparser.parse() can throw unexplained errors like
     # "xml.sax._exceptions.SAXException: Read failed (no details available)"
@@ -506,7 +509,8 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog):
     try:
         print "Running: feedparser.parse(", sitefeedurl, ")"
 
-        # Feedparser sometimes makes bogus decisions about charsets.
+        # Feedparser sometimes makes bogus decisions about charsets
+        # fetched from http servers.
         # For instance, on http://www.lamonitor.com/todaysnews/rss.xml
         # some versions of feedparser (actually, some version of some
         # underlying library it uses, but since feedparser's documentation
@@ -521,17 +525,22 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog):
         # But if we fetch the RSS explicitly with urllib2 and pass it
         # as a string to feedfetcher.parse(), it doesn't do this.
         # feed = feedparser.parse(sitefeedurl)
-        response = urllib2.urlopen(sitefeedurl)
-        rss_str = response.read()
-        feed = feedparser.parse(rss_str)
-        rss_str = None
-        response = None
+        # HOWEVER:
+        # If we do this on file:// URLs it causes an "unknown url type"
+        # error -- no idea why. I just love feedparser so much. :-(
+        if sitefeedurl.startswith("file://"):
+            feed = feedparser.parse(sitefeedurl)
+        else:
+            response = urllib2.urlopen(sitefeedurl)
+            rss_str = response.read()
+            feed = feedparser.parse(rss_str)
+            rss_str = None
+            response = None
 
     # except xml.sax._exceptions.SAXException, e:
     except Exception, e:
-        print "Couldn't parse feed: URL:", sitefeedurl
-        print str(e)
-        traceback.print_stack()
+        print >>sys.stderr, "Couldn't parse feed: URL:", sitefeedurl
+        print >>sys.stderr, str(e)
         return
 
     # feedparser has no error return! One way is to check len(feed.feed).
