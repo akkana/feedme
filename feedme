@@ -419,7 +419,9 @@ def last_time_this_feed(feeddir):
 
     if newest_mtime_dir != newest_parsed_dir:
         msglog.warn("Last time we fetched %s was %s, but dir was %s" \
-                    % (feedname, time.strftime("%m-%d-%a-%y", newest_mtime),
+                    % (feedname,
+                       time.strftime("%a-%Y-%m-%d",
+                                     time.localtime(newest_mtime)),
                        newest_parsed_dir))
     else:
         msglog.msg("Last time we fetched %s was %s" % (feedname,
