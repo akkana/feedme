@@ -130,7 +130,10 @@ if 'xtraurls' in form:
         # and redirect stderr to there:
         sys.stderr = debuglog
 
-        print >>debuglog, "devicepath:", devicepath
+        if cgi_mode:
+            print >>debuglog, "CGI mode"
+        else:
+            print >>debuglog, "devicepath:", devicepath
         print >>debuglog, "urlfiles:", urlfiles
         print >>debuglog, "rssfile:", rssfile
         print >>debuglog, "urlarchive:", urlarchive
@@ -145,15 +148,15 @@ if 'xtraurls' in form:
     feedmeproc = find_process(feedme_exec, os.getuid())
     if feedmeproc:
         if debuglog:
-            print >>debuglog, "feedme already running, pid", feedmeproc[-1]
+            print >>sys.stderr, "feedme already running, pid", feedmeproc[-1]
         print '''Content-type: text/plain
 
 Feedme is already running! PID %s''' % feedmeproc[-1]
         sys.exit(0)
     if debuglog:
-        print >>debuglog, "feedme isn't running yet -- whew!"
+        print >>sys.stderr, "feedme isn't running yet -- whew!"
 
-    print '''Content-type: text/plain
+    cgi_out = '''Content-type: text/plain
 
 Extra URLs
 '''
@@ -200,8 +203,10 @@ else:
     try:
         ofp = open(rssfile, "w")
     except Exception, e:
-        print >>sys.stderr, "Couldn't write to RSS file", rssfile
-        print >>sys.stderr, e
+        cgi_out += "\nCouldn't write to RSS file %s\n" % rssfile
+        cgi_out += str(e)
+        print cgi_out
+        print >>sys.stderr, cgi_out
         sys.exit(1)
 
     print >>ofp, """<rss version="0.91">
@@ -221,16 +226,16 @@ else:
     for url in urls:
         # Follow it and see if it's a redirect -- we want the real, final url.
         try:
-            print url, "...",
+            cgi_out += url + " ..."
             sys.stdout.flush()
             urlobj = urllib2.urlopen(url, timeout=60)
             newurl = urlobj.geturl()
             urlobj.close()
             if newurl != url:
-                print "redirected to", newurl
+                cgi_out += " -- redirected to %s" % newurl
                 url = newurl
 
-            print "\n"
+            cgi_out += "\n"
         except:
             pass
 
@@ -263,8 +268,7 @@ else:
     if urls:
         print >>sys.stderr, "Saved %s urls to %s and %s" % (len(urls),
                                                             rssfile, urlarchive)
-
-# Done making the Xtra RSS file (if any).
+    # Done making the Xtra RSS file (if any).
 
 if cgi_mode:
     # If we're being run as a CGI, it's because someone wants us
@@ -298,8 +302,9 @@ if cgi_mode:
         print >>sys.stderr, output[0]
         print >>sys.stderr, "\n==== stderr:"
         print >>sys.stderr, output[1]
-        print "\n==== stdin:"
-        print output[0]
-        print "\n==== stderr:"
-        print output[1]
-    
+        cgi_out += "\n\n==== stdin:\n" + output[0]
+        cgi_out += "\n\n==== stderr:\n" + output[1]
+
+    print cgi_out
+    print >>sys.stderr, "CGI OUTPUT:"
+    print >>sys.stderr, cgi_out
