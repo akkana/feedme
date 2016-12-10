@@ -14,21 +14,27 @@ from cookielib import CookieJar
 import StringIO
 import gzip
 
-VersionString = "FeedMe 1.0b1"
-
+# has_ununicode=True
+# try:
+#     import ununicode
+# except ImportError, e:
+#     has_ununicode=False
+#
 # XXX integrate output_encode!
-def output_encode(s, encoding):
-    if encoding == 'ascii' and has_ununicode:
-        #return unicodedata.normalize('NFKD', s).encode('ascii', 'ignore')
-        # valid values in encode are replace and ignore
-        return ununicode.toascii(s,
-                                 in_encoding=encoding,
-                                 errfilename=os.path.join(outdir,
-                                                          "errors"))
-    elif isinstance(s, unicode):
-        return s.encode('utf-8', 'backslashreplace')
-    else:
-        return s
+# def output_encode(s, encoding):
+#     if encoding == 'ascii' and has_ununicode:
+#         #return unicodedata.normalize('NFKD', s).encode('ascii', 'ignore')
+#         # valid values in encode are replace and ignore
+#         return ununicode.toascii(s,
+#                                  in_encoding=encoding,
+#                                  errfilename=os.path.join(outdir,
+#                                                           "errors"))
+#     elif isinstance(s, unicode):
+#         return s.encode('utf-8', 'backslashreplace')
+#     else:
+#         return s
+
+VersionString = "FeedMe 1.0b1"
 
 def get_config_multiline(config, feedname, configname):
     configlines = config.get(feedname, configname)
@@ -132,7 +138,7 @@ class FeedmeHTMLParser():
         if ctype and ctype != '' and ctype[0:4] != 'text':
             print >>sys.stderr, url, "isn't text -- skipping"
             response.close()
-            raise ContentsNotTextError
+            raise RuntimeError("Contents not text! " + url)
 
         # Were we redirected? geturl() will tell us that.
         self.cururl = response.geturl()
@@ -178,8 +184,6 @@ class FeedmeHTMLParser():
 
         if author:
             self.outfile.write("By: %s\n<p>\n" % author)
-
-        link = response.geturl()
 
         # Is the URL gzipped? If so, we'll need to uncompress it.
         is_gzip = response.info().get('Content-Encoding') == 'gzip'
@@ -654,7 +658,7 @@ tree = lxml.html.fromstring(html)
             #print >>sys.stderr, "Writing some ascii data:", data
             self.outfile.write(data)
         else:
-            print >>sys.stderr, "Data isn't str or unicode! type =", type(title)
+            print >>sys.stderr, "Data isn't str or unicode! type =", type(data)
 
     # def handle_charref(self, num):
     #     # I don't think we ever actually get here -- lxml.html.fromstring()

@@ -95,12 +95,6 @@ import email.utils as email_utils
 # Our module for parsing HTML inside feeds:
 import feedmeparser
 
-has_ununicode=True
-try:
-    import ununicode
-except ImportError, e:
-    has_ununicode=False
-
 #
 # Clean up old feed directories
 #
@@ -118,8 +112,8 @@ def clean_up(config):
         days, "days from", feeddir
 
     now = time.time()
-    for dir in os.listdir(feeddir):
-        d = os.path.join(feeddir, dir)
+    for direc in os.listdir(feeddir):
+        d = os.path.join(feeddir, direc)
 
         # Only clean up directories, not files sitting in the feeds dir.
         if not os.path.isdir(d):
@@ -294,7 +288,7 @@ def handle_keyboard_interrupt(msg):
 
     try:
         response = raw_input(msg)
-    except exceptions.EOFError:
+    except EOFError:
         # This happens if we're run from a script rather than interactively
         # and yet someone sends a SIGINT, perhaps because we're timing out
         # and someone logged in to kick us back into operation.
@@ -429,10 +423,183 @@ def last_time_this_feed(feeddir):
 
     return newest_mtime
 
+class FeedmeCache(object):
+    '''The FeedmeCache is a dictionary where the keys are site RSS URLs,
+       and for each feed we have a list of URLs we've seen.
+       { siteurl: [ url, url, url, ...] }
+       It's best to create a new FeedMeCache using the static method
+       FeedmeCache.newcache(initcache).
+       filename is the cache file we're using;
+       last_time is the last modified time of the cache file, or None.
+    '''
+    def __init__(self, cachefile):
+        self.filename = cachefile
+        self.thedict = {}
+        self.last_time = None
+
+    @staticmethod
+    def newcache(initcache=True):
+        '''Find the cache file and load it into a newly created Cache object,
+           returning the cache object.
+           If there's no cache file yet, create one if initcache=True,
+           else raise an IOError.
+        '''
+        if 'XDG_CACHE_HOME' in os.environ:
+            cachefile = os.path.join(os.environ['XDG_CACHE_HOME'],
+                                     'feedme', 'feedme.dat')
+        else:
+            cachefile = os.path.join(feedmeparser.sub_tilde('~/.cache'),
+                                     'feedme', 'feedme.dat')
+
+        if not os.access(cachefile, os.W_OK):
+            if not initcache:
+                raise IOError("Error: no writable cache file " + cachefile)
+            dirname = os.path.dirname(cachefile)
+            if not os.path.exists(dirname):
+                os.makedirs(dirname)
+            cache = FeedmeCache(cachefile)
+            cache.last_time = None
+
+        else:
+            # Make a backup of the cache file, in case something goes wrong:
+            # XXX This should go away when save_to_file makes backups.
+            cache = FeedmeCache(cachefile)
+            cache.last_time = os.stat(cachefile).st_mtime
+            shutil.copy2(cachefile, cachefile + ".bak")
+            cache.read_from_file()
+            # print "Cache now looks like:"
+            # print cache
+            # print "Cache now has keys:"
+            # print cache.keys()
+            # print "Cache dict now has keys:"
+            # print cache.thedict.keys()
+            # sys.exit(0)
+
+        return cache
+
+    #
+    # Old-style cache files are cPickle based.
+    # New style are human readable and look like this:
+    # FeedMe v. 1
+    # siteurl|time|url url, url ...
+    # One line per site.
+    # urls are a list of URLs on the RSS feed the last time we looked.
+    # Time is the last time we updated this site, seconds since epoch.
+    # Urls must all be urlencoded,
+    # and in particular must have no spaces or colons.
+    #
+    def read_from_file(self):
+        '''Read cache from a cache file, either old or new style.'''
+        with open(self.filename) as fp:
+            contents = fp.read()
+
+        if not contents.startswith("FeedMe v."):
+            # It's an old style, pickle-based file.
+            d = cPickle.load(open(self.filename))
+            self.thedict = d
+            print >>sys.stderr, "Warning: old-style pickle-based cache file"
+            return
+
+        # Must be a new-style file.
+        for line in contents.split('\n'):
+            try:
+                key, urllist = line.split('|')
+            except ValueError:
+                print >>sys.stderr, "Problem splitting on |:", line
+                continue
+            key = key.strip()
+            urls = urllist.strip().split()
+
+            self.thedict[key] = urls
+
+        print "=== Read the cache from a file: keys are", self.thedict.keys()
+
+    def save_to_file(self):
+        '''Serialize the cache to a version-1 new style cache file.
+           The file should already have been backed up by newcache().
+        '''
+        # Back up the file:
+        timeappend = time.strftime("%y%m%d%a", time.gmtime())
+        base, ext = os.path.splitext(self.filename)
+        backupfilebase = "%s.%s%s" % (base, timeappend, ext)
+        num = 0
+        for num in range(10):
+            if num:
+                backupfile = "%s-%d" % (backupfilebase, num)
+            else:
+                backupfile = backupfilebase
+            if not os.path.exists(backupfile):
+                break
+        print "Backing up cache file to", backupfile
+        shutil.copy2(self.filename, backupfile)
+
+        def space_plus(s):
+            return s.replace(' ', '+')
+
+        # Write the new cache file.
+        with open(self.filename, "w") as fp:
+            print >>fp, "FeedMe v. 1"
+            for k in self.thedict:
+                print >>fp, "%s|%s" % (space_plus(k),
+                                       ' '.join(map(space_plus,
+                                                    self.thedict[k])))
+
+        sys.exit(0)
+
+        # Remove backups older than N days.
+        # XXX should pass in save_days from config file
+        cachedir = os.path.dirname(self.filename)
+        files = os.listdir(cachedir)
+        for f in files:
+            if not f.startswith("feedme."):
+                continue
+            # does it have six numbers after the feedme?
+            try:
+                d = int(f[7:14])
+            except ValueError:
+                continue
+            # It matches feedme.nnnnnn. How old is it? st_mtime is secs.
+            mtime = os.stat(f).st_mtime
+            age_days = (time.time() - mtime) / 60 / 60 / 24
+            if age_days > 5:
+                print >>sys.stderr, "Removing old cache", f
+                os.unlink(f)
+
+    def save_to_file_pickle(self):
+        '''Serialize the cache to an old-style pickle cachefile.'''
+        t = time.time()
+        cPickle.dump(cache, open(self.filename, 'w'))
+        print >>sys.stderr, "Writing cache took", time.time() - t, "seconds"
+
+    def __repr__(self):
+        return self.thedict.__repr__()
+
+    # Dictionary class forwarded methods:
+    def __getitem__(self, key):
+        return self.thedict.__getitem__(key)
+
+    def __setitem__(self, key, val):
+        return self.thedict.__setitem__(key, val)
+
+    def __delitem__(self, name):
+        return self.thedict.__delitem__(name)
+
+    def __len__(self):
+        self.thedict.__len__()
+
+    def __iter__(self):
+        return self.thedict.__iter__()
+
+    def __contains__(self, item):
+        return self.thedict.__contains__(item)
+
+    def keys(self):
+        return self.thedict.keys()
+
 #
 # Get a single feed
 #
-def get_feed(feedname, config, cache, cachefile, last_time, msglog):
+def get_feed(feedname, config, cache, last_time, msglog):
     """Fetch a single feed"""
     # Mandatory arguments:
     try:
@@ -617,7 +784,7 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog):
                 else:
                     if verbose:
                         msglog.msg("Item in " + href[0] + " had no ID or URL.")
-                    next  # or return?
+                    continue  # or return?
 
             # Does the link match a pattern we're skipping?
             if skip_link_pat:
@@ -675,7 +842,7 @@ def get_feed(feedname, config, cache, cachefile, last_time, msglog):
                 # not to get it.
                 # item.pubDate is a unicode string, supposed to be in format
                 # Thu, 11 Aug 2016 14:46:50 GMT (or +0000)
-                # email.utiles.parsedate returns a tuple.
+                # email.utils.parsedate returns a tuple.
                 # Pass it to time.mktime() to get seconds since epoch.
                 # XXX
                 try:
@@ -901,7 +1068,7 @@ Which (default = s): """)
                     continue   # Move on to next story, ensure we get index
 
             # Done with if levels > 1 clause
-            
+
             if not 'published_parsed' in item:
                 if 'updated_parsed' in item:
                     item.published_parsed = item.updated_parsed
@@ -1069,6 +1236,9 @@ Which (default = n): """)
             msglog.err(str(sys.exc_info()[1]).encode('utf-8'))
             print >>sys.stderr, traceback.format_exc(sys.exc_info()[2])
 
+        # Update the cache for this site:
+        cache[sitefeedurl] = newfeedcache
+
         ####################################################
         # Generate the output files
         #
@@ -1081,17 +1251,13 @@ Which (default = n): """)
 
         #
         # All done. Update the cache file.
+        # Note that we're rewriting the whole cache file on every site,
+        # in case the process gets killed somewhere along the way.
         #
         if not nocache:
             if verbose:
                 print >>sys.stderr, feedname, ": Updating cache file"
-            # Dump the new cache, not the old one:
-            # XXX Find out how long this is taking.
-            # XXX Should we split the cache into per site?
-            t = time.time()
-            cache[sitefeedurl] = newfeedcache
-            cPickle.dump(cache, open(cachefile, 'w'))
-            print >>sys.stderr, "Writing cache took", time.time() - t, "seconds"
+            cache.save_to_file()
         elif verbose:
             print >>sys.stderr, feedname, ": Not updating cache file"
 
@@ -1103,51 +1269,6 @@ Which (default = n): """)
         if os.path.exists(outdir):
             print >>sys.stderr, "Removing directory", outdir
             shutil.rmtree(outdir)
-
-#
-# Find the cache file and load it, but don't parse yet
-#
-def init_cache(initcache=False):
-    #
-    # Load the cache file
-    #
-    if 'XDG_CACHE_HOME' in os.environ:
-        cachefile = os.path.join(os.environ['XDG_CACHE_HOME'],
-                                 'feedme', 'feedme.dat')
-    else:
-        cachefile = os.path.join(feedmeparser.sub_tilde('~/.cache'),
-                                 'feedme', 'feedme.dat')
-
-    if initcache or not os.path.exists(cachefile):
-        dirname = os.path.dirname(cachefile)
-        if not os.path.exists(dirname):
-            os.makedirs(dirname)
-        cache = {}
-    elif not os.access(cachefile, os.W_OK):
-        print >>sys.stderr, "Error: can't write cache file", cachefile
-        sys.exit(1)
-    else:
-        # Make a backup of the cache file, in case something goes wrong:
-        shutil.copy2(cachefile, cachefile + ".bak")
-        try:
-            cache = cPickle.load(open(cachefile))
-        except Exception, e:
-            # I don't know what causes a pickle error,
-            # but cPickle.BadPickleGet can happen
-            # and can be very hard to debug when it does.
-            msglog.err("Error reading cache!", str(e).encode('utf-8'))
-            msglog.err(str(sys.exc_info()[0]).encode('utf-8'))
-            msglog.err(str(sys.exc_info()[1]).encode('utf-8'))
-            print >>sys.stderr, traceback.format_exc(sys.exc_info()[2])
-
-            # Refuse to run: unexpectedly running a whole feedme
-            # without a cache is too painful.
-            print >>sys.stderr, """
-Exiting. Use -N to re-load all previously cached stories
-and reinitialize the cache."""
-            sys.exit(1)
-
-    return cache, cachefile
 
 #
 # Main -- read the config file and loop over sites.
@@ -1197,17 +1318,28 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
 
     if options.nocache:
         cache = None
-        cachefile = None
         last_time = None
     else:
-        cache, cachefile = init_cache(options.initcache)
-        # Figure out the last time we ran feedme.
-        # We'll use this for feeds that only update at certain times.
         try:
-            statbuf = os.stat(cachefile)
-            last_time = statbuf.st_mtime
-        except OSError :    # probably the cache is new and got File Not Found
-            last_time = 0
+            cache = FeedmeCache.newcache(options.initcache)
+        except Exception, e:
+            # I don't know what causes a pickle error,
+            # but cPickle.BadPickleGet can happen
+            # and can be very hard to debug when it does.
+            msglog.err("Error reading cache! " + str(e).encode('utf-8'))
+            msglog.err(str(sys.exc_info()[0]).encode('utf-8'))
+            msglog.err(str(sys.exc_info()[1]).encode('utf-8'))
+            print >>sys.stderr, traceback.format_exc(sys.exc_info()[2])
+
+            # Refuse to run: unexpectedly running a whole feedme
+            # without a cache is too painful.
+            print >>sys.stderr, """
+Can't read the cache file! Sorry, exiting.
+Use -N to re-load all previously cached stories and reinitialize the cache.
+"""
+            sys.exit(1)
+
+        last_time = cache.last_time
 
     # logfilename = config.get('DEFAULT', 'logfile')
     # if logfilename:
@@ -1228,6 +1360,21 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
     outputlog = open(logfilename, "w", buffering=1)
     sys.stderr = tee(stderrsav, outputlog)
 
+    # Remove any obsolete feeds, no longer in the cnnfig file, from the cache.
+    feeds_to_remove = []
+    for feedurl in cache:
+        found = False
+        for feedname in sections:
+            if feedurl == config.get(feedname, 'url'):
+                found = True
+                break
+        if not found:
+            feeds_to_remove.append(feedurl)
+
+    for feedurl in feeds_to_remove:
+        print >>sys.stderr, feedname, "is obsolete, will delete from cache"
+        del cache[feedurl]
+
     try:
         if len(args) == 0:
             for feedname in sections:
@@ -1235,19 +1382,17 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
                 # So give the user a chance to ^C out of one feed
                 # without stopping the whole run:
                 try:
-                    get_feed(feedname, config, cache, cachefile,
-                             last_time, msglog)
+                    get_feed(feedname, config, cache, last_time, msglog)
                 except KeyboardInterrupt:
                     print >>sys.stderr, "Interrupt! Skipping feed", feedname
                     handle_keyboard_interrupt("Type q to quit, anything else to skip to next feed: ")
                     # We don't actually have to check the return value;
                     # handle_keyboard_interrupt will quit if the user types q.
 
-        #sys.exit(1)
         else:
             for arg in args:
                 print >>sys.stderr, 'Getting feed for', arg
-                get_feed(arg, config, cache, cachefile, last_time, msglog)
+                get_feed(arg, config, cache, last_time, msglog)
 
     # This causes a lot of premature exits. Not sure why we end up
     # here rather than in the inner KeyboardInterrupt section.
