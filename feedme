@@ -501,7 +501,9 @@ class FeedmeCache(object):
             return
 
         # Must be a new-style file.
-        for line in contents.split('\n'):
+        for line in contents.split('\n')[1:]:
+            if not line.strip():
+                continue
             try:
                 key, urllist = line.split('|')
             except ValueError:
@@ -543,8 +545,6 @@ class FeedmeCache(object):
                 print >>fp, "%s|%s" % (space_plus(k),
                                        ' '.join(map(space_plus,
                                                     self.thedict[k])))
-
-        sys.exit(0)
 
         # Remove backups older than N days.
         # XXX should pass in save_days from config file
@@ -1237,7 +1237,8 @@ Which (default = n): """)
             print >>sys.stderr, traceback.format_exc(sys.exc_info()[2])
 
         # Update the cache for this site:
-        cache[sitefeedurl] = newfeedcache
+        if not nocache:
+            cache[sitefeedurl] = newfeedcache
 
         ####################################################
         # Generate the output files
