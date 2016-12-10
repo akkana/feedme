@@ -14,25 +14,24 @@ from cookielib import CookieJar
 import StringIO
 import gzip
 
-# has_ununicode=True
-# try:
-#     import ununicode
-# except ImportError, e:
-#     has_ununicode=False
-#
-# XXX integrate output_encode!
-# def output_encode(s, encoding):
-#     if encoding == 'ascii' and has_ununicode:
-#         #return unicodedata.normalize('NFKD', s).encode('ascii', 'ignore')
-#         # valid values in encode are replace and ignore
-#         return ununicode.toascii(s,
-#                                  in_encoding=encoding,
-#                                  errfilename=os.path.join(outdir,
-#                                                           "errors"))
-#     elif isinstance(s, unicode):
-#         return s.encode('utf-8', 'backslashreplace')
-#     else:
-#         return s
+has_ununicode=True
+try:
+    import ununicode
+except ImportError, e:
+    has_ununicode=False
+
+def output_encode(s, encoding):
+    if encoding == 'ascii' and has_ununicode:
+        #return unicodedata.normalize('NFKD', s).encode('ascii', 'ignore')
+        # valid values in encode are replace and ignore
+        return ununicode.toascii(s,
+                                 in_encoding=encoding,
+                                 errfilename=os.path.join(outdir,
+                                                          "errors"))
+    elif isinstance(s, unicode):
+        return s.encode('utf-8', 'backslashreplace')
+    else:
+        return s
 
 VersionString = "FeedMe 1.0b1"
 
