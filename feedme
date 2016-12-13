@@ -461,11 +461,10 @@ class FeedmeCache(object):
             cache.last_time = None
 
         else:
-            # Make a backup of the cache file, in case something goes wrong:
-            # XXX This should go away when save_to_file makes backups.
             cache = FeedmeCache(cachefile)
+            # Make a backup of the cache file, in case something goes wrong:
+            cache.back_up()
             cache.last_time = os.stat(cachefile).st_mtime
-            shutil.copy2(cachefile, cachefile + ".bak")
             cache.read_from_file()
             # print "Cache now looks like:"
             # print cache
@@ -516,12 +515,9 @@ class FeedmeCache(object):
 
         print "=== Read the cache from a file: keys are", self.thedict.keys()
 
-    def save_to_file(self):
-        '''Serialize the cache to a version-1 new style cache file.
-           The file should already have been backed up by newcache().
-        '''
-        # Back up the file:
-        timeappend = time.strftime("%y%m%d%a", time.gmtime())
+    def back_up(self):
+        '''Back up the cache file'''
+        timeappend = time.strftime("%y%m%d%a", time.localtime())
         base, ext = os.path.splitext(self.filename)
         backupfilebase = "%s.%s%s" % (base, timeappend, ext)
         num = 0
@@ -535,15 +531,16 @@ class FeedmeCache(object):
         print "Backing up cache file to", backupfile
         shutil.copy2(self.filename, backupfile)
 
-        def space_plus(s):
-            return s.replace(' ', '+')
-
+    def save_to_file(self):
+        '''Serialize the cache to a version-1 new style cache file.
+           The file should already have been backed up by newcache().
+        '''
         # Write the new cache file.
         with open(self.filename, "w") as fp:
             print >>fp, "FeedMe v. 1"
             for k in self.thedict:
-                print >>fp, "%s|%s" % (space_plus(k),
-                                       ' '.join(map(space_plus,
+                print >>fp, "%s|%s" % (FeedmeCache.id_encode(k),
+                                       ' '.join(map(FeedmeCache.id_encode,
                                                     self.thedict[k])))
 
         # Remove backups older than N days.
@@ -573,6 +570,10 @@ class FeedmeCache(object):
 
     def __repr__(self):
         return self.thedict.__repr__()
+
+    @staticmethod
+    def id_encode(s):
+        return s.replace(' ', '+')
 
     # Dictionary class forwarded methods:
     def __getitem__(self, key):
@@ -777,14 +778,21 @@ def get_feed(feedname, config, cache, last_time, msglog):
                 href = []
 
             if not 'id' in item:
-                if len(href) > 0:
+                if href:
                     item.id = href[0]
                     if verbose:
-                        msglog.msg("Using URL " + href[0] + " for ID.")
+                        msglog.msg("Using URL '%s' for ID" % href[0])
                 else:
                     if verbose:
                         msglog.msg("Item in " + href[0] + " had no ID or URL.")
                     continue  # or return?
+            elif verbose:
+                msglog.msg("Using ID '%s' for ID" % item.id)
+
+            # Whatever pattern we're using for the ID, it will need to
+            # have spaces mapped to + before putting it in the cache.
+            # So do that now.
+            item.id = FeedmeCache.id_encode(item.id)
 
             # Does the link match a pattern we're skipping?
             if skip_link_pat:
@@ -824,7 +832,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
                 pagenum = None
 
             if not pagenum:
-                # Haven't seen it before. But is it in the cache already?
+                # Haven't seen it yet this run. But is it in the cache already?
                 if not nocache:
                     # We want it in the cache, whether it's new or not:
                     newfeedcache.append(item.id)
@@ -832,8 +840,10 @@ def get_feed(feedname, config, cache, last_time, msglog):
                         if verbose:
                             msglog.msg(item.id + " already cached -- skipping")
                         continue
+                    elif verbose:
+                        print >>sys.stderr, "'%s' is not in the cache -- fetching" % item.id
 
-                # Add it to the cache and suburls.
+                # We're probably including this item. Add it to suburls.
                 suburls.append(item.id)
                 pagenum = len(suburls) - 1
 
@@ -844,7 +854,6 @@ def get_feed(feedname, config, cache, last_time, msglog):
                 # Thu, 11 Aug 2016 14:46:50 GMT (or +0000)
                 # email.utils.parsedate returns a tuple.
                 # Pass it to time.mktime() to get seconds since epoch.
-                # XXX
                 try:
                     pub_date = time.mktime(email_utils.parsedate(item.published))
                 except:
@@ -860,6 +869,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
                         if pub_date <= too_old:
                             msglog.warn("%s is so old (%s) it's expired from the cache -- skipping" \
                                         % (item.id, item.published))
+                            # XXX Remove from suburls?
                             continue
 
                         # Else warn about it, but include it in the feed.
