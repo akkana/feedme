@@ -586,7 +586,10 @@ class FeedmeCache(object):
         return self.thedict.__delitem__(name)
 
     def __len__(self):
-        self.thedict.__len__()
+        # Dictionaries don't always/reliably have __len__, apparently;
+        # just calling self.__len__() sometimes fails with
+        # TypeError: an integer is required
+        return len(self.thedict.keys())
 
     def __iter__(self):
         return self.thedict.__iter__()
@@ -677,7 +680,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
     # Sadly, feedparser usually doesn't give any details about what went wrong.
     socket.setdefaulttimeout(100)
     try:
-        print "Running: feedparser.parse(", sitefeedurl, ")"
+        print >>sys.stderr, "Running: feedparser.parse(%s)" % (sitefeedurl)
 
         # Feedparser sometimes makes bogus decisions about charsets
         # fetched from http servers.
@@ -701,8 +704,8 @@ def get_feed(feedname, config, cache, last_time, msglog):
         if sitefeedurl.startswith("file://"):
             feed = feedparser.parse(sitefeedurl)
         else:
-            response = urllib2.urlopen(sitefeedurl)
-            rss_str = response.read()
+            downloader = feedmeparser.FeedmeURLDownloader(config, feedname)
+            rss_str = downloader.download_url(sitefeedurl)
             feed = feedparser.parse(rss_str)
             rss_str = None
             response = None
@@ -1372,19 +1375,20 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
     sys.stderr = tee(stderrsav, outputlog)
 
     # Remove any obsolete feeds, no longer in the cnnfig file, from the cache.
-    feeds_to_remove = []
-    for feedurl in cache:
-        found = False
-        for feedname in sections:
-            if feedurl == config.get(feedname, 'url'):
-                found = True
-                break
-        if not found:
-            feeds_to_remove.append(feedurl)
+    if len(cache):
+        feeds_to_remove = []
+        for feedurl in cache:
+            found = False
+            for feedname in sections:
+                if feedurl == config.get(feedname, 'url'):
+                    found = True
+                    break
+            if not found:
+                feeds_to_remove.append(feedurl)
 
-    for feedurl in feeds_to_remove:
-        print >>sys.stderr, feedname, "is obsolete, will delete from cache"
-        del cache[feedurl]
+        for feedurl in feeds_to_remove:
+            print >>sys.stderr, feedname, "is obsolete, will delete from cache"
+            del cache[feedurl]
 
     try:
         if len(args) == 0:

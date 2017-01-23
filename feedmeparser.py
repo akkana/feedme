@@ -46,14 +46,143 @@ def get_config_multiline(config, feedname, configname):
 class NoContentError(Exception):
     pass
 
-class FeedmeHTMLParser():
+class FeedmeURLDownloader(object):
 
     def __init__(self, config, feedname):
         self.config = config
         self.feedname = feedname
+        self.user_agent = VersionString
+        self.encoding = None
+
+    def download_url(self, url, referrer=None, user_agent=None, verbose=False):
+        """Download a URL (likely http or RSS) from the web and return its
+           contents as a string. Allow for possible vagaries like cookies,
+           redirection, compression etc.
+        """
+        if verbose:
+            print >>sys.stderr, "download_url", url, "referrer=", referrer, \
+                                "user_agent", user_agent
+
+        request = urllib2.Request(url)
+
+        # If we're after the single-page URL, we may need a referrer
+        if referrer:
+            if verbose:
+                print >>sys.stderr, "Adding referrer", referrer
+            request.add_header('Referer', referrer)
+
+        if not user_agent:
+            user_agent = VersionString
+        request.add_header('User-Agent', user_agent)
+        if verbose:
+            print >>sys.stderr, "Using User-Agent of", user_agent
+
+        # Allow for cookies in the request: some sites, notably nytimes.com,
+        # degrade to an infinite redirect loop if cookies aren't enabled.
+        cj = CookieJar()
+        opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
+        response = opener.open(request, timeout=100)
+        # Lots of ways this can fail.
+        # e.g. ValueError, "unknown url type"
+        # or BadStatusLine: ''
+
+        # At this point it would be lovely to check whether the
+        # mime type is HTML or RSS. Unfortunately, all we have is a
+        # httplib.HTTPMessage instance which is completely
+        # undocumented (see http://bugs.python.org/issue3428).
+
+        # It's not documented, but sometimes after urlopen
+        # we can actually get a content type. If it's not
+        # text/something, that's bad.
+        ctype = response.headers['content-type']
+        if ctype and ctype != '' and not ctype.startswith("text") \
+           and not ctype.startswith("application/rss"):
+            print >>sys.stderr, url, "isn't text -- content-type was", \
+                ctype, ". Skipping."
+            response.close()
+            raise RuntimeError("Contents not text (%s)! %s" % (ctype, url))
+
+        # Were we redirected? geturl() will tell us that.
+        self.cur_url = response.geturl()
+
+        # but sadly, that means we need another request object
+        # to parse out the host and prefix:
+        real_request = urllib2.Request(self.cur_url)
+        real_request.add_header('User-Agent', user_agent)
+
+        # A few sites, like http://nymag.com, gzip their http.
+        # urllib2 doesn't handle that automatically: we have to ask for it.
+        # But some other sites, like the LA Monitor, return bad content
+        # if you ask for gzip.
+        if self.config.getboolean(self.feedname, 'allow_gzip'):
+            request.add_header('Accept-encoding', 'gzip')
+
+        # feed() is going to need to know the host, to rewrite urls.
+        # So save host and prefix based on any redirects we've had:
+        # feedmeparser will need them.
+        self.host = real_request.get_host()
+        self.prefix = real_request.get_type() + '://' + self.host + '/'
+
+        # urllib2 unfortunately doesn't read unicode,
+        # so try to figure out the current encoding:
+        if not self.encoding or self.encoding == '':
+            self.encoding = response.headers.getparam('charset')
+            #print >>sys.stderr, "getparam charset returned", self.encoding
+            enctype = response.headers['content-type'].split('charset=')
+            if len(enctype) > 1:
+                self.encoding = enctype[-1]
+                #print >>sys.stderr, "enctype gave", self.encoding
+            else:
+                #print >>sys.stderr, "Defaulting to utf-8"
+                self.encoding = 'utf-8'
+        if verbose:
+            print >>sys.stderr, "final encoding is", self.encoding
+
+        # Is the URL gzipped? If so, we'll need to uncompress it.
+        is_gzip = response.info().get('Content-Encoding') == 'gzip'
+
+        # Read the content of the link:
+        # This can die with socket.error, "connection reset by peer"
+        # And it may not set html, so initialize it first:
+        contents = None
+        try:
+            contents = response.read()
+        # XXX Need to guard against IncompleteRead -- but what class owns it??
+        #except httplib.IncompleteRead, e:
+        #    print >>sys.stderr, "Ignoring IncompleteRead on", url
+        except Exception, e:
+            print >>sys.stderr, "Unknown error from response.read()", url
+
+        # contents can be undefined here. If so, no point in doing anything else.
+        if not contents:
+            print >>sys.stderr, "Didn't read anything from response.read()"
+            response.close()
+            raise NoContentError
+
+        if is_gzip:
+            buf = StringIO.StringIO(contents)
+            f = gzip.GzipFile(fileobj=buf)
+            contents = f.read()
+
+        #print >>sys.stderr, "response.read() returned type", type(contents)
+        # Want to end up with unicode. In case it's str, decode it:
+        if type(contents) is str:
+            # But sometimes this raises errors anyway, even using
+            # the page's own encoding, so use 'replace':
+            contents = contents.decode(self.encoding, 'replace')
+
+        # No docs say I should close this. I can only assume.
+        response.close()
+
+        return contents
+
+class FeedmeHTMLParser(FeedmeURLDownloader):
+
+    def __init__(self, config, feedname):
+        super(FeedmeHTMLParser, self).__init__(config, feedname)
+
         self.outfile = None
         self.skipping = None
-        self.user_agent = VersionString
         self.remapped_images = {}
         self.base_href = None
 
@@ -92,83 +221,7 @@ class FeedmeHTMLParser():
             url = re.sub(urlsub[0], urlsub[1], url)
             print >>sys.stderr, "Became:   ", url
 
-        # For the sub-pages, we're getting HTML, not RSS.
-        # Nobody seems to have RSS pointing to RSS.
-        request = urllib2.Request(url)
-
-        # If we're after the single-page URL, we may need a referrer
-        if referrer:
-            if verbose:
-                print >>sys.stderr, "Adding referrer", referrer
-            request.add_header('Referer', referrer)
-
-        if user_agent:
-            print "Using User-Agent of", user_agent
-            request.add_header('User-Agent', user_agent)
-        else:
-            print "Using default User-Agent of", self.user_agent
-            request.add_header('User-Agent', self.user_agent)
-
-        # A few sites, like http://nymag.com, gzip their http.
-        # urllib2 doesn't handle that automatically: we have to ask for it.
-        # But some other sites, like the LA Monitor, return bad content
-        # if you ask for gzip.
-        if self.config.getboolean(self.feedname, 'allow_gzip'):
-            request.add_header('Accept-encoding', 'gzip')
-
-        # Allow for cookies in the request: some sites, notably nytimes.com,
-        # degrade to an infinite redirect loop if cookies aren't enabled.
-        cj = CookieJar()
-        opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
-        response = opener.open(request, timeout=100)
-        # Lots of ways this can fail.
-        # e.g. ValueError, "unknown url type"
-        # or BadStatusLine: ''
-
-        # At this point it would be lovely to check whether the
-        # mime type is HTML. Unfortunately, all we have is a
-        # httplib.HTTPMessage instance which is completely
-        # undocumented (see http://bugs.python.org/issue3428).
-
-        # It's not documented, but sometimes after urlopen
-        # we can actually get a content type. If it's not
-        # text/something, that's bad.
-        ctype = response.headers['content-type']
-        if ctype and ctype != '' and ctype[0:4] != 'text':
-            print >>sys.stderr, url, "isn't text -- skipping"
-            response.close()
-            raise RuntimeError("Contents not text! " + url)
-
-        # Were we redirected? geturl() will tell us that.
-        self.cururl = response.geturl()
-
-        # but sadly, that means we need another request object
-        # to parse out the host and prefix:
-        real_request = urllib2.Request(self.cururl)
-        real_request.add_header('User-Agent', self.user_agent)
-
-        # feed() is going to need to know the host, to rewrite urls.
-        # So save it, based on any redirects we've had:
-        #self.host = request.get_host()
-        #self.prefix = request.get_type() + '://' + self.host + '/'
-        self.host = real_request.get_host()
-        self.prefix = real_request.get_type() + '://' + self.host + '/'
-
-        # urllib2 unfortunately doesn't read unicode,
-        # so try to figure out the current encoding:
         self.encoding = self.config.get(self.feedname, 'encoding')
-        if not self.encoding or self.encoding == '':
-            self.encoding = response.headers.getparam('charset')
-            #print >>sys.stderr, "getparam charset returned", self.encoding
-            enctype = response.headers['content-type'].split('charset=')
-            if len(enctype) > 1:
-                self.encoding = enctype[-1]
-                #print >>sys.stderr, "enctype gave", self.encoding
-            else:
-                #print >>sys.stderr, "Defaulting to utf-8"
-                self.encoding = 'utf-8'
-        if verbose:
-            print >>sys.stderr, "final encoding is", self.encoding
 
         outfilename = os.path.join(self.newdir, self.newname)
         self.outfile = open(outfilename, "w")
@@ -184,40 +237,7 @@ class FeedmeHTMLParser():
         if author:
             self.outfile.write("By: %s\n<p>\n" % author)
 
-        # Is the URL gzipped? If so, we'll need to uncompress it.
-        is_gzip = response.info().get('Content-Encoding') == 'gzip'
-
-        # Read the content of the link:
-        # This can die with socket.error, "connection reset by peer"
-        # And it may not set html, so initialize it first:
-        html = None
-        try:
-            html = response.read()
-        # XXX Need to guard against IncompleteRead -- but what class owns it??
-        #except httplib.IncompleteRead, e:
-        #    print >>sys.stderr, "Ignoring IncompleteRead on", url
-        except Exception, e:
-            print >>sys.stderr, "Unknown error from response.read()", url
-
-        # html can be undefined here. If so, no point in doing anything else.
-        if not html:
-            print >>sys.stderr, "Didn't read anything from response.read()"
-            raise NoContentError
-
-        if is_gzip:
-            buf = StringIO.StringIO(html)
-            f = gzip.GzipFile(fileobj=buf)
-            html = f.read()
-
-        #print >>sys.stderr, "response.read() returned type", type(html)
-        # Want to end up with unicode. In case it's str, decode it:
-        if type(html) is str:
-            # But sometimes this raises errors anyway, even using
-            # the page's own encoding, so use 'replace':
-            html = html.decode(self.encoding, 'replace')
-
-        # No docs say I should close this. I can only assume.
-        response.close()
+        html = self.download_url(url, referrer, user_agent)
 
         # Throw out everything before the page_start patterns
         # and after the page_end patterns
