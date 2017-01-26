@@ -96,7 +96,8 @@ class FeedmeURLDownloader(object):
         # text/something, that's bad.
         ctype = response.headers['content-type']
         if ctype and ctype != '' and not ctype.startswith("text") \
-           and not ctype.startswith("application/rss"):
+           and not ctype.startswith("application/rss") \
+           and not ctype.startswith("application/atom+xml"):
             print >>sys.stderr, url, "isn't text -- content-type was", \
                 ctype, ". Skipping."
             response.close()
