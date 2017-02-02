@@ -126,15 +126,16 @@ class FeedmeURLDownloader(object):
 
         # urllib2 unfortunately doesn't read unicode,
         # so try to figure out the current encoding:
-        if not self.encoding or self.encoding == '':
+        if not self.encoding:
+            if verbose:
+                print >>sys.stderr, "download_url: self.encoding not set, getting it from headers"
             self.encoding = response.headers.getparam('charset')
-            #print >>sys.stderr, "getparam charset returned", self.encoding
             enctype = response.headers['content-type'].split('charset=')
             if len(enctype) > 1:
                 self.encoding = enctype[-1]
-                #print >>sys.stderr, "enctype gave", self.encoding
             else:
-                #print >>sys.stderr, "Defaulting to utf-8"
+                if verbose:
+                    print >>sys.stderr, "Defaulting to utf-8"
                 self.encoding = 'utf-8'
         if verbose:
             print >>sys.stderr, "final encoding is", self.encoding
@@ -224,6 +225,8 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
 
         self.encoding = self.config.get(self.feedname, 'encoding')
 
+        html = self.download_url(url, referrer, user_agent, verbose=verbose)
+
         outfilename = os.path.join(self.newdir, self.newname)
         self.outfile = open(outfilename, "w")
         self.outfile.write("""<html>\n<head>
@@ -237,8 +240,6 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
 
         if author:
             self.outfile.write("By: %s\n<p>\n" % author)
-
-        html = self.download_url(url, referrer, user_agent)
 
         # Throw out everything before the page_start patterns
         # and after the page_end patterns
