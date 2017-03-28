@@ -581,6 +581,22 @@ tree = lxml.html.fromstring(html)
                                 or x in '-_.='])
                 if not base : base = '_unknown.img'
                 imgfilename = os.path.join(self.newdir, base)
+
+                # Some sites, like High Country News, use the same image
+                # name for everything (e.g. they'll have
+                # storyname-0418-jpg/image, storyname-0418-jpg/image etc.)
+                # so we can't assume that just because the basename is unique,
+                # the image must be.
+                if os.path.exists(imgfilename) and \
+                   src not in self.remapped_images:
+                    howmany = 2
+                    while True:
+                        newimgfile = "%d-%s" % (howmany, imgfilename)
+                        if not os.path.exists(newimgfile):
+                            imgfilename = newimgfile
+                            break
+                        howmany += 1
+
                 try:
                     if not os.path.exists(imgfilename):
                         print >>sys.stderr, "Fetching", src, "to", imgfilename
@@ -740,7 +756,7 @@ tree = lxml.html.fromstring(html)
 
         # It's relative, so append it to the current url minus cur filename:
         return os.path.join(os.path.dirname(self.cururl), url)
-        
+
     def tag_skippable_section(self, tag):
         """Skip certain types of tags we don't want in simplified HTML.
            This skips everything until the matching end tag.
