@@ -9,18 +9,15 @@
 
 <h1>FeedMe: a Lightweight Feed/RSS reader</h1>
 
-<blockquote>
-<b>
-News: FeedMe 0.9 is out. 
-</b>
-Big changes: FeedMe now uses a real HTML parser -- which means that it
-now comes as two files, and depends on the python-lxml package.
-The advantages: rewriting of URLs is much more reliable, and it's
-now possible to download images (set skip_images to False in feedme.conf).
-</blockquote>
+<p>
+Ever want to download RSS from news sites or blogs to your phone,
+PDA, ebook reader, or other handheld device to read offline?
 
 <p>
-Ever want to download RSS from news sites or blogs to your PDA?
+Feedme is a program for fetching stories from RSS or Atom feeds, from
+news sites, blogs or any other site that offers a feed.
+It saves simplified HTML files, or can translate to other formats
+such as Epub, FB2, Plucker or plain text for devices that can't handle HTML.
 
 <p>
 <b>Download:</b> <a href="feedme-0.9.tar.gz">feedme-0.9.tar.gz</a>.</b>
@@ -30,34 +27,138 @@ You will need Python, and python's feedparser module (on Ubuntu or Arch,
 that's the package <i>python-feedparser</i>) and lxml (package python-lxml).
 
 <p>
-There are lots of RSS readers -- but they all seem
+I know there are lots of other RSS readers -- but they all seem
 oriented toward converting RSS to mail to be read in an HTML-capable
 mail reader. I get enough mail, which I read in Mutt without much HTML
-support. I wanted a way to get it onto my PDA in an easily readable,
-simple format without images and tables and stylesheets and javascript
-and all that other HTML cruft.
+support. I wanted a way to get it onto a handheld device in an easily
+readable, simple format that displays well on a small screen, without
+images and tables and stylesheets and javascript and all that other
+HTML cruft, and in a self-contained way so I can read it without
+needing a net connection or using up data allocation.
 
 <p>
-So I wrote FeedMe. It's very minimal but so far it seems to do the job.
+So I wrote FeedMe. I've been using it daily for many years, so I guess
+it works well enough for my purposes. Maybe it will work for you too.
 
 <p>
 FeedMe is sort of an RSS version of
 <a href="http://sitescooper.taint.org/">Sitescooper</a>.
 It produces either HTML or <a href="http://plkr.org">Plucker</a> format.
 
-<p>
-FeedMe can optionally convert each page to plain ascii --
-useful if you're producing output for a Palm PDA.
-For this option, set <code>ascii="yes"</code> in feedme.conf
-and install my <a href="../ununicode/">ununicode</a> module
-somewhere in your python path.
+<h2>The feedme.conf file</h2>
 
 <p>
-There's no documentation yet, but but the
-<a href="feedme.conf">sample feedme.conf configuration file</a>
+The <a href="feedme.conf">sample feedme.conf configuration file</a>
 should be vaguely self-explanatory. Install it in
 <i>~/$XDG_CONFIG_HOME/feedme/feedme.conf</i> or
-<i>~/.config/feedme/feedme.conf</i>
+<i>~/.config/feedme/feedme.conf</i>.
+Here are options inside it:
+
+<h3>Site options</h3>
+<p>
+The feedme.conf file starts with a set of default options,
+in a section labeled <code>[DEFAULT]</code>.
+
+<p>
+These options apply to the whole feedme process:
+
+<pre>
+  ascii
+    Convert all pages to plain ASCII. Useful for reading devices like Palm
+    that can't display other character sets reliably.
+  dir
+    Where to save the collected pages.
+    See save_days for how long they will be kept.
+  formats
+    Comma-separated list of output formats.
+    Default "none", which will result in HTML output.
+    Other options: epub, fb2, plucker.
+  verbose
+    Print lots of debugging chatter while feeding.
+  min_width
+    The minimum number of characters in an item link. Links shorter than this
+    will be padded to this length (to make tapping easier). Default 25.
+  save_days
+    How long to retain feeds locally.
+</pre>
+
+<p>
+These options can be set in the <code>[DEFAULT]</code> section
+and may be overridden for specific feeds:
+
+<pre>
+  continue_on_timeout
+    Normally, if one page times out, feedme will assume the site is down.
+    On sites that link to content from many different URLs, set this
+    to true.
+  encoding
+    Normally feedme will try to guess the encoding from the page.
+    But some pages lie, so use this to override that.
+  levels
+    Level 1: only save the RSS page.
+    Level 2: save sub-pages.
+  nocache
+    Don't check whether we've seen an entry before: collect everything.
+  nonlocal_images
+    Normally feedme will ignore images from other domains (usually ads).
+    But some sites link to images from all over; set this to true in that case.
+  skip_images
+    Don't save images. Default true.
+  skip_links:
+    For sites with levels=1 where you just want a single news feed and
+    never want to click on anything (e.g. slashdot), this can eliminate
+    distracting links that you might tap on accidentally while scrolling.
+  url
+    The RSS URL for the site.
+</pre>
+
+<h3>Defining a new feed</h3>
+<p>
+To define each new feed, start by defining the URL.
+Then go to the RSS page in a browser, click on a story,
+view the HTML source of the story, find the place where the actual story
+begins (it may be three quarters of the way down the page or even
+farther) and find something that indicates the start of the story,
+after all the sidebars and advertising and tracking javascript and
+other cruft. Save this as <code>page_start</code>.
+Optionally, scroll down to the end of the story and find
+a <code>page_end</code> as well.
+<pre>
+url = http://example.com/feeds.rss
+page_start = <story>
+page_end = </story>
+</pre>
+
+<p>
+There are quite a few other options you can set for the feed.
+Of course, you can override values like levels, nocache, skip_images
+and so forth. Here are some additional options you may want for
+some sites:
+<pre>
+single_page_pat
+  Sites that spread stories over many pages often have a naming
+  convention in their "view as single page" URLs. This is a pattern,
+  e.g. http://exmaple.com/.*single.html
+skip_pat
+  For sites that embed annoying things in the middle of stories:
+  maybe video clips, or ads, or distracting pull-quotes.
+  Anything matching a skip_pat will be deleted from the story.
+when
+  When to check this site, if not every time.
+  May be a weekday, e.g. Sat, or a month date, e.g. 1 to check only
+  on the first day of any month.
+</pre>
+
+<p>
+A few options, like page_start, page_end, single_page_pat, and skip_pat,
+can specify multiple patterns. Specify them by putting them on separate
+lines (whitespace at the beginning is optional and ignored):
+<pre>
+skip_pat = style=".*?"
+  Follow us on.*?</div>
+</pre>
+
+<h3>Output Formats</h3>
 <p>
 Supported formats since 0.7 include plucker and epub; to get them,
 set <code>formats = epub</code> (or plucker, or plucker,epub to get both).
@@ -67,13 +168,20 @@ Downloaded HTML will be put in ~/feeds/ (which must exist; you can
 specify a different location in feedme.conf).
 <p>
 Feedme can then convert the HTML into one of three formats:
-epub, plucker, or fb2. You'll need to have appropriate conversion tools 
+epub, plucker, or fb2. You'll need to have appropriate conversion tools
 installed on your system: plucker for plucker format, calibre's
 ebook-convert for the other two. You can specify more than one format,
 separated by commas, in feedme.conf; or format=none if you only need
 the downloaded HTML.
+<p>
+FeedMe can optionally convert each page to plain ascii, eliminating
+accented characters and such (displaying them used to be a problem
+on Palm PDAs, but shouldn't be needed for most modern devices).
+For this option, set <code>ascii="yes"</code> in feedme.conf
+and install my <a href="../ununicode/">ununicode</a> module
+somewhere in your python path.
 
-<h4>Maintenance:</h4>
+<h2>Maintenance:</h2>
 Feedme uses three important directories:
 <p>
 Feedme's configuration file is <i>~/.config/feedme/feedme.conf</i>.
@@ -102,6 +210,17 @@ Thanks to Carla Schroder for the name suggestion!
 <p>
 FeedMe is now maintained on <a href="https://github.com/akkana/feedme">GitHub:
 FeedMe</a>.
+
+<h2>Reading it</h2>
+<p>
+Currently, I read the feeds I fetch with Feedme with an Android program
+I wrote,
+<a href="/software/FeedViewer/">FeedViewer</a>.
+I'm the first to confess that it's not very well documented, though,
+and in particular there's no documentation on how to set things up
+so that FeedMe can generate files that FeedFetcher can generate
+automatically. If you're trying to use this and can't figure it out,
+let me know, otherwise I may never get around to documenting it.
 
 <hr>
 <a href="../index.html">More Software</a><br>
