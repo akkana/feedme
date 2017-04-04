@@ -103,6 +103,7 @@ def clean_up(config):
         days = int(config.get('DEFAULT', 'save_days'))
         feeddir = config.get('DEFAULT', 'dir')
         feeddir = feedmeparser.sub_tilde(feeddir)
+        cachedir = FeedmeCache.get_cache_dir()
     except:
         print >>sys.stderr, \
             "Error trying to get save_days and feed dir; can't clean up"
@@ -112,23 +113,36 @@ def clean_up(config):
         days, "days from", feeddir
 
     now = time.time()
-    for direc in os.listdir(feeddir):
-        d = os.path.join(feeddir, direc)
 
-        # Only clean up directories, not files sitting in the feeds dir.
-        if not os.path.isdir(d):
-            continue
+    def clean_up_dir(dirname, rmdir):
+        '''If rmdir==True, remove (recursively) old directories,
+           ignoring files at the toplevel.
+           Otherwise remove old files at the toplevel.
+        '''
+        for f in os.listdir(dirname):
+            f = os.path.join(dirname, f)
 
-        try:
-            howold = (now - os.path.getctime(d)) / 60 / 60 / 24
-            if howold > days:
-                print >>sys.stderr, "Deleting", d
-                if os.path.isdir(d):
-                    shutil.rmtree(d)
-                else:
-                    os.unlink(d)
-        except Exception, e:
-            print "Couldn't unlink", d, str(e)
+            # Logical xor: if rmdir is set, it's not a directory,
+            # but not both, then skip this entry.
+            # ^ is bitwise xor but works if both args are bool.
+            if rmdir ^ os.path.isdir(f):
+                continue
+
+            try:
+                howold = (now - os.path.getctime(f)) / 60 / 60 / 24
+                if howold > days:
+                    print >>sys.stderr, "Deleting", f
+                    if os.path.isdir(f):
+                        shutil.rmtree(f)
+                    else:
+                        os.unlink(f)
+            except Exception, e:
+                print "Couldn't unlink", f, str(e)
+
+    print "Cleaning up feed dir"
+    clean_up_dir(feeddir, True)
+    print "Cleaning up cache dir"
+    clean_up_dir(cachedir, False)
 
 ##################################################################
 # OUTPUT GENERATING FUNCTIONS
@@ -438,18 +452,20 @@ class FeedmeCache(object):
         self.last_time = None
 
     @staticmethod
+    def get_cache_dir():
+        if 'XDG_CACHE_HOME' in os.environ:
+            return os.path.join(os.environ['XDG_CACHE_HOME'], 'feedme')
+
+        return os.path.join(feedmeparser.sub_tilde('~/.cache'), 'feedme')
+
+    @staticmethod
     def newcache(initcache=True):
         '''Find the cache file and load it into a newly created Cache object,
            returning the cache object.
            If there's no cache file yet, create one if initcache=True,
            else raise an IOError.
         '''
-        if 'XDG_CACHE_HOME' in os.environ:
-            cachefile = os.path.join(os.environ['XDG_CACHE_HOME'],
-                                     'feedme', 'feedme.dat')
-        else:
-            cachefile = os.path.join(feedmeparser.sub_tilde('~/.cache'),
-                                     'feedme', 'feedme.dat')
+        cachefile = os.path.join(FeedmeCache.get_cache_dir(), "feedme.dat")
 
         if not os.access(cachefile, os.W_OK):
             if not initcache:
