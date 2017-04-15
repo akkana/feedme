@@ -1457,6 +1457,10 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
         # and make a manifest listing all the files we downloaded.
         # This will be used remotely, so we don't want the local
         # path in it; everything is relative to this directory.
+        # HTML files first, then image (and other) files,
+        # so it's easy to skip images.
+        # Each set of HTML files is preceded by its directory,
+        # to make it easy for the fetcher to know when to mkdir.
         # MANIFEST should end with .EOF. on a line by itself
         # to avoid race conditions where the fetcher thinks it's
         # read the manifest while the file is still being written.
@@ -1467,12 +1471,24 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
             print "Discarding", discardchars, "characters"
             print >>sys.stderr, "Writing MANIFEST"
             manifest = open(os.path.join(datedir, 'MANIFEST'), 'w')
+            htmlfiles = []
+            otherfiles = []
             for root, dirs, files in os.walk(datedir):
                 shortroot = root[discardchars+1:]
                 if shortroot:
-                    print >>manifest, shortroot + '/'
+                    htmlfiles.append(shortroot + '/')
                 for f in files:
-                    print >>manifest, posixpath.join(shortroot, f)
+                    f = posixpath.join(shortroot, f)
+                    if f.endswith(".html"):
+                        htmlfiles.append(f)
+                    else:
+                        otherfiles.append(f)
+
+            for f in htmlfiles:
+                print >>manifest, f
+            for f in otherfiles:
+                print >>manifest, f
+
             print >>sys.stderr, "Trying to write the special code at end of MANIFEST"
             print >>manifest, ".EOF."
             print >>sys.stderr, "Wrote the special code"
