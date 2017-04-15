@@ -241,7 +241,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         if author:
             self.outfile.write("By: %s\n<p>\n" % author)
 
-        # Throw out everything before the page_start patterns
+        # Throw out everything before the first page_start pattern we see,
         # and after the page_end patterns
         page_starts = get_config_multiline(self.config, self.feedname,
                                            'page_start')
