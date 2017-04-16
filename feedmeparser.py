@@ -33,7 +33,7 @@ def output_encode(s, encoding):
     else:
         return s
 
-VersionString = "FeedMe 1.0b1"
+VersionString = "FeedMe 1.0b2"
 
 def get_config_multiline(config, feedname, configname):
     configlines = config.get(feedname, configname)
@@ -316,6 +316,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
 
         # feed() won't write the final tags, so that we can add a footer:
         self.outfile.write(footer)
+
         self.outfile.write("\n</body>\n</html>\n")
 
         self.outfile.close()

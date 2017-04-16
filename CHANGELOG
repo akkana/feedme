@@ -1,5 +1,54 @@
+
+April 16, 2017:
+    1.0b2:
+    Write the cache in a custom, human readable format instead of pickle.
+    Write each story's URL in the footer.
+    Write .html files first to MANIFEST, so they'll be
+    fetched first in case of dodgy networks.
+    Skip entries so old they've expired from cache.
+    Accept application/atom+xml as well as application/rss for RSS pages.
+    Fix sites that use duplicate image names.
+
+Nov 23, 2016:
+    Fetch the RSS page with urllib2, not with feedparser,
+    to guard against feedparser doing bogus charset remapping
+    (May be just a bug on Debian Stretch's feedparser) and feedparser's
+    inability to read from file:// URLs.
+    Add allow_gzip = false option for sites where gzip is broken.
+
+Oct 7, 2016:
+    On URL errors, include a link so the user can try again.
+    Check publication date against last time we fetched the current feed.
+    Include continue_on_timeout in the ConfigParser options.
+    Add user_agent as a config option.
+    Don't run if there's a feedme process already running.
+    Guard against problems due to recent Python strptime parser changes.
+    Handle pickle errors better.
+
+Sep 25, 2015:
+    1.0b1: Save a MANIFEST file with a list of all filenames written.
+    Add a line to index.html on errors fetching stories.
+    Allow for cookies in the request. Handle gzipped http.
+
+May 25, 2015:
+    Set the User-Agent. Better handling of timeouts.
+    Pay attention to base href when downloading images.
+    Make images fit on screen (mostly) on phones.
+
+Dec 10, 2013:
+    Add urlrss python CGI script, and make it easier to kick off
+    feedme from CGI so it can be initiated remotely.
+    Add LOG file.
+
+Jun 25, 2013:
+    Add "when" so sites can be checked less often than daily.
+    Handle file:// since feedparser doesn't. Add skip_links option.
+    Handle meta refresh directives, and skip a lot of problematic tags.
+    Handle cases where no content is downloaded.
+
 May 18, 2012:
-    0.9: 
+    0.9: Parse with lxml.html, better URL rewriting and image downloading.
+    Add author names to stories. Handle redirects. Omit iframes.
 
 December 23, 2011:
     0.8: Several reliability fixes, guards against bad file types, etc.
@@ -13,13 +62,13 @@ January 30, 2011:
     New "formats" parameter to specify which format(s) to generate.
 
 December 22, 2010:
-    0.7b1: handle epub format, or none (specified in config file); save each day's feed to its own dated directory. 
+    0.7b1: handle epub format, or none (specified in config file); save each day's feed to its own dated directory.
 
 November 17, 2010:
-    0.6: handle optional FB2 format; show author. 
+    0.6: handle optional FB2 format; show author.
 
 August 2, 2010:
-    0.5: Beef up the interrupt handling to fix places where it didn't work; reject non-text files (e.g. MP3s from podcasts). 
+    0.5: Beef up the interrupt handling to fix places where it didn't work; reject non-text files (e.g. MP3s from podcasts).
 
 March 3, 2010:
     0.4:
@@ -27,18 +76,17 @@ March 3, 2010:
         Rewrite URLs so unfollowed links show up as coming from the original site, not file://
         error/msg logging: show at end, not inline
         handle failures like not finding plucker
-        make backup of cache file 
+        make backup of cache file
 
 
 December 9, 2009:
-    0.3: add commandline arguments, including -c to bypass caching. Handle failures to download articles. 
+    0.3: add commandline arguments, including -c to bypass caching. Handle failures to download articles.
 
 October 20, 2009:
-    0.2: integrate ununicode.toascii; add extra content link at end of each index page entry. 
+    0.2: integrate ununicode.toascii; add extra content link at end of each index page entry.
 
 October 15, 2009:
-    0.2pre1: smarter config parsing (~ and HOME), some support for ascii conversion, some extra links for added convenience. 
+    0.2pre1: smarter config parsing (~ and HOME), some support for ascii conversion, some extra links for added convenience.
 
 October 6, 2009:
-    First release. 
-
+    First release.

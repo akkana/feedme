@@ -932,11 +932,19 @@ def get_feed(feedname, config, cache, last_time, msglog):
                     # Nobody seems to have RSS pointing to RSS.
                     parser = feedmeparser.FeedmeHTMLParser(config, feedname)
                     fnam = str(pagenum) + ".html"
+
+                    # Add a link in the footer to the (we hope) next story:
+                    footer = '<center><a href=\"%d.html\">&gt;-%d-&gt;</a></center>' \
+                             % (itemnum, itemnum)
+
+                    # Add the page's URL to the footer:
+                    footer += downloaded_string
+                    footer += '\n<br>\n<a href="%s">%s</a>' % (item.link,
+                                                               item.link)
+
                     parser.fetch_url(item.link,
                                      outdir, fnam,
-                                     item.title, author,
-                      "<center><a href=\"%d.html\">&gt;-%d-&gt;</a></center>" \
-                                         % (itemnum, itemnum),
+                                     item.title, author, footer,
                                      user_agent=user_agent)
 
                 except feedmeparser.NoContentError as e:
@@ -963,7 +971,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
                 # and skip over the rest of the site.
                 # In Python 2.6, instead of raising socket.timeout
                 # a timeout will raise urllib2.URLerror with
-                # e.reason set to socket.timeout. 
+                # e.reason set to socket.timeout.
                 except socket.timeout, e:
                     errmsg = "Socket.timeout error on title "
                     errmsg += item.title.encode('utf-8', 'replace')
@@ -973,7 +981,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
                     if config.get(feedname, 'continue_on_timeout') == 'true':
                         continue
                     break
- 
+
                 # Handle timeouts in Python 2.6
                 except urllib2.URLError, e:
                     if isinstance(e.reason, socket.timeout):
@@ -1256,7 +1264,9 @@ Which (default = n): """)
                 # succeeded, this should no longer be needed.
                 index.write("<p><a name=\"%d\">&nbsp;</a>\n" % (itemnum+1))
 
+                # Write the downloaded feedme signature
                 index.write(downloaded_string)
+
                 index.write("\n</body>\n</html>\n")
                 index.close()
         except Exception, e:
