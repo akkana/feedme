@@ -853,11 +853,12 @@ def read_config_file():
     # Read the config file
     #
     if 'XDG_CONFIG_HOME' in os.environ:
-        conffile = os.path.join(os.environ['XDG_CONFIG_HOME'],
-                                'feedme', 'feedme.conf')
+        confdir = os.path.join(os.environ['XDG_CONFIG_HOME'], 'feedme')
     else:
-        conffile = os.path.join(os.environ['HOME'], '.config',
-                                'feedme', 'feedme.conf')
+        confdir = os.path.join(os.environ['HOME'], '.config', 'feedme')
+
+    main_conf_file = 'feedme.conf'
+    conffile = os.path.join(confdir, main_conf_file)
     if not os.access(conffile, os.R_OK):
         print >>sys.stderr, "Error: no config file in", conffile
         sys.exit(1)
@@ -878,13 +879,22 @@ def read_config_file():
                            'skip_links' : 'false',
                            'skip_link_pat' : '',
                            'index_skip_pat' : '',
-                           'when' : '',   # Day, like tue, or month day, like 14
+                           'when' : '',  # Day, like tue, or month-day, like 14
                            'min_width' : '25', # min # chars in an item link
                            'continue_on_timeout' : 'false',
                            'user_agent' : None,
                            'ascii' : 'false',
                            'allow_gzip' : 'true'})
+
     config.read(conffile)
+    for fil in os.listdir(confdir):
+        if fil.endswith('.conf') and fil != main_conf_file:
+            filepath = os.path.join(confdir, fil)
+            if os.access(filepath, os.R_OK):
+                config.read(filepath)
+            else:
+                print "Can't read", filepath
+
     return config
 
 if __name__ == '__main__':

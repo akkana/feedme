@@ -109,9 +109,6 @@ def clean_up(config):
             "Error trying to get save_days and feed dir; can't clean up"
         return
 
-    print >>sys.stderr, "Cleaning up anything older than", \
-        days, "days from", feeddir
-
     now = time.time()
 
     def clean_up_dir(dirname, rmdir):
@@ -139,9 +136,8 @@ def clean_up(config):
             except Exception, e:
                 print "Couldn't unlink", f, str(e)
 
-    print "Cleaning up feed dir"
+    print "Cleaning up files older than %d days from feed and cache dirs" % days
     clean_up_dir(feeddir, True)
-    print "Cleaning up cache dir"
     clean_up_dir(cachedir, False)
 
 ##################################################################
@@ -431,9 +427,11 @@ def last_time_this_feed(feeddir):
                        time.strftime("%a-%Y-%m-%d",
                                      time.localtime(newest_mtime)),
                        newest_parsed_dir))
-    else:
-        msglog.msg("Last time we fetched %s was %s" % (feedname,
-                                                       newest_parsed_dir))
+    # else:
+    #     # XXX This should only print if verbose,
+    #     # but this function doesn't know whether we're verbose.
+    #     print >>sys.stderr, "Last time we fetched %s was %s" \
+    #         % (feedname, newest_parsed_dir))
 
     return newest_mtime
 
@@ -528,8 +526,6 @@ class FeedmeCache(object):
             urls = urllist.strip().split()
 
             self.thedict[key] = urls
-
-        print "=== Read the cache from a file: keys are", self.thedict.keys()
 
     def back_up(self):
         '''Back up the cache file'''
@@ -626,7 +622,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
         sitefeedurl = config.get(feedname, 'url')
         feeddir = config.get(feedname, 'dir')
     except:
-        msglog.err("Error reading feedme.conf entry for: " + feedname)
+        msglog.err("Can't find a config for: " + feedname)
         return
 
     verbose = (config.get(feedname, 'verbose').lower() == 'true')
@@ -800,13 +796,14 @@ def get_feed(feedname, config, cache, last_time, msglog):
                 if href:
                     item.id = href[0]
                     if verbose:
-                        msglog.msg("Using URL '%s' for ID" % href[0])
+                        print >>sys.stderr, "Using URL '%s' for ID" % href[0]
                 else:
                     if verbose:
-                        msglog.msg("Item in " + href[0] + " had no ID or URL.")
+                        print >>sys.stderr, "Item in " + href[0] + \
+                            " had no ID or URL."
                     continue  # or return?
             elif verbose:
-                msglog.msg("Using ID '%s' for ID" % item.id)
+                print >>sys.stderr, "Using ID '%s' for ID" % item.id
 
             # Whatever pattern we're using for the ID, it will need to
             # have spaces mapped to + before putting it in the cache.
@@ -857,7 +854,8 @@ def get_feed(feedname, config, cache, last_time, msglog):
                     newfeedcache.append(item.id)
                     if item.id in feedcache:
                         if verbose:
-                            msglog.msg(item.id + " already cached -- skipping")
+                            print >>sys.stderr, item.id, \
+                                "already cached -- skipping"
                         continue
                     elif verbose:
                         print >>sys.stderr, "'%s' is not in the cache -- fetching" % item.id
@@ -935,7 +933,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
 
                     # Add a link in the footer to the (we hope) next story:
                     footer = '<center><a href=\"%d.html\">&gt;-%d-&gt;</a></center>' \
-                             % (itemnum, itemnum)
+                             % (itemnum+1, itemnum+1)
 
                     # Add the page's URL to the footer:
                     footer += downloaded_string
@@ -1231,9 +1229,8 @@ Which (default = n): """)
                 print >>sys.stderr, str(sys.exc_info()[1])
                 print >>sys.stderr, traceback.format_exc(sys.exc_info()[2])
 
-    # Only write the index.html file if there was content that
-    # wasn't already in the cache.
-    if itemnum >= 0 or nocache:
+    # Only write the index.html file if there was content:
+    if itemnum >= 0:
         # If the RSS page ended with a story we didn't include,
         # either because it's old or because it had no content we could show,
         # we'll have an extra ">->" line. Try to remove it.
@@ -1302,7 +1299,7 @@ Which (default = n): """)
             print >>sys.stderr, feedname, ": Not updating cache file"
 
     else:
-        print >>sys.stderr, feedname, ": no new content"
+        msglog.warn(feedname + ": no new content")
 
         # We may have made the directory. If so, remove it:
         # if there's no index file then there's no way to access anything there.
@@ -1353,7 +1350,7 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
 
     if options.show_sites:
         for feedname in sections:
-            print feedname
+            print "%-25s %s" % (feedname, config.get(feedname, 'url'))
         sys.exit(0)
 
     if options.nocache:
@@ -1401,7 +1398,7 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
     sys.stderr = tee(stderrsav, outputlog)
 
     # Remove any obsolete feeds, no longer in the cnnfig file, from the cache.
-    if len(cache):
+    if cache and len(cache):
         feeds_to_remove = []
         for feedurl in cache:
             found = False
@@ -1413,7 +1410,7 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
                 feeds_to_remove.append(feedurl)
 
         for feedurl in feeds_to_remove:
-            print >>sys.stderr, feedname, "is obsolete, will delete from cache"
+            print >>sys.stderr, feedurl, "is obsolete, will delete from cache"
             del cache[feedurl]
 
     try:
@@ -1446,16 +1443,6 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
         print >>sys.stderr, e
         #sys.exit(e.errno)
 
-    # Dump any errors we encountered.
-    msgs = msglog.get_msgs()
-    if msgs:
-        print >>sys.stderr, "\n===== Messages ===="
-        print >>sys.stderr, msgs.encode('utf-8', 'backslashreplace')
-    msgs = msglog.get_errs()
-    if msgs:
-        print >>sys.stderr, "\n====== Errors ====="
-        print >>sys.stderr, msgs.encode('utf-8', 'backslashreplace')
-
     try:
         # Now we're done. It's time to move the log file into its final place.
         datestr = time.strftime("%m-%d-%a")
@@ -1478,8 +1465,6 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
         # get MANIFEST files cluttering up his directories.
         if '/d/' not in datedir:
             discardchars = len(datedir)
-            print "Discarding", discardchars, "characters"
-            print >>sys.stderr, "Writing MANIFEST"
             manifest = open(os.path.join(datedir, 'MANIFEST'), 'w')
             htmlfiles = []
             otherfiles = []
@@ -1499,9 +1484,7 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
             for f in otherfiles:
                 print >>manifest, f
 
-            print >>sys.stderr, "Trying to write the special code at end of MANIFEST"
             print >>manifest, ".EOF."
-            print >>sys.stderr, "Wrote the special code"
             manifest.close()
     except OSError, e:
         print >>sys.stderr, "Couldn't move LOG or create MANIFEST:"
@@ -1510,3 +1493,12 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
     # Clean up old directories:
     clean_up(config)
 
+    # Dump any errors we encountered.
+    msgs = msglog.get_msgs()
+    if msgs:
+        print >>sys.stderr, "\n===== Messages ===="
+        print >>sys.stderr, msgs.encode('utf-8', 'backslashreplace')
+    msgs = msglog.get_errs()
+    if msgs:
+        print >>sys.stderr, "\n====== Errors ====="
+        print >>sys.stderr, msgs.encode('utf-8', 'backslashreplace')
