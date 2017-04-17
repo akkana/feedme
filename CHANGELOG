@@ -1,6 +1,6 @@
-
-April 16, 2017:
+April 17, 2017:
     1.0b2:
+    Accept multiple configuration files (e.g. one .conf file per site).
     Write the cache in a custom, human readable format instead of pickle.
     Write each story's URL in the footer.
     Write .html files first to MANIFEST, so they'll be
