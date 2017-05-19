@@ -439,8 +439,8 @@ class FeedmeCache(object):
     '''The FeedmeCache is a dictionary where the keys are site RSS URLs,
        and for each feed we have a list of URLs we've seen.
        { siteurl: [ url, url, url, ...] }
-       It's best to create a new FeedMeCache using the static method
-       FeedmeCache.newcache(initcache).
+       It's best to create a new FeedmeCache using the static method
+       FeedmeCache.newcache().
        filename is the cache file we're using;
        last_time is the last modified time of the cache file, or None.
     '''
@@ -457,17 +457,14 @@ class FeedmeCache(object):
         return os.path.join(feedmeparser.sub_tilde('~/.cache'), 'feedme')
 
     @staticmethod
-    def newcache(initcache=True):
+    def newcache():
         '''Find the cache file and load it into a newly created Cache object,
            returning the cache object.
-           If there's no cache file yet, create one if initcache=True,
-           else raise an IOError.
+           If there's no cache file yet, create one.
         '''
         cachefile = os.path.join(FeedmeCache.get_cache_dir(), "feedme.dat")
 
         if not os.access(cachefile, os.W_OK):
-            if not initcache:
-                raise IOError("Error: no writable cache file " + cachefile)
             dirname = os.path.dirname(cachefile)
             if not os.path.exists(dirname):
                 os.makedirs(dirname)
@@ -1322,18 +1319,18 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
     optparser = OptionParser(usage=usage, version=LongVersion)
     optparser.add_option("-n", "--nocache",
                          action="store_true", dest="nocache",
+                         default=False,
                          help="Don't consult the cache, or update it")
-    optparser.add_option("-N", "--initcache",
-                         action="store_true", dest="initcache",
-                         help="Don't read the cache, but do update it")
     optparser.add_option("-s", "--show-sites",
                          action="store_true", dest="show_sites",
+                         default=False,
                          help="Show available sites")
     optparser.add_option("-l", "--log", metavar="logfile",
                          action="store", dest="log_file_name",
                          help="Save output to a log file")
     optparser.add_option("-c", "--config-help",
                          action="store_true", dest="config_help",
+                         default=False,
                          help="Print help on configuration files")
     (options, args) = optparser.parse_args()
 
@@ -1358,7 +1355,7 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
         last_time = None
     else:
         try:
-            cache = FeedmeCache.newcache(options.initcache)
+            cache = FeedmeCache.newcache()
         except Exception, e:
             # I don't know what causes a pickle error,
             # but cPickle.BadPickleGet can happen
