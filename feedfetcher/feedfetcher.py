@@ -168,7 +168,7 @@ def fetch_feed_dir(dirurl, outdir):
 
     index = fetch_url_to(dirurl + 'index.html',
                          os.path.join(outdir, 'index.html'))
-    
+
 def parse_directory_page(urldir):
     '''Parse a directory page from the server, returning a list of subdirs.
        Return None implies there was a problem reaching the urldir.
