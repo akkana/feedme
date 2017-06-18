@@ -33,7 +33,7 @@ def output_encode(s, encoding):
     else:
         return s
 
-VersionString = "FeedMe 1.0b2"
+VersionString = "FeedMe 1.0b3"
 
 def get_config_multiline(config, feedname, configname):
     configlines = config.get(feedname, configname)
@@ -196,7 +196,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
            according to the config file and current feed name.
            Write the modified HTML output to $newdir/$newname,
            and download any images into $newdir.
-           Raises NoContentError if it can't get the page.
+           Raises NoContentError if it can't get the page or skipped it.
         """
         verbose = self.config.getboolean(self.feedname, 'verbose')
         if verbose:
@@ -227,6 +227,13 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         self.encoding = self.config.get(self.feedname, 'encoding')
 
         html = self.download_url(url, referrer, user_agent, verbose=verbose)
+
+        # Does it contain any of skip_content_pats anywhere? If so, bail.
+        skip_content_pats = get_config_multiline(self.config, self.feedname,
+                                              'skip_content_pats')
+        for pat in skip_content_pats:
+            if re.search(pat, html):
+                raise NoContentError("Skipping, skip_content_pats " + pat)
 
         outfilename = os.path.join(self.newdir, self.newname)
         self.outfile = open(outfilename, "w")
@@ -270,7 +277,8 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
 
         # Skip anything matching any of the skip_pats.
         # It may eventually be better to do this in the HTML parser.
-        skip_pats = get_config_multiline(self.config, self.feedname, 'skip_pat')
+        skip_pats = get_config_multiline(self.config, self.feedname,
+                                         'skip_pats')
         if len(skip_pats) > 0:
             for skip in skip_pats:
                 if verbose:
@@ -537,7 +545,7 @@ tree = lxml.html.fromstring(html)
                     #print "we're not in the single page already"
                     single_page_pats = get_config_multiline(self.config,
                                                             self.feedname,
-                                                            'single_page_pat')
+                                                            'single_page_pats')
                     for single_page_pat in single_page_pats:
                         m = re.search(single_page_pat, href)
                         if m:
@@ -804,7 +812,7 @@ tree = lxml.html.fromstring(html)
             return True
 
         return False
-        
+
     def tag_skippable(self, tag):
         """Skip certain types of tags we don't want in simplified HTML.
            This will not remove tags inside the skipped tag, only the
@@ -869,17 +877,30 @@ def read_config_file():
                            'encoding' : '',  # blank means try several
                            'page_start' : '',
                            'page_end':'',
-                           'single_page_pat' : '',
+                           'single_page_pats' : '',
                            'url_substitute' : '',
-                           'skip_pat' : '',
+
+                           # Patterns to skip within a story.
+                           # Anything within the regexps will be excised
+                           # from the story.
+                           'skip_pats' : '',
+
+                           # Various triggers for skipping a whole story:
+                           # Skip links with these patterns:
+                           'skip_link_pats' : '',
+                           # Skip anything with titles containing these:
+                           'skip_title_pats' : '',
+                           # Skip anything whose content includes these:
+                           'skip_content_pats' : '',
+                           # Skip anything where the index content includes:
+                           'index_skip_content_pats' : '',
+
                            'nocache' : 'false',
                            'logfile' : '',
                            'save_days' : '7',
                            'skip_images' : 'true',
                            'nonlocal_images' : 'false',
                            'skip_links' : 'false',
-                           'skip_link_pat' : '',
-                           'index_skip_pat' : '',
                            'when' : '',  # Day, like tue, or month-day, like 14
                            'min_width' : '25', # min # chars in an item link
                            'continue_on_timeout' : 'false',

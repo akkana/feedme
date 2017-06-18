@@ -133,29 +133,44 @@ page_end = </story>
 There are quite a few other options you can set for the feed.
 Of course, you can override values like levels, nocache, skip_images
 and so forth. Here are some additional options you may want for
-some sites:
+some sites to clean up the stories and eliminate stories you
+don't want to see. All "pats" are lists of patterns (see below
+for an example).
 <pre>
-single_page_pat
+single_page_pats
   Sites that spread stories over many pages often have a naming
   convention in their "view as single page" URLs. This is a pattern,
   e.g. http://exmaple.com/.*single.html
-skip_pat
+
+skip_pats
   For sites that embed annoying things in the middle of stories:
   maybe video clips, or ads, or distracting pull-quotes.
-  Anything matching a skip_pat will be deleted from the story.
+  Anything matching one of the skip_pats will be deleted from the story.
+
+skip_link_pats
+  Skip links with these patterns.
+skip_title_pats
+  Skip anything with titles containing these patterns.
+skip_content_pats
+  Skip anything whose content includes these patterns.
+index_skip_content_pats
+  Skip anything where the index content includes:
+
 when
-  When to check this site, if not every time.
+  When to check this site, if not always.
   May be a weekday, e.g. Sat, or a month date, e.g. 1 to check only
   on the first day of any month.
 </pre>
 
 <p>
-A few options, like page_start, page_end, single_page_pat, and skip_pat,
+A few options, like page_start, page_end, single_page_pats, and skip_pats,
 can specify multiple patterns. Specify them by putting them on separate
 lines (whitespace at the beginning is optional and ignored):
 <pre>
-skip_pat = style=".*?"
+skip_pats = style=".*?"
   Follow us on.*?</div>
+skip_link_pats = skip_link_pat = http://www.site.com/articles/video/
+  http://www.site.com/articles/podcasts/
 </pre>
 
 <h3>Output Formats</h3>

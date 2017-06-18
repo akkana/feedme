@@ -632,9 +632,10 @@ def get_feed(feedname, config, cache, last_time, msglog):
     encoding = config.get(feedname, 'encoding')
     ascii = config.getboolean(feedname, 'ascii')
     skip_links = config.getboolean(feedname, 'skip_links')
-    skip_link_pat = feedmeparser.get_config_multiline(config,
-                                                      feedname,
-                                                      'skip_link_pat')
+    skip_link_pats = feedmeparser.get_config_multiline(config, feedname,
+                                                      'skip_link_pats')
+    skip_title_pats = feedmeparser.get_config_multiline(config, feedname,
+                                                        'skip_title_pats')
 
     user_agent = config.get(feedname, 'user_agent')
 
@@ -800,7 +801,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
                             " had no ID or URL."
                     continue  # or return?
             elif verbose:
-                print >>sys.stderr, "Using ID '%s' for ID" % item.id
+                print >>sys.stderr, "\nUsing ID '%s' for ID" % item.id
 
             # Whatever pattern we're using for the ID, it will need to
             # have spaces mapped to + before putting it in the cache.
@@ -808,14 +809,33 @@ def get_feed(feedname, config, cache, last_time, msglog):
             item.id = FeedmeCache.id_encode(item.id)
 
             # Does the link match a pattern we're skipping?
-            if skip_link_pat:
+            if skip_link_pats:
                 skipping = False
-                for spat in skip_link_pat:
+                for spat in skip_link_pats:
                     if re.search(spat, item.link):
+                        skipping = True
                         if verbose:
                             print >>sys.stderr, "Skipping", item.link, \
                                 "because it matches", spat
+                        break
+                if skipping:
+                    continue
+                # XXX Remove this after we've gotten WashPost skips debugged.
+                elif verbose:
+                    print >>sys.stderr, item.link, \
+                        "didn't match any of the skip patterns:"
+                    for spat in skip_link_pats:
+                        print >>sys.stderr, "   ", spat
+
+            # How about the title? Does that match a skip pattern?
+            if skip_title_pats:
+                skipping = False
+                for pat in skip_title_pats:
+                    if re.search(pat, item.title, flags=re.IGNORECASE):
                         skipping = True
+                        if verbose:
+                            print >>sys.stderr, "Skipping", item.link, \
+                                "because of skip_title_pats " + pat
                         break
                 if skipping:
                     continue
@@ -901,7 +921,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
 
             itemnum += 1
             if verbose:
-                print >>sys.stderr, "\nItem:", item.title.encode('utf-8',
+                print >>sys.stderr, "Item:", item.title.encode('utf-8',
                                                                  'replace')
 
             # Now itemnum is the number of the entry on the index page;
@@ -1163,12 +1183,12 @@ Which (default = s): """)
             else:
                 content = re.sub('<a  [^>]*href=.*> *</a>', '', content)
 
-            # Skip any text specified in index_skip_pat.
+            # Skip any text specified in index_skip_content_pats.
             # Some sites (*cough* Pro Publica *cough*) do weird things
             # like putting huge <style> sections in the RSS.
             index_skip_pats = feedmeparser.get_config_multiline(config,
                                                       feedname,
-                                                      'index_skip_pat')
+                                                      'index_skip_content_pats')
             for pat in index_skip_pats:
                 content = re.sub(pat, '', content)
                 author = re.sub(pat, '', author)

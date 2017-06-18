@@ -1,3 +1,10 @@
+June 17, 2017:
+    1.0b3:
+    Rename all the skip_*_pat to end with "pats" for consistency:
+    they all accept multiple values.
+    Add skip_content_pats and skip_title_pats.
+    Document all the skip_*_pats more clearly.
+
 April 17, 2017:
     1.0b2:
     Accept multiple configuration files (e.g. one .conf file per site).
