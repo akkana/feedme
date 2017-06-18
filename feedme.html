@@ -1,6 +1,6 @@
 <html>
 <head>
-<title>FeedMe: a Lightweight Feed/RSS reader</title>
+<title>FeedMe: a Lightweight Feed/RSS Reader</title>
 </head>
 <body>
 
@@ -20,7 +20,9 @@ It saves simplified HTML files, or can translate to other formats
 such as Epub, FB2, Plucker or plain text for devices that can't handle HTML.
 
 <p>
-<b>Download:</b> <a href="feedme-0.9.tar.gz">feedme-0.9.tar.gz</a>.</b>
+<b>Download:</b>
+FeedMe is now maintained on <a href="https://github.com/akkana/feedme">GitHub:
+FeedMe</a>. It's currently at 1.0b3.
 
 <p>
 You will need Python, and python's feedparser module (on Ubuntu or Arch,
@@ -43,7 +45,9 @@ it works well enough for my purposes. Maybe it will work for you too.
 <p>
 FeedMe is sort of an RSS version of
 <a href="http://sitescooper.taint.org/">Sitescooper</a>.
-It produces either HTML or <a href="http://plkr.org">Plucker</a> format.
+By default, it produces simplified HTML,
+but optionally it can convert pages to EPUB or
+<a href="http://plkr.org">Plucker</a> format.
 
 <h2>The feedme.conf file</h2>
 
@@ -204,8 +208,12 @@ Feedme's configuration file is <i>~/.config/feedme/feedme.conf</i>.
 Feedme's cache is <i>~/.cache/feedme/feedme.dat</i>.
 This file should remain relatively small if you have a sane number of feeds,
 but it doesn't hurt to keep an eye on it.
+Feedme will also keep backup cache files for about a week, named by date;
+you can use these to go back to an earlier state in case you lost your
+feeds or accidentally deleted something.
 <p>
-~/feeds is where it stores the downloaded HTML. 
+~/feeds is where it stores the downloaded HTML, by default
+(you can change this in the configuration file).
 Stories are downloaded as <i>sitename/number.html</i>, e.g.
 <i>~/feeds/BBC_World_News/2.html</i>. These stories are cleaned
 out every <i>save_days</i> (set in your feedme.conf).
@@ -221,10 +229,6 @@ to remove the  previous day's plucks just before I ran feedme.
 <p>
 FeedMe's license is GPLv2 or (at your option) later.
 Thanks to Carla Schroder for the name suggestion!
-
-<p>
-FeedMe is now maintained on <a href="https://github.com/akkana/feedme">GitHub:
-FeedMe</a>.
 
 <h2>Reading it</h2>
 <p>
