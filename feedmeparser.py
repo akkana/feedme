@@ -1,38 +1,47 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # URL parser for feedme, http://shallowsky.com/software/feedme/
 # Copyright 2011-2017 by Akkana Peck.
 # Share and enjoy under the GPL v2 or later.
 
+from __future__ import print_function
+
 import os, sys
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import re
-from ConfigParser import ConfigParser
+from configparser import ConfigParser
 #from HTMLParser import HTMLParser
 import lxml.html
-import urlparse
-from cookielib import CookieJar
-import StringIO
+import urllib.parse
+from http.cookiejar import CookieJar
+import io
 import gzip
 
 has_ununicode=True
-try:
-    import ununicode
-except ImportError, e:
-    has_ununicode=False
 
-def output_encode(s, encoding):
-    if encoding == 'ascii' and has_ununicode:
-        #return unicodedata.normalize('NFKD', s).encode('ascii', 'ignore')
-        # valid values in encode are replace and ignore
-        return ununicode.toascii(s,
-                                 in_encoding=encoding,
-                                 errfilename=os.path.join(outdir,
-                                                          "errors"))
-    elif isinstance(s, unicode):
-        return s.encode('utf-8', 'backslashreplace')
-    else:
-        return s
+# XXX
+# This doesn't work any more, in the Python 3 world, because everything
+# is already encoded into a unicode string before we can get here.
+# If we ever need to go back and support ununicode or re-coding,
+# We'll have to revisit this.
+
+# try:
+#     import ununicode
+# except ImportError as e:
+#     has_ununicode=False
+#
+# def output_encode(s, encoding):
+#     if encoding == 'ascii' and has_ununicode:
+#         #return unicodedata.normalize('NFKD', s).encode('ascii', 'ignore')
+#         # valid values in encode are replace and ignore
+#         return ununicode.toascii(s,
+#                                  in_encoding=encoding,
+#                                  errfilename=os.path.join(outdir,
+#                                                           "errors"))
+#     elif isinstance(s, str):
+#         return s.encode('utf-8', 'backslashreplace')
+#     else:
+#         return s
 
 VersionString = "FeedMe 1.0b3"
 
@@ -57,31 +66,31 @@ class FeedmeURLDownloader(object):
 
     def download_url(self, url, referrer=None, user_agent=None, verbose=False):
         """Download a URL (likely http or RSS) from the web and return its
-           contents as a string. Allow for possible vagaries like cookies,
+           contents as a str. Allow for possible vagaries like cookies,
            redirection, compression etc.
         """
         if verbose:
-            print >>sys.stderr, "download_url", url, "referrer=", referrer, \
-                                "user_agent", user_agent
+            print("download_url", url, "referrer=", referrer, \
+                                "user_agent", user_agent, file=sys.stderr)
 
-        request = urllib2.Request(url)
+        request = urllib.request.Request(url)
 
         # If we're after the single-page URL, we may need a referrer
         if referrer:
             if verbose:
-                print >>sys.stderr, "Adding referrer", referrer
+                print("Adding referrer", referrer, file=sys.stderr)
             request.add_header('Referer', referrer)
 
         if not user_agent:
             user_agent = VersionString
         request.add_header('User-Agent', user_agent)
         if verbose:
-            print >>sys.stderr, "Using User-Agent of", user_agent
+            print("Using User-Agent of", user_agent, file=sys.stderr)
 
         # Allow for cookies in the request: some sites, notably nytimes.com,
         # degrade to an infinite redirect loop if cookies aren't enabled.
         cj = CookieJar()
-        opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
+        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
         response = opener.open(request, timeout=100)
         # Lots of ways this can fail.
         # e.g. ValueError, "unknown url type"
@@ -100,8 +109,8 @@ class FeedmeURLDownloader(object):
            and not ctype.startswith("application/rss") \
            and not ctype.startswith("application/xml") \
            and not ctype.startswith("application/atom+xml"):
-            print >>sys.stderr, url, "isn't text -- content-type was", \
-                ctype, ". Skipping."
+            print(url, "isn't text -- content-type was", \
+                ctype, ". Skipping.", file=sys.stderr)
             response.close()
             raise RuntimeError("Contents not text (%s)! %s" % (ctype, url))
 
@@ -110,7 +119,7 @@ class FeedmeURLDownloader(object):
 
         # but sadly, that means we need another request object
         # to parse out the host and prefix:
-        real_request = urllib2.Request(self.cur_url)
+        real_request = urllib.request.Request(self.cur_url)
         real_request.add_header('User-Agent', user_agent)
 
         # A few sites, like http://nymag.com, gzip their http.
@@ -123,24 +132,24 @@ class FeedmeURLDownloader(object):
         # feed() is going to need to know the host, to rewrite urls.
         # So save host and prefix based on any redirects we've had:
         # feedmeparser will need them.
-        self.host = real_request.get_host()
-        self.prefix = real_request.get_type() + '://' + self.host + '/'
+        self.host = real_request.host
+        self.prefix = real_request.type + '://' + self.host + '/'
 
         # urllib2 unfortunately doesn't read unicode,
         # so try to figure out the current encoding:
         if not self.encoding:
             if verbose:
-                print >>sys.stderr, "download_url: self.encoding not set, getting it from headers"
-            self.encoding = response.headers.getparam('charset')
+                print("download_url: self.encoding not set, getting it from headers", file=sys.stderr)
+            self.encoding = response.headers.get_content_charset()
             enctype = response.headers['content-type'].split('charset=')
             if len(enctype) > 1:
                 self.encoding = enctype[-1]
             else:
                 if verbose:
-                    print >>sys.stderr, "Defaulting to utf-8"
+                    print("Defaulting to utf-8", file=sys.stderr)
                 self.encoding = 'utf-8'
         if verbose:
-            print >>sys.stderr, "final encoding is", self.encoding
+            print("final encoding is", self.encoding, file=sys.stderr)
 
         # Is the URL gzipped? If so, we'll need to uncompress it.
         is_gzip = response.info().get('Content-Encoding') == 'gzip'
@@ -154,31 +163,27 @@ class FeedmeURLDownloader(object):
         # XXX Need to guard against IncompleteRead -- but what class owns it??
         #except httplib.IncompleteRead, e:
         #    print >>sys.stderr, "Ignoring IncompleteRead on", url
-        except Exception, e:
-            print >>sys.stderr, "Unknown error from response.read()", url
+        except Exception as e:
+            print("Unknown error from response.read()", url, file=sys.stderr)
 
         # contents can be undefined here. If so, no point in doing anything else.
         if not contents:
-            print >>sys.stderr, "Didn't read anything from response.read()"
+            print("Didn't read anything from response.read()", file=sys.stderr)
             response.close()
             raise NoContentError
+        print("response.read() returned type", type(contents))
 
         if is_gzip:
-            buf = StringIO.StringIO(contents)
+            buf = io.StringIO(contents)
             f = gzip.GzipFile(fileobj=buf)
             contents = f.read()
-
-        #print >>sys.stderr, "response.read() returned type", type(contents)
-        # Want to end up with unicode. In case it's str, decode it:
-        if type(contents) is str:
-            # But sometimes this raises errors anyway, even using
-            # the page's own encoding, so use 'replace':
-            contents = contents.decode(self.encoding, 'replace')
 
         # No docs say I should close this. I can only assume.
         response.close()
 
-        return contents
+        # response.read() returns bytes. Convert to str as soon as possible
+        # so the rest of the program can work with str.
+        return contents.decode(encoding=self.encoding)
 
 class FeedmeHTMLParser(FeedmeURLDownloader):
 
@@ -202,16 +207,16 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         """
         self.verbose = self.config.getboolean(self.feedname, 'verbose')
         if self.verbose:
-            print >>sys.stderr, "Fetching link", url, \
-                "to", newdir + "/" + newname
+            print("Fetching link", url, \
+                "to", newdir + "/" + newname, file=sys.stderr)
 
         self.newdir = newdir
         self.newname = newname
         self.cururl = url
-        if type(title) is unicode:
-            title = title.encode('utf-8', 'replace')
-        if type(author) is unicode:
-            author = author.encode('utf-8', 'replace')
+        if type(title) is not str:
+            title = str(title)
+        if type(author) is not str:
+            author = str(author)
 
         # A flag to indicate when we're skipping everything --
         # e.g. inside <script> tags.
@@ -221,10 +226,10 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         urlsub = get_config_multiline(self.config, self.feedname,
                                            'url_substitute')
         if urlsub:
-            print >>sys.stderr, "Substituting", urlsub[0], "to", urlsub[1]
-            print >>sys.stderr, "Rewriting:", url
+            print("Substituting", urlsub[0], "to", urlsub[1], file=sys.stderr)
+            print("Rewriting:", url, file=sys.stderr)
             url = re.sub(urlsub[0], urlsub[1], url)
-            print >>sys.stderr, "Became:   ", url
+            print("Became:   ", url, file=sys.stderr)
 
         self.encoding = self.config.get(self.feedname, 'encoding')
 
@@ -260,22 +265,23 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         if len(page_starts) > 0:
             for page_start in page_starts:
                 if self.verbose:
-                    print >>sys.stderr, "looking for page_start", page_start
+                    print("looking for page_start", page_start, file=sys.stderr)
+                print("type(html) is", type(html))
                 match = html.find(page_start)
                 if match >= 0:
                     if self.verbose:
-                        print >>sys.stderr, "Found page_start", page_start
+                        print("Found page_start", page_start, file=sys.stderr)
                     html = html[match:]
                     break
 
         if len(page_ends) > 0:
             for page_end in page_ends:
                 if self.verbose:
-                    print >>sys.stderr, "looking for page_end", page_end
+                    print("looking for page_end", page_end, file=sys.stderr)
                 match = html.find(page_end)
                 if match >= 0:
                     if self.verbose:
-                        print >>sys.stderr, "Found page_end", page_end
+                        print("Found page_end", page_end, file=sys.stderr)
                     html = html[0 : match]
 
         # Skip anything matching any of the skip_pats.
@@ -285,7 +291,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         if len(skip_pats) > 0:
             for skip in skip_pats:
                 if self.verbose:
-                    print >>sys.stderr, "Trying to skip '%s'" % skip
+                    print("Trying to skip '%s'" % skip, file=sys.stderr)
                     #print >>sys.stderr, "in", html.encode('utf-8')
                     #sys.stderr.flush()
                 # flags=DOTALL doesn't exist in re.sub until 2.7,
@@ -294,8 +300,8 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                 try:
                     regexp = re.compile(skip, flags=re.DOTALL)
                 except Exception as e:
-                    print >>sys.stderr, "Couldn't compile regexp", skip
-                    print >>sys.stderr, str(e)
+                    print("Couldn't compile regexp", skip, file=sys.stderr)
+                    print(str(e), file=sys.stderr)
                     continue
                 html = regexp.sub('', html)
                 # Another way would be to use (.|\\n) in place of .
@@ -326,7 +332,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         # Did we write anything real, any real content?
         # XXX Currently this requires text, might want to add img tags.
         if not self.wrote_data:
-            print >>sys.stderr, "Didn't get any content for", title
+            print("Didn't get any content for", title, file=sys.stderr)
             self.outfile.close()
             os.remove(outfilename)
             raise NoContentError
@@ -350,9 +356,8 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
             singlefile = outfilename + ".single"
             try:
                 if self.verbose:
-                    print >>sys.stderr, \
-                        "Trying to fetch single-page url with referrer =", \
-                        response.geturl(), "instead of", url
+                    print("Trying to fetch single-page url with referrer =", \
+                        response.geturl(), "instead of", url, file=sys.stderr)
                 self.fetch_url(self.single_page_url, newdir, singlefile,
                                title=title, footer=footer,
                                referrer=response.geturl())
@@ -365,15 +370,14 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                     os.remove(outfilename)
                     os.rename(singlefile, outfilename)
                     if self.verbose:
-                        print >>sys.stderr, "Removing", outfilename, \
-                            "and renaming", singlefile
+                        print("Removing", outfilename, \
+                            "and renaming", singlefile, file=sys.stderr)
                 else:
-                    print >>sys.stderr, \
-                        "Tried to fetch single-page file but apparently failed"
-            except (IOError, urllib2.HTTPError) as e:
-                print >>sys.stderr, "Couldn't read single-page URL", \
-                    self.single_page_url
-                print >>sys.stderr, e
+                    print("Tried to fetch single-page file but apparently failed", file=sys.stderr)
+            except (IOError, urllib.error.HTTPError) as e:
+                print("Couldn't read single-page URL", \
+                    self.single_page_url, file=sys.stderr)
+                print(e, file=sys.stderr)
 
     def feed(self, uhtml):
         """Duplicate, in a half-assed way, HTMLParser.feed() but
@@ -385,7 +389,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         try:
             tree = lxml.html.fromstring(uhtml)
         except ValueError:
-            print "ValueError!"
+            print("ValueError!")
             # Idiot lxml.html that doesn't give any sensible way
             # to tell what really went wrong:
             if str(sys.exc_info()[1]).startswith(
@@ -394,20 +398,20 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                 # something like this inserted at the beginning:
                 # <?xml version="1.0" encoding="utf-8"?>
                 # So if we've hit the error, try to remove it:
-                print >>sys.stderr, "Stupid lxml encoding error on:"
-                print >>sys.stderr, uhtml[:512].encode('utf-8',
-                                                       'xmlcharrefreplace'),
-                print '...'
+                print("Stupid lxml encoding error on:", file=sys.stderr)
+                print(uhtml[:512].encode('utf-8',
+                                                       'xmlcharrefreplace'), end=' ', file=sys.stderr)
+                print('...')
 
                 # Some sample strings that screw up lxml and must be removed:
                 # <?xml version="1.0" encoding="ascii" ?>
                 uhtml = re.sub('<\?xml .*?encoding=[\'\"].*?[\'\"].*?\?>',
                                 '', uhtml)
                 tree = lxml.html.fromstring(uhtml)
-                print "Tried to remove encoding: now"
-                print >>sys.stderr, uhtml[:512].encode('utf-8',
-                                                       'xmlcharrefreplace'),
-                print '...'
+                print("Tried to remove encoding: now")
+                print(uhtml[:512].encode('utf-8',
+                                                       'xmlcharrefreplace'), end=' ', file=sys.stderr)
+                print('...')
             else:
                 raise ValueError
 
@@ -416,7 +420,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
 
         # Eventually we can print it with lxml.html.tostring(tree)
 
-    def rewrite_images(self, content):
+    def rewrite_images(self, content, encoding=None):
         """Rewrite img src tags to point to local images we downloaded earlier.
            We already rewrote the img tags in the HTML file, but feedme
            may need us to rewrite img tags embedded in the RSS content.
@@ -428,28 +432,34 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
             tree = lxml.html.fromstring(content)
             for e in tree.iter():
                 if e.tag == 'img':
-                    if 'src' in e.keys():
+                    if 'src' in list(e.keys()):
                         try:
                             src = self.make_absolute(e.attrib['src'])
-                            if src in self.remapped_images.keys():
+                            if src in list(self.remapped_images.keys()):
                                 e.attrib['src'] = self.remapped_images[src]
                                 continue
                         except KeyError:
                             pass
                         if self.verbose:
-                            print >>sys.stderr, "Removing img", e.attrib['src']
+                            print("Removing img", e.attrib['src'], file=sys.stderr)
                         e.drop_tree()
                     # img src wasn't in e.keys, or remapping it
                     # didn't result in the right attribute.
                     else:
                         if self.verbose:
-                            print >>sys.stderr, "Removing img with no src"
+                            print("Removing img with no src", file=sys.stderr)
                         e.drop_tree()
 
-            return lxml.html.tostring(tree)
-        except Exception, e:
-            print >>sys.stderr, "Couldn't rewrite images in content:", str(e)
-            print >>sys.stderr, "content: '" + content + "'"
+            # lxml.html.tostring returns bytes, despite the name.
+            # And converting it with s() doesn't work, have to use decode
+            # with a charset.
+            if not encoding:
+                encoding = self.encoding
+            return lxml.html.tostring(tree).decode(encoding=encoding)
+
+        except Exception as e:
+            print("Couldn't rewrite images in content:", str(e), file=sys.stderr)
+            print("content: '" + content + "'", file=sys.stderr)
             return content
 
     def crawl_tree(self, tree):
@@ -488,13 +498,13 @@ tree = lxml.html.fromstring(html)
         # All other meta tags will be skipped, so do this test
         # before checking for tag_skippable.
         if tag == 'meta':
-            if 'charset' in attrs.keys() and attrs['charset']:
+            if 'charset' in list(attrs.keys()) and attrs['charset']:
                 self.encoding = attrs['charset']
                 return
-            if 'http-equiv' in attrs.keys() and \
+            if 'http-equiv' in list(attrs.keys()) and \
                     attrs['http-equiv'].lower() == 'refresh':
                 self.outfile.write("Meta refresh suppressed.<br />")
-                if 'content' in attrs.keys():
+                if 'content' in list(attrs.keys()):
                     content = attrs['content'].split(';')
                     if len(content) > 1:
                         href = content[1].strip()
@@ -502,7 +512,7 @@ tree = lxml.html.fromstring(html)
                         href = content[0].strip()
                     # XXX Next comparison might be better done with re,
                     # in case of spaces around the =.
-                    print >>sys.stderr, "href is '" +  href + "'"
+                    print("href is '" +  href + "'", file=sys.stderr)
                     if href.upper().startswith('URL='):
                         href = href[4:]
                     self.outfile.write('<a href="' + href + '">'
@@ -513,10 +523,9 @@ tree = lxml.html.fromstring(html)
                     if not self.single_page_url:
                         self.single_page_url = \
                             self.make_absolute(href)
-                        print >>sys.stderr, \
-                            "\nTrying meta refresh as single-page pattern:", \
+                        print("\nTrying meta refresh as single-page pattern:", \
                             self.single_page_url.encode('utf-8',
-                                                        'xmlcharrefreplace')
+                                                        'xmlcharrefreplace'), file=sys.stderr)
                 return
                 # XXX Note that this won't skip the </meta> tag, unfortunately,
                 # and tag_skippable_section can't distinguish between
@@ -526,12 +535,12 @@ tree = lxml.html.fromstring(html)
             # print "Skipping start tag", tag, "inside a skipped section"
             return
 
-        if tag == 'base' and 'href' in attrs.keys():
+        if tag == 'base' and 'href' in list(attrs.keys()):
             self.base_href = attrs['href']
             return
 
         # Delete any style tags used for color or things like display:none
-        if 'style' in attrs.keys():
+        if 'style' in list(attrs.keys()):
             style = attrs['style']
             if re.search('display: *none', style):
                 return    # Yes, discard the whole style tag
@@ -551,10 +560,10 @@ tree = lxml.html.fromstring(html)
             return
 
         #print "type(tag) =", type(tag)
-        self.outfile.write('<' + tag.encode(self.encoding, 'xmlcharrefreplace'))
+        self.outfile.write('<' + tag)
 
         if tag == 'a':
-            if 'href' in attrs.keys():
+            if 'href' in list(attrs.keys()):
                 href = attrs['href']
                 #print >>sys.stderr, "a href", href
 
@@ -570,10 +579,8 @@ tree = lxml.html.fromstring(html)
                         if m:
                             self.single_page_url = \
                                 self.make_absolute(href[m.start():m.end()])
-                            print >>sys.stderr, \
-                                "\nFound single-page pattern:", \
-                                self.single_page_url.encode('utf-8',
-                                                            'xmlcharrefreplace')
+                            print("\nFound single-page pattern:", \
+                                  self.single_page_url, file=sys.stderr)
                             # But continue fetching the regular pattern,
                             # since the single-page one may fail
 
@@ -581,7 +588,7 @@ tree = lxml.html.fromstring(html)
                 attrs['href'] = self.make_absolute(href)
             #print "a attrs now are", attrs
 
-        elif tag == 'img' and 'src' in attrs.keys():
+        elif tag == 'img' and 'src' in list(attrs.keys()):
             src = attrs['src']
 
             # Make relative URLs absolute
@@ -591,7 +598,7 @@ tree = lxml.html.fromstring(html)
 
             # urllib2 can't parse out the host part without first
             # creating a Request object:
-            req = urllib2.Request(src)
+            req = urllib.request.Request(src)
             req.add_header('User-Agent', self.user_agent)
 
             # For now, only fetch images that come from the HTML's host:
@@ -634,8 +641,8 @@ tree = lxml.html.fromstring(html)
 
                 try:
                     if not os.path.exists(imgfilename):
-                        print >>sys.stderr, "Fetching", src, "to", imgfilename
-                        f = urllib2.urlopen(req)
+                        print("Fetching", src, "to", imgfilename, file=sys.stderr)
+                        f = urllib.request.urlopen(req)
                         # Lots of things can go wrong with downloading
                         # the image, such as exceptions.IOError from
                         # [Errno 36] File name too long
@@ -653,34 +660,32 @@ tree = lxml.html.fromstring(html)
                     attrs['src'] = base
 
                 # handle download errors
-                except urllib2.HTTPError, e:
-                    print >>sys.stderr, "HTTP Error:", e.code, "on", src
+                except urllib.error.HTTPError as e:
+                    print("HTTP Error:", e.code, "on", src, file=sys.stderr)
                     # Since we couldn't download, point instead to the
                     # absolute URL, so it will at least work with a
                     # live net connection.
                     attrs['src'] = src
-                except urllib2.URLError, e:
-                    print >>sys.stderr, "URL Error:", e.reason, "on", src
+                except urllib.error.URLError as e:
+                    print("URL Error:", e.reason, "on", src, file=sys.stderr)
                     attrs['src'] = src
-                except Exception, e:
-                    print >>sys.stderr, "Error downloading image:", str(e), \
-                        "on", src
+                except Exception as e:
+                    print("Error downloading image:", str(e), \
+                        "on", src, file=sys.stderr)
                     attrs['src'] = src
             else:
                 # Looks like it's probably a nonlocal image.
                 # Possibly this could be smarter about finding similar domains,
                 # or having a list of allowed image domains.
-                print >>sys.stderr, req.get_host(), "and", self.host, "are too different -- not fetching"
+                print(req.get_host(), "and", self.host, "are too different -- not fetching", file=sys.stderr)
 
         # Now we've done any needed processing to the tag and its attrs.
         # t's time to write them to the output file.
-        for attr in attrs.keys():
-            self.outfile.write(' ' + attr.encode(self.encoding,
-                                                 'xmlcharrefreplace'))
+        for attr in list(attrs.keys()):
+            self.outfile.write(' ' + attr)
             if attrs[attr] and type(attrs[attr]) is str:
                 # make sure attr[1] doesn't have any embedded double-quotes
-                val = attrs[attr].replace('"', '\"').encode(self.encoding,
-                                                            'xmlcharrefreplace')
+                val = attrs[attr].replace('"', '\"')
                 self.outfile.write('="' + val + '"')
 
         self.outfile.write('>')
@@ -708,8 +713,7 @@ tree = lxml.html.fromstring(html)
             return
 
         # print >>sys.stderr, "Writing end tag", tag
-        self.outfile.write('</' + tag.encode(self.encoding,
-                                             'xmlcharrefreplace') + '>\n')
+        self.outfile.write('</' + tag + '>\n')
 
     def handle_data(self, data):
         # XXX lxml.etree.tostring() might be a cleaner way of printing
@@ -722,36 +726,16 @@ tree = lxml.html.fromstring(html)
         if data.strip():
             self.wrote_data = True
 
-        if type(data) is unicode:
-            #print >>sys.stderr, "Unicode data is", \
-            #    data.encode(self.encoding, 'xmlcharrefreplace')
-            self.outfile.write(data.encode(self.encoding, 'xmlcharrefreplace'))
-        elif type(data) is str:
-            #print >>sys.stderr, "Writing some ascii data:", data
+        if type(data) is str:
             self.outfile.write(data)
         else:
-            print >>sys.stderr, "Data isn't str or unicode! type =", type(data)
-
-    # def handle_charref(self, num):
-    #     # I don't think we ever actually get here -- lxml.html.fromstring()
-    #     # already replaces all html entities with the numeric unicode
-    #     # equivalent whether we want that or not, and we have to write
-    #     # them out in handle_data with xmlcharrefreplace.
-    #     # If we really really wanted to we might be able to keep the
-    #     # page's original entities by calling fromstring(cgi.urlescape(html))
-    #     # html before 
-    #     if self.skipping:
-    #         #print "Skipping charref"
-    #         return
-    #     self.outfile.write('&#' + num.encode(self.encoding,
-    #                                          'xmlcharrefreplace') + ';')
+            print("Data isn't str! type =", type(data), file=sys.stderr)
 
     # def handle_entityref(self, name):
     #     if self.skipping:
     #         #print "Skipping entityref"
     #         return
-    #     self.outfile.write('&' + name.encode(self.encoding,
-    #                                          'xmlcharrefreplace') + ';')
+    #     self.outfile.write('&' + name + ';')
 
     def same_host(self, host1, host2):
         """Are two hosts close enough for the purpose of downloading images?"""
@@ -784,10 +768,10 @@ tree = lxml.html.fromstring(html)
         # If we have a base href then it doesn't matter whether it's
         # relative or absolute.
         if self.base_href:
-            return urlparse.urljoin(self.base_href, url)
+            return urllib.parse.urljoin(self.base_href, url)
 
         if url[0] == '/':
-            return urlparse.urljoin(self.prefix, url)
+            return urllib.parse.urljoin(self.prefix, url)
 
         # It's relative, so append it to the current url minus cur filename:
         return os.path.join(os.path.dirname(self.cururl), url)
@@ -894,7 +878,7 @@ def read_config_file():
     main_conf_file = 'feedme.conf'
     conffile = os.path.join(confdir, main_conf_file)
     if not os.access(conffile, os.R_OK):
-        print >>sys.stderr, "Error: no config file in", conffile
+        print("Error: no config file in", conffile, file=sys.stderr)
         sys.exit(1)
 
     config = ConfigParser({'verbose' : 'false',
@@ -940,7 +924,7 @@ def read_config_file():
             if os.access(filepath, os.R_OK):
                 config.read(filepath)
             else:
-                print "Can't read", filepath
+                print("Can't read", filepath)
 
     return config
 

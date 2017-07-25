@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Ununicode.toascii(): convert perfectly good unicode or utf-8
 # strings to puny pathetic plain ascii.
@@ -43,20 +43,20 @@ def toascii(line, errfilename = None, in_encoding = 'utf-8'):
         if strstart < 0 : strstart = 0
         strend = end + contextsize
         if strend > unilen : strend = unilen
-        print >>errfile[0], msg, ":", \
-            uni[strstart:strend].encode('ascii', 'backslashreplace')
+        print(msg, ":", \
+            uni[strstart:strend].encode('ascii', 'backslashreplace'), file=errfile[0])
 # [ u for u in uni[start:end]]
 
     output = ''
 
     # If it's a string, decode it to Unicode.
     # If it's already unicode, no need to do that.
-    if type(line) == types.StringType:
+    if type(line) == bytes:
         if in_encoding == '':
             in_encoding = 'utf-8'
             # Slower but safer: try decoding with utf-8 then iso8859-15
         line = line.decode(in_encoding, 'replace')
-    elif type(line) != types.UnicodeType:
+    elif type(line) != str:
         return "toascii needs either string or unicode, not" + str(type(line))
 
     normalized = unicodedata.normalize('NFKD', line)
@@ -67,7 +67,7 @@ def toascii(line, errfilename = None, in_encoding = 'utf-8'):
             normalized = None
             break
 
-        except UnicodeEncodeError, e:
+        except UnicodeEncodeError as e:
             # At this point, e has these useful attributes:
             # e.encoding: 'ascii'
             # e.args: (encoding, unicode, start, end?, message)
@@ -85,96 +85,96 @@ def toascii(line, errfilename = None, in_encoding = 'utf-8'):
                 # A few multi-char UTF-8 strings -- some sites, like
                 # BBC, persist in throwing in UTF-8 quotes even though
                 # they're using another charset like 8859-1.
-                u'\x80\x93' : '-',  # UTF-8 endash
-                u'\x80\x94' : '--', # UTF-8 emdash
-                u'\x80\x98' : '`',  # UTF-8 left single quote
-                u'\x80\x99' : '\'', # UTF-8 apostrophe
+                '\x80\x93' : '-',  # UTF-8 endash
+                '\x80\x94' : '--', # UTF-8 emdash
+                '\x80\x98' : '`',  # UTF-8 left single quote
+                '\x80\x99' : '\'', # UTF-8 apostrophe
                 # Previous line isn't catching the zillions of hits on BBC,
                 # so let's try it without the u prefix.
                 # If afterward we get \x80\x9d and \x80\x93
                 # but no more \x80\x99, then probably none of these
                 # should have the u prefix.
                 #'\x80\x99'  : '\'', # UTF-8 apostrophe
-                u'\x80\x9c' : '"',  # UTF-8 left double quote
-                u'\x80\x9d' : '"',  # UTF-8 right double quote
-                u'\x80\xa2' : '*',  # UTF-8 bullet
+                '\x80\x9c' : '"',  # UTF-8 left double quote
+                '\x80\x9d' : '"',  # UTF-8 right double quote
+                '\x80\xa2' : '*',  # UTF-8 bullet
 
                 # Combining forms.
                 # If you don't want to see them (e.g. prefer to see
                 # &ntilde; as n rather than n~), replace the matches
                 # with '' instead of the characters here.
-                u'\u0300' : '`',    # Combining grave accent
-                u'\u0301' : '\'',   # Combining acute accent
-                u'\u0302' : '^',    # Combining circumflex
-                u'\u0303' : '~',    # Combining tilde
-                u'\u0304' : '-',    # Combining overscore
-                u'\u0306' : '^',    # Combining breve
-                u'\u0308' : 'e',    # Combining diaresis
-                u'\u030a' : '^',    # Combining ring above
-                u'\u030c' : '^',    # Combining caron
-                u'\u0327' : ',',    # Combining cedilla?
+                '\u0300' : '`',    # Combining grave accent
+                '\u0301' : '\'',   # Combining acute accent
+                '\u0302' : '^',    # Combining circumflex
+                '\u0303' : '~',    # Combining tilde
+                '\u0304' : '-',    # Combining overscore
+                '\u0306' : '^',    # Combining breve
+                '\u0308' : 'e',    # Combining diaresis
+                '\u030a' : '^',    # Combining ring above
+                '\u030c' : '^',    # Combining caron
+                '\u0327' : ',',    # Combining cedilla?
 
                 # Unicode symbols
-                u'\u0131' : 'i',   # unicode dotless i
-                u'\u03bc' : '(u)', # mu
-                u'\u200b' : '',    # zero-width space (zwsp)
-                u'\u2010' : '-',   # hyphen
-                u'\u2013' : '-',   # endash
-                u'\u2014' : '--',  # emdash
-                u'\u2015' : '--',  # horizontal bar
-                u'\u2016' : '||',  # double vertical line
-                u'\u2018' : '`',   # left single quote
-                u'\u2019' : '\'',  # right single quote
-                u'\u201a' : ',',   # single low-9 quot. mark (mistaken comma?)
-                u'\u201c' : '"',   # left double quote
-                u'\u201d' : '"',   # right double quote
-                u'\u201e' : '"',   # double low-9 quotation mark
-                u'\u2020' : '*',   # dagger
-                u'\u2021' : '*',   # double dagger
-                u'\u2022' : '*',   # bullet
-                u'\u2028' : '_',   # "line separator" -- thereg uses as a space
-                u'\u2032' : '\'',  # prime
-                u'\u2039' : '&lt;', # left arrow
-                u'\u203a' : '&gt;', # right arrow
-                u'\u2044' : '/',   # "fraction slash"
-                u'\u2190' : '<-',  # left arrow
-                u'\u2191' : '^',   # up arrow
-                u'\u2192' : '->',  # right arrow
-                u'\u2193' : 'v',   # down arrow
-                u'\u20ac' : '(EUR)',  # Euro symbol
-                u'\u2192' : '-&gt;',  # right arrow
-                u'\u25cf' : '*',   # black filled circle
-                u'\ufeff' : '',    # Merc uses it, firefox displays nothing
-                u'\ufffd' : '\'',  # Yet another apostrophe
+                '\u0131' : 'i',   # unicode dotless i
+                '\u03bc' : '(u)', # mu
+                '\u200b' : '',    # zero-width space (zwsp)
+                '\u2010' : '-',   # hyphen
+                '\u2013' : '-',   # endash
+                '\u2014' : '--',  # emdash
+                '\u2015' : '--',  # horizontal bar
+                '\u2016' : '||',  # double vertical line
+                '\u2018' : '`',   # left single quote
+                '\u2019' : '\'',  # right single quote
+                '\u201a' : ',',   # single low-9 quot. mark (mistaken comma?)
+                '\u201c' : '"',   # left double quote
+                '\u201d' : '"',   # right double quote
+                '\u201e' : '"',   # double low-9 quotation mark
+                '\u2020' : '*',   # dagger
+                '\u2021' : '*',   # double dagger
+                '\u2022' : '*',   # bullet
+                '\u2028' : '_',   # "line separator" -- thereg uses as a space
+                '\u2032' : '\'',  # prime
+                '\u2039' : '&lt;', # left arrow
+                '\u203a' : '&gt;', # right arrow
+                '\u2044' : '/',   # "fraction slash"
+                '\u2190' : '<-',  # left arrow
+                '\u2191' : '^',   # up arrow
+                '\u2192' : '->',  # right arrow
+                '\u2193' : 'v',   # down arrow
+                '\u20ac' : '(EUR)',  # Euro symbol
+                '\u2192' : '-&gt;',  # right arrow
+                '\u25cf' : '*',   # black filled circle
+                '\ufeff' : '',    # Merc uses it, firefox displays nothing
+                '\ufffd' : '\'',  # Yet another apostrophe
 
                 # Characters that oddly don't get translated to unicode:
-                u'\x85' : '...',    # BBC uses this for ellipsis, though it's
+                '\x85' : '...',    # BBC uses this for ellipsis, though it's
                                     #   really a Unicode 3.0 newline [NEL]
-                u'\x92' : '\'',     # yet another apostrophe
-                u'\x93' : '"',      # yet another open quote
-                u'\x94' : '"',      # yet another close quote
-                u'\x96' : '-',      # yet another endash
-                u'\xa1' : '!',      # upside down !
-                u'\xa2' : '(c)',    # cents
-                u'\xa3' : '(L)',    # UK pounds
-                u'\xa5' : '(Y)',    # Yen
-                u'\xa7' : '(sect)', # Section sign
-                u'\xa8' : ':',      # umlaut
-                u'\xa9' : '-',      # maybe an emdash?
-                u'\xab' : '<<',     # left German quote
-                u'\xad' : '-',      # emdash
-                u'\xae' : '(R)',    # Registered trademark
-                u'\xb0' : '^',      # degree
-                u'\xb1' : '+/1',    # plus/minus
-                u'\xb6' : 'PP',     # paragraph
-                u'\xb7' : '*',      # mid dot
-                u'\xbb' : '>>',     # left German quote
-                u'\xbf' : '?',      # Spanish upside-down question mark
-                u'\xc6' : 'ae',     # ae ligature
-                u'\xd7' : 'x',      # math, times
-                u'\xd8' : 'O/',     # O-slash
-                u'\xdf' : 'ss',     # German ss ligature (like a beta)
-                u'\xf8' : 'o/',     # o slash
+                '\x92' : '\'',     # yet another apostrophe
+                '\x93' : '"',      # yet another open quote
+                '\x94' : '"',      # yet another close quote
+                '\x96' : '-',      # yet another endash
+                '\xa1' : '!',      # upside down !
+                '\xa2' : '(c)',    # cents
+                '\xa3' : '(L)',    # UK pounds
+                '\xa5' : '(Y)',    # Yen
+                '\xa7' : '(sect)', # Section sign
+                '\xa8' : ':',      # umlaut
+                '\xa9' : '-',      # maybe an emdash?
+                '\xab' : '<<',     # left German quote
+                '\xad' : '-',      # emdash
+                '\xae' : '(R)',    # Registered trademark
+                '\xb0' : '^',      # degree
+                '\xb1' : '+/1',    # plus/minus
+                '\xb6' : 'PP',     # paragraph
+                '\xb7' : '*',      # mid dot
+                '\xbb' : '>>',     # left German quote
+                '\xbf' : '?',      # Spanish upside-down question mark
+                '\xc6' : 'ae',     # ae ligature
+                '\xd7' : 'x',      # math, times
+                '\xd8' : 'O/',     # O-slash
+                '\xdf' : 'ss',     # German ss ligature (like a beta)
+                '\xf8' : 'o/',     # o slash
                 }
 
             # Encode the first part of the string, up to the error point.
@@ -185,7 +185,7 @@ def toascii(line, errfilename = None, in_encoding = 'utf-8'):
             # smart enough to notice most multi-char sequences, so
             # in practice it's always e.args[2]+1.
             bad_u = normalized[e.args[2]:]
-            if xlate.has_key(bad_u[0]):
+            if bad_u[0] in xlate:
                 s += xlate[bad_u[0:1]]
                 normalized = normalized[e.args[2] + 1 : ]
             else:

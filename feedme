@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # feedme: download RSS/Atom feeds and convert to HTML, epub, Plucker,
 # or other formats suitable for offline reading on a handheld device,
@@ -16,6 +16,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details:
 # <http://www.gnu.org/licenses/>.
+
+from __future__ import print_function
 
 ConfigHelp = """Configuration options:
 
@@ -71,7 +73,6 @@ Configuration options you might want to reset for specific feeds:
     on the first day of any month.
 """
 
-import cPickle
 import time
 import os, sys
 import re
@@ -80,7 +81,7 @@ import shutil
 import traceback
 
 import feedparser
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import socket
 import posixpath
 
@@ -100,8 +101,7 @@ def clean_up(config):
         feeddir = feedmeparser.sub_tilde(feeddir)
         cachedir = FeedmeCache.get_cache_dir()
     except:
-        print >>sys.stderr, \
-            "Error trying to get save_days and feed dir; can't clean up"
+        print("Error trying to get save_days and feed dir; can't clean up", file=sys.stderr)
         return
 
     now = time.time()
@@ -123,15 +123,15 @@ def clean_up(config):
             try:
                 howold = (now - os.path.getctime(f)) / 60 / 60 / 24
                 if howold > days:
-                    print >>sys.stderr, "Deleting", f
+                    print("Deleting", f, file=sys.stderr)
                     if os.path.isdir(f):
                         shutil.rmtree(f)
                     else:
                         os.unlink(f)
-            except Exception, e:
-                print "Couldn't unlink", f, str(e)
+            except Exception as e:
+                print("Couldn't unlink", f, str(e))
 
-    print "Cleaning up files older than %d days from feed and cache dirs" % days
+    print("Cleaning up files older than %d days from feed and cache dirs" % days)
     clean_up_dir(feeddir, True)
     clean_up_dir(cachedir, False)
 
@@ -143,7 +143,7 @@ def clean_up(config):
 def run_conversion_cmd(appargs):
     if True or verbose:
         cmd = " ".join(appargs)
-        print >>sys.stderr, "Running:", cmd
+        print("Running:", cmd, file=sys.stderr)
         sys.stdout.flush()
 
     retval = os.spawnvp(os.P_WAIT, appargs[0], appargs)
@@ -206,7 +206,7 @@ def make_calibre_file(indexfile, feedname, extension, levels, ascii,
         appargs.append(flag)
     if True or verbose:
         cmd = " ".join(appargs)
-        print >>sys.stderr, "Running:", cmd
+        print("Running:", cmd, file=sys.stderr)
         sys.stdout.flush()
 
     run_conversion_cmd(appargs)
@@ -241,16 +241,15 @@ class MsgLog:
 
     def msg(self, s):
         self.msgstr += "\n" + s
-        print >>sys.stderr, "MESSAGE:", s.encode('ascii', 'backslashreplace')
+        print("MESSAGE:", s, file=sys.stderr)
 
     def warn(self, s):
         self.msgstr += "\n" + s
-        print  >>sys.stderr,"WARNING:", s.encode('ascii', 'backslashreplace')
+        print("WARNING:", s, file=sys.stderr)
 
     def err(self, s):
         self.errstr += "\n" + s
-        print  >>sys.stderr,"ERROR:", s.encode('ascii', 'backslashreplace')
-        #traceback.print_stack()
+        print("ERROR:", s, file=sys.stderr)
 
     def get_msgs(self):
         return self.msgstr
@@ -258,10 +257,12 @@ class MsgLog:
     def get_errs(self):
         return self.errstr
 
-# file-like class that can optionally send output to a log file. Inspired by
-# http://www.redmountainsw.com/wordpress/archives/python-subclassing-file-types
-# and with help from KirkMcDonald.
 class tee():
+    '''A file-like class that can optionally send output to a log file.
+       Inspired by
+http://www.redmountainsw.com/wordpress/archives/python-subclassing-file-types
+       and with IRC help from Kirk McDonald.
+    '''
     def __init__(self, _fd1, _fd2):
         self.fd1 = _fd1
         self.fd2 = _fd2
@@ -273,8 +274,6 @@ class tee():
             self.fd2.close()
 
     def write(self, text):
-        if isinstance(text, unicode):
-            text = text.encode('utf-8')
         self.fd1.write(text)
         self.fd2.write(text)
 
@@ -288,11 +287,11 @@ class tee():
 def handle_keyboard_interrupt(msg):
     # os.isatty() doesn't work, so:
     if not hasattr(sys.stdin, "isatty"):
-        print "Interrupt, and not running interactively. Exiting."
+        print("Interrupt, and not running interactively. Exiting.")
         sys.exit(1)
 
     try:
-        response = raw_input(msg)
+        response = input(msg)
     except EOFError:
         # This happens if we're run from a script rather than interactively
         # and yet someone sends a SIGINT, perhaps because we're timing out
@@ -398,7 +397,7 @@ def last_time_this_feed(feeddir):
                 # d has a name like "08-03-Wed", so we could parse that.
                 # Or we could use the last modified date of the directory.
                 # Use both, and compare them.
-                # These are both time.struct_time.
+                # These are both seconds since epoch.
                 modtime = os.stat(oldfeeddir).st_mtime
                 if modtime > newest_mtime:
                     newest_mtime = modtime
@@ -408,7 +407,7 @@ def last_time_this_feed(feeddir):
                 # where it can get a ValueError: unconverted data remains.
                 # Guard against this:
                 try:
-                    parsed_time = time.strptime(d, "%m-%d-%a")
+                    parsed_time = time.mktime(time.strptime(d, "%m-%d-%a"))
                 except:
                     msglog.msg("Skipping directory %s" % d)
                     continue
@@ -500,9 +499,10 @@ class FeedmeCache(object):
 
         if not contents.startswith("FeedMe v."):
             # It's an old style, pickle-based file.
-            d = cPickle.load(open(self.filename))
+            import pickle
+            d = pickle.load(open(self.filename))
             self.thedict = d
-            print >>sys.stderr, "Warning: old-style pickle-based cache file"
+            print("Warning: old-style pickle-based cache file", file=sys.stderr)
             return
 
         # Must be a new-style file.
@@ -512,7 +512,7 @@ class FeedmeCache(object):
             try:
                 key, urllist = line.split('|')
             except ValueError:
-                print >>sys.stderr, "Problem splitting on |:", line
+                print("Problem splitting on |:", line, file=sys.stderr)
                 continue
             key = key.strip()
             urls = urllist.strip().split()
@@ -532,7 +532,7 @@ class FeedmeCache(object):
                 backupfile = backupfilebase
             if not os.path.exists(backupfile):
                 break
-        print "Backing up cache file to", backupfile
+        print("Backing up cache file to", backupfile)
         shutil.copy2(self.filename, backupfile)
 
     def save_to_file(self):
@@ -541,11 +541,11 @@ class FeedmeCache(object):
         '''
         # Write the new cache file.
         with open(self.filename, "w") as fp:
-            print >>fp, "FeedMe v. 1"
+            print("FeedMe v. 1", file=fp)
             for k in self.thedict:
-                print >>fp, "%s|%s" % (FeedmeCache.id_encode(k),
-                                       ' '.join(map(FeedmeCache.id_encode,
-                                                    self.thedict[k])))
+                print("%s|%s" % (FeedmeCache.id_encode(k),
+                                 ' '.join(map(FeedmeCache.id_encode,
+                                              self.thedict[k]))), file=fp)
 
         # Remove backups older than N days.
         # XXX should pass in save_days from config file
@@ -563,14 +563,14 @@ class FeedmeCache(object):
             mtime = os.stat(f).st_mtime
             age_days = (time.time() - mtime) / 60 / 60 / 24
             if age_days > 5:
-                print >>sys.stderr, "Removing old cache", f
+                print("Removing old cache", f, file=sys.stderr)
                 os.unlink(f)
 
     def save_to_file_pickle(self):
         '''Serialize the cache to an old-style pickle cachefile.'''
         t = time.time()
         cPickle.dump(cache, open(self.filename, 'w'))
-        print >>sys.stderr, "Writing cache took", time.time() - t, "seconds"
+        print("Writing cache took", time.time() - t, "seconds", file=sys.stderr)
 
     def __repr__(self):
         return self.thedict.__repr__()
@@ -593,7 +593,7 @@ class FeedmeCache(object):
         # Dictionaries don't always/reliably have __len__, apparently;
         # just calling self.__len__() sometimes fails with
         # TypeError: an integer is required
-        return len(self.thedict.keys())
+        return len(list(self.thedict.keys()))
 
     def __iter__(self):
         return self.thedict.__iter__()
@@ -602,7 +602,7 @@ class FeedmeCache(object):
         return self.thedict.__contains__(item)
 
     def keys(self):
-        return self.thedict.keys()
+        return list(self.thedict.keys())
 
 #
 # Get a single feed
@@ -642,20 +642,20 @@ def get_feed(feedname, config, cache, last_time, msglog):
     when = config.get(feedname, "when")
     if when and when != '' and last_time:
         if not falls_between(when, last_time, time.localtime()):
-            print >>sys.stderr, "Skipping", feedname, "-- not", when
+            print("Skipping", feedname, "-- not", when, file=sys.stderr)
             return
-        print >>sys.stderr, "Yes, it's time to feed:", when
+        print("Yes, it's time to feed:", when, file=sys.stderr)
 
     #encoding = config.get(feedname, 'encoding')
 
-    print >>sys.stderr, "\n============\nfeedname:", feedname
+    print("\n============\nfeedname:", feedname, file=sys.stderr)
     # Use underscores rather than spaces in the filename.
     feedfile = feedname.replace(" ", "_")
     # Also, make sure there are no colons (illegal in filenames):
     feedfile = feedfile.replace(":", "")
-    print >>sys.stderr, "feedfile:", feedfile
+    print("feedfile:", feedfile, file=sys.stderr)
     outdir = os.path.join(feeddir,  feedfile)
-    print >>sys.stderr, "outdir:", outdir
+    print("outdir:", outdir, file=sys.stderr)
 
     # When did we last run this feed?
     # This code is probably brittle so wrap it in try/except.
@@ -685,7 +685,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
     # Sadly, feedparser usually doesn't give any details about what went wrong.
     socket.setdefaulttimeout(100)
     try:
-        print >>sys.stderr, "Running: feedparser.parse(%s)" % (sitefeedurl)
+        print("Running: feedparser.parse(%s)" % (sitefeedurl), file=sys.stderr)
 
         # Feedparser sometimes makes bogus decisions about charsets
         # fetched from http servers.
@@ -716,9 +716,11 @@ def get_feed(feedname, config, cache, last_time, msglog):
             response = None
 
     # except xml.sax._exceptions.SAXException, e:
-    except Exception, e:
-        print >>sys.stderr, "Couldn't parse feed: URL:", sitefeedurl
-        print >>sys.stderr, str(e)
+    except Exception as e:
+        print("Couldn't parse feed: URL:", sitefeedurl, file=sys.stderr)
+        print(str(e), file=sys.stderr)
+        traceback.print_tb()
+        # print(traceback.format_exc())
         return
 
     # feedparser has no error return! One way is to check len(feed.feed).
@@ -751,7 +753,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
     # stories so it's worth updating the copy on disk.
     # The stylesheet is for FeedViewer and shouldn't bother plucker etc.
     day = time.strftime("%a")
-    indexstr = u"""<html>\n<head>
+    indexstr = """<html>\n<head>
 <meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">
 <title>%s: %s</title>
 <link rel="stylesheet" type="text/css" title="Feeds" href="../../feeds.css"/>
@@ -761,7 +763,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
 \n""" % (day, feedname, day, feedname, feed.feed.title)
 
     if verbose:
-        print >>sys.stderr, "********* Reading", sitefeedurl
+        print("********* Reading", sitefeedurl, file=sys.stderr)
 
     # A pattern to tell the user how to get to the next story: >->
     # We also might want to remove that pattern later, in case
@@ -776,61 +778,68 @@ def get_feed(feedname, config, cache, last_time, msglog):
     for item in feed.entries:
         try:
             #
-            # Get the list of links (href) and a (hopefully) unique ID:
+            # Get the list of links (href) and a (hopefully) unique ID.
+            # Make sure the id is a string; most of these components
+            # inside item are bytes.
             # XXX Is href[] ever even used? Is this clause obsolete?
             #
             if 'links' in item:
-                href = [i['href'].encode('utf-8') \
+                href = [str(i['href']) \
                             for i in item.links if i['rel'] == 'alternate']
             else:
                 href = []
 
-            if not 'id' in item:
-                if href:
-                    item.id = href[0]
-                    if verbose:
-                        print >>sys.stderr, "Using URL '%s' for ID" % href[0]
-                else:
-                    if verbose:
-                        print >>sys.stderr, "Item in " + href[0] + \
-                            " had no ID or URL."
+            if 'id' in item:
+                item_id = str(item.id)
+                if verbose:
+                    print("ID %s" % item_id, file=sys.stderr)
+            elif href:
+                item_id = str(href[0])
+                if verbose:
+                    print("Using URL '%s' for ID" % item_id, file=sys.stderr)
+            else:
+                if verbose:
+                    print("Item in %s had no ID or URL." % str(href[0]),
+                          file=sys.stderr)
                     continue  # or return?
-            elif verbose:
-                print >>sys.stderr, "\nUsing ID '%s' for ID" % item.id
 
             # Whatever pattern we're using for the ID, it will need to
             # have spaces mapped to + before putting it in the cache.
             # So do that now.
-            item.id = FeedmeCache.id_encode(item.id)
+            item_id = FeedmeCache.id_encode(item_id)
 
             # Does the link match a pattern we're skipping?
+            item_link = str(item.link)
             if skip_link_pats:
                 skipping = False
                 for spat in skip_link_pats:
-                    if re.search(spat, item.link):
+                    if re.search(spat, item_link):
                         skipping = True
                         if verbose:
-                            print >>sys.stderr, "Skipping", item.link, \
-                                "because it matches", spat
+                            print("Skipping", item_link, \
+                                "because it matches", spat, file=sys.stderr)
                         break
                 if skipping:
                     continue
                 # XXX Remove this after we've gotten WashPost skips debugged.
                 elif verbose:
-                    print >>sys.stderr, item.link, \
-                        "didn't match any of the skip patterns:"
+                    print(item_link, \
+                        "didn't match any of the skip patterns:",
+                          file=sys.stderr)
                     for spat in skip_link_pats:
-                        print >>sys.stderr, "   ", spat
+                        print("   ", spat, file=sys.stderr)
 
             # How about the title? Does that match a skip pattern?
+            item_title = str(item.title)
             if skip_title_pats:
                 skipping = False
                 for pat in skip_title_pats:
-                    if re.search(pat, item.title, flags=re.IGNORECASE):
+                    if re.search(pat, item_title, flags=re.IGNORECASE):
                         skipping = True
                         if verbose:
-                            print >>sys.stderr, "Skipping", item.link, \
-                                "because of skip_title_pats " + pat
+                            print("Skipping", item_link, \
+                                  "because of skip_title_pats " + pat,
+                                  file=sys.stderr)
                         break
                 if skipping:
                     continue
@@ -839,21 +848,21 @@ def get_feed(feedname, config, cache, last_time, msglog):
             # XXX Only mp3 for now. Obviously, make this more general.
             # Wish we could do this using the server's type rather than
             # file extension!
-            if item.link.endswith("mp3"):
-                print >>sys.stderr, "Filtering out mp3 link", item.link
+            if item_link.endswith("mp3"):
+                print("Filtering out mp3 link", item_link, file=sys.stderr)
                 continue
 
             # Make sure ids don't have named anchors appended:
-            anchor_index = item.id.rfind('#')
+            anchor_index = item_id.rfind('#')
             if anchor_index >= 0:
-                anchor = item.id[anchor_index:]
-                item.id = item.id[0:anchor_index]
+                anchor = item_id[anchor_index:]
+                item_id = item_id[0:anchor_index]
             else:
                 anchor = ""
 
             # See if we've already seen this page:
             try:
-                pagenum = suburls.index(item.id)
+                pagenum = suburls.index(item_id)
                 # We've already seen a link to this URL. It's probably
                 # a link to a different named anchor within the same file.
             except ValueError:
@@ -863,17 +872,18 @@ def get_feed(feedname, config, cache, last_time, msglog):
                 # Haven't seen it yet this run. But is it in the cache already?
                 if not nocache:
                     # We want it in the cache, whether it's new or not:
-                    newfeedcache.append(item.id)
-                    if item.id in feedcache:
+                    newfeedcache.append(item_id)
+                    if item_id in feedcache:
                         if verbose:
-                            print >>sys.stderr, item.id, \
-                                "already cached -- skipping"
+                            print(item_id, "already cached -- skipping",
+                                  file=sys.stderr)
                         continue
                     elif verbose:
-                        print >>sys.stderr, "'%s' is not in the cache -- fetching" % item.id
+                        print("'%s' is not in the cache -- fetching" % item_id,
+                              file=sys.stderr)
 
                 # We're probably including this item. Add it to suburls.
-                suburls.append(item.id)
+                suburls.append(item_id)
                 pagenum = len(suburls) - 1
 
                 # Sanity check: is the pubDate newer than the last
@@ -882,7 +892,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
                 # item.pubDate is a unicode string, supposed to be in format
                 # Thu, 11 Aug 2016 14:46:50 GMT (or +0000)
                 # email.utils.parsedate returns a tuple.
-                # Pass it to time.mktime() to get seconds since epoch.
+                # Pass it to time.mktime() to get seconds since epoch,
                 try:
                     pub_date = time.mktime(email_utils.parsedate(item.published))
                 except:
@@ -897,27 +907,26 @@ def get_feed(feedname, config, cache, last_time, msglog):
                         too_old = time.time() - days * 60 * 60 * 24
                         if pub_date <= too_old:
                             msglog.warn("%s is so old (%s) it's expired from the cache -- skipping" \
-                                        % (item.id, item.published))
+                                        % (item_id, str(item.published)))
                             # XXX Remove from suburls?
                             continue
 
                         # Else warn about it, but include it in the feed.
                         msglog.warn("%s is older (%s) than the last time we updated this feed (%s)" \
-                                    % (item.id, item.published,
+                                    % (item.id, str(item.published),
                                        time.strftime("%m-%d-%a-%y",
                                                 time.gmtime(last_fed_this))))
                     else:
-                        print "%s: last updated %s, pubDate is %s" \
-                            % (item.id, item.published,
+                        print("%s: last updated %s, pubDate is %s" \
+                            % (item_id, str(item.published),
                                time.strftime("%m-%d-%a-%y",
-                                             time.gmtime(last_fed_this)))
+                                             time.gmtime(last_fed_this))))
                 elif verbose and not pub_date:
-                    print >>sys.stderr, item.id, ": No pub_date"
+                    print(item_id, ": No pub_date", file=sys.stderr)
 
             itemnum += 1
             if verbose:
-                print >>sys.stderr, "Item:", item.title.encode('utf-8',
-                                                                 'replace')
+                print("Item:", item_title, file=sys.stderr)
 
             # Now itemnum is the number of the entry on the index page;
             # pagenum is the html file of the subentry, e.g. 3.html.
@@ -925,11 +934,11 @@ def get_feed(feedname, config, cache, last_time, msglog):
             # Make the parent directory if we haven't already
             if not os.access(outdir, os.W_OK):
                 if verbose:
-                    print >>sys.stderr, "Making", outdir
+                    print("Making", outdir, file=sys.stderr)
                 os.makedirs(outdir)
 
             if 'author' in item:
-                author = item.author
+                author = str(item.author)
             else:
                 author = None
 
@@ -949,18 +958,18 @@ def get_feed(feedname, config, cache, last_time, msglog):
 
                     # Add the page's URL to the footer:
                     footer += downloaded_string
-                    footer += '\n<br>\n<a href="%s">%s</a>' % (item.link,
-                                                               item.link)
+                    footer += '\n<br>\n<a href="%s">%s</a>' % (item_link,
+                                                               item_link)
 
-                    parser.fetch_url(item.link,
+                    parser.fetch_url(item_link,
                                      outdir, fnam,
-                                     item.title, author, footer,
+                                     item_title, author, footer,
                                      user_agent=user_agent)
 
                 except feedmeparser.NoContentError as e:
                     # fetch_url didn't manage to get the page or write a file.
                     # So don't increment pagenum or itemnum for the next story.
-                    msglog.warn("Didn't find any content on " + item.link
+                    msglog.warn("Didn't find any content on " + item_link
                                 + ": " + str(e))
                     # It is so annoying needing to repeat these
                     # lines every time! Isn't there a way I can define
@@ -968,11 +977,11 @@ def get_feed(feedname, config, cache, last_time, msglog):
                     # local variables?
                     itemnum -= 1
                     #pagenum -= 1
-                    suburls.remove(item.id)
+                    suburls.remove(item_id)
 
                     # Include a note in the indexstr
                     indexstr += '<p>No content for <a href="%s">%s</a>\n' \
-                                % (item.link, item.title)
+                                % (item_link, item_title)
                     continue
 
                 # Catch timeouts.
@@ -982,21 +991,19 @@ def get_feed(feedname, config, cache, last_time, msglog):
                 # In Python 2.6, instead of raising socket.timeout
                 # a timeout will raise urllib2.URLerror with
                 # e.reason set to socket.timeout.
-                except socket.timeout, e:
-                    errmsg = "Socket.timeout error on title "
-                    errmsg += item.title.encode('utf-8', 'replace')
-                    errmsg += "\n"
-                    errmsg += "Breaking -- hopefully we'll write index.html"
+                except socket.timeout as e:
+                    errmsg = "Socket.timeout error on title " + item_title
+                    errmsg += "\nBreaking -- hopefully we'll write index.html"
                     msglog.err(errmsg)
                     if config.get(feedname, 'continue_on_timeout') == 'true':
                         continue
                     break
 
                 # Handle timeouts in Python 2.6
-                except urllib2.URLError, e:
+                except urllib.error.URLError as e:
                     if isinstance(e.reason, socket.timeout):
                         errmsg = "URLError Socket.timeout on title "
-                        errmsg += item.title.encode('utf-8', 'replace')
+                        errmsg += item_title
                         errmsg += "\n"
                         errmsg += "Breaking -- hopefully we'll write index.html"
                         msglog.err(errmsg)
@@ -1008,7 +1015,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
 
                     # Some other type of URLError.
                     errmsg = 'URLError on <a href="%s">%s</a><br>\n%s<br>\n' \
-                             % (item.link, item.link, str(e))
+                             % (item_link, item_link, str(e))
                     msglog.err(errmsg)
                     indexstr += "<p><b>" + errmsg + "</b>"
                     continue
@@ -1031,7 +1038,7 @@ Which (default = s): """)
                         # Wonder if there's a way to do that in python?
                         # Failing that, and hoping it's the only
                         # enclosing loop:
-                        print "Breaking -- hopefully we'll write an index.html"
+                        print("Breaking -- hopefully we'll write an index.html")
                         break
                         #return
                     elif response[0] != 'c' :    # next story (default)
@@ -1039,32 +1046,30 @@ Which (default = s): """)
                     # If the response was 'c', we continue and just
                     # ignore the interrupt.
 
-                except (IOError, urllib2.HTTPError) as e:
+                except (IOError, urllib.error.HTTPError) as e:
                     # Collect info about what went wrong:
-                    errmsg = "Couldn't read " + item.link + "\n"
-                    #errmsg += "Title: " + item.title.encode('utf-8', 'replace')
+                    errmsg = "Couldn't read " + item_link + "\n"
+                    #errmsg += "Title: " + item_title
                     if verbose:
-                        #errmsg += "Item summary was:\n------\n"
-                        #errmsg += item.summary + "\n------\n"
                         errmsg += str(e) + '<br>\n'
                         #errmsg += str(sys.exc_info()[0]) + '<br>\n'
                         #errmsg += str(sys.exc_info()[1]) + '<br>\n'
-                        #errmsg += traceback.format_exc(sys.exc_info()[2])
+                        # errmsg += traceback.format_exc()
 
                     if verbose:
-                        print >>sys.stderr, "=============="
+                        print("==============", file=sys.stderr)
                     msglog.err("IO or HTTP error: " + errmsg)
                     if verbose:
-                        print >>sys.stderr, "=============="
+                        print("==============", file=sys.stderr)
 
                     itemnum -= 1
-                    suburls.remove(item.id)
+                    suburls.remove(item_id)
 
                     #raise  # so this entry won't get stored or cached
 
                     continue   # Move on to next story
 
-                except ValueError, e:
+                except ValueError as e:
                     # urllib2 is supposed to throw a urllib2.URLError for
                     # "unknown url type", but in practice it throws ValueError.
                     # See this e.g. for doubleclick ad links in the latimes
@@ -1073,9 +1078,7 @@ Which (default = s): """)
                     # so there's no way to separate out the urllib2 ones
                     # except by string: str(sys.exc_info()[1]) starts with
                     # "unknown url type:"
-                    errmsg = "ValueError on title "
-                    errmsg += item.title.encode('utf-8', 'replace')
-                    errmsg += "\n"
+                    errmsg = "ValueError on title " + item_title + "\n"
                     # print >>sys.stderr, errmsg
                     # msglog.err will print it, no need to print it again.
                     if str(sys.exc_info()[1]).startswith("unknown url type:"):
@@ -1084,31 +1087,31 @@ Which (default = s): """)
                         errmsg += str(sys.exc_info()[1]) + " - couldn't load\n"
                         msglog.warn(errmsg)
                     else:
-                        errmsg += "ValueError on url " + item.link + "\n"
-                        errmsg += traceback.format_exc(sys.exc_info()[2])
+                        errmsg += "ValueError on url " + item_link + "\n"
+                        errmsg += traceback.format_exc()
                         msglog.err(errmsg)
 
                     itemnum -= 1
-                    suburls.remove(item.id)
+                    suburls.remove(item_id)
                     continue
 
                 except Exception as e:
                     # An unknown error, so report it complete with traceback.
-                    errmsg = "Unknown error reading " + item.link + "\n"
-                    errmsg += "Title: " + item.title.encode('utf-8', 'replace')
+                    errmsg = "Unknown error reading " + item_link + "\n"
+                    errmsg += "Title: " + item_title
                     if verbose:
                         errmsg += "\nItem summary was:\n------\n"
-                        errmsg += item.summary + "\n------\n"
+                        errmsg += str(item.summary) + "\n------\n"
                         errmsg += str(e) + '<br>\n'
-                        errmsg += str(sys.exc_info()[0]) + '<br>\n'
-                        errmsg += str(sys.exc_info()[1]) + '<br>\n'
-                        errmsg += traceback.format_exc(sys.exc_info()[2])
+                        # errmsg += str(sys.exc_info()[0]) + '<br>\n'
+                        # errmsg += str(sys.exc_info()[1]) + '<br>\n'
+                        errmsg += traceback.format_exc()
 
                     if verbose:
-                        print >>sys.stderr, "=============="
+                        print("==============", file=sys.stderr)
                     msglog.err("Unknown error: " + errmsg)
                     if verbose:
-                        print >>sys.stderr, "=============="
+                        print("==============", file=sys.stderr)
 
                     # Are we sure we didn't get anything?
                     # Should we decrement itemnum, etc. ?
@@ -1130,21 +1133,20 @@ Which (default = s): """)
             # This is for viewers that have special areas defined on the
             # screen, e.g. areas for paging up/down or adjusting brightness.
             minwidth = config.getint(feedname, 'min_width')
-            if len(item.title) < minwidth:
-                #item.title += '&nbsp;' * (minwidth - len(item.title) - 2) + '__'
-                item.title += '. ' * (minwidth - len(item.title)) + '__'
+            if len(item_title) < minwidth:
+                item_title += '. ' * (minwidth - len(item_title)) + '__'
 
             if levels > 1:
                 itemlink = '<a href=\"' + fnam + anchor + '\">'
-                indexstr += itemlink + '<b>' + item.title + '</b></a>\n'
+                indexstr += itemlink + '<b>' + item_title + '</b></a>\n'
             else:
                 # For a single-level site, don't put links over each entry.
                 if skip_links:
                     itemlink = None
-                    indexstr += "\n<b>" + item.title + "</b>\n"
+                    indexstr += "\n<b>" + item_title + "</b>\n"
                 else:
-                    itemlink = '<a href=\"' + item.link + '\">'
-                    indexstr += "\n" + itemlink + item.title + "</a>\n"
+                    itemlink = '<a href=\"' + item_link + '\">'
+                    indexstr += "\n" + itemlink + item_title + "</a>\n"
 
             # Under the title, add a link to jump to the next entry.
             # If it's the last entry, we'll change it to "[end]" later.
@@ -1152,9 +1154,9 @@ Which (default = s): """)
 
             # Add either the content or the summary:
             if 'summary_detail' in item:
-                content = item.summary_detail.value + "\n"
+                content = str(item.summary_detail.value) + "\n"
             elif 'content' in item:
-                content = item.content[0].value + "\n"
+                content = str(item.content[0].value) + "\n"
             else:
                 content = "[No content]"
 
@@ -1197,15 +1199,15 @@ Which (default = s): """)
             # in case the user wants to click through after reading
             # the content:
             sublen = 16
-            if len(item.title) > sublen:
+            if len(item_title) > sublen:
                 # Truncate the title to sublen characters, and
                 # temove any HTML tags, otherwise we'll likely have
                 # tags like <i> that open but don't close
-                short_title = re.sub('<.*?>', '', item.title[0:sublen]) \
+                short_title = re.sub('<.*?>', '', item_title[0:sublen]) \
                     + "..."
 
             else:
-                short_title = item.title
+                short_title = item_title
             if itemlink:
                 indexstr += "\n<br>[[" + itemlink + short_title + "</a>]]\n\n"
 
@@ -1227,19 +1229,19 @@ Which (default = n): """)
                 sys.exit(1)
             # Default is to skip to the next site:
             return
-        except Exception, e :    # probably an HTTPError, bad URL
+        except Exception as e :    # probably an HTTPError, bad URL
             itemnum -= 1
             if verbose:
-                print >>sys.stderr, "Skipping item",
+                print("Skipping item", end=' ', file=sys.stderr)
                 if 'link' in item:
-                    print >>sys.stderr, item.link.encode('utf-8')
+                    print(item_link, file=sys.stderr)
                 else:
-                    print >>sys.stderr, "item has no link! item =", item
-                print >>sys.stderr, "error was", str(e).encode('utf-8')
+                    print("item has no link! item =", item, file=sys.stderr)
+                print("error was", str(e), file=sys.stderr)
 
-                print >>sys.stderr, str(sys.exc_info()[0])
-                print >>sys.stderr, str(sys.exc_info()[1])
-                print >>sys.stderr, traceback.format_exc(sys.exc_info()[2])
+                # print(str(sys.exc_info()[0]), file=sys.stderr)
+                # print(str(sys.exc_info()[1]), file=sys.stderr)
+                print(traceback.format_exc(), file=sys.stderr)
 
     # Only write the index.html file if there was content:
     if itemnum >= 0:
@@ -1251,7 +1253,8 @@ Which (default = n): """)
         for m in re.finditer(next_item_pattern, indexstr):
             pass
         if m:
-            print >>sys.stderr, "Removing final next-item pattern"
+            if verbose:
+                print("Removing final next-item pattern", file=sys.stderr)
             indexstr = indexstr[:m.start()] \
                 + "<br>\n<center><i>[end]</i></center>\n<br>\n" \
                 + indexstr[m.end():]
@@ -1262,17 +1265,16 @@ Which (default = n): """)
         # we'll include it; otherwise we'll omit it.
         # (Test case: Popular Science, which includes large images
         # in its RSS even if the stories had a small inline image.)
-        index_str = parser.rewrite_images(content)
+        indexstr = parser.rewrite_images(indexstr)
 
         try:
             indexfile = os.path.join(outdir, "index.html")
             if verbose:
-                print  >>sys.stderr, "Writing", indexfile
+                print("Writing", indexfile, file=sys.stderr)
             with open(indexfile, "w") as index:
-                if ascii:
-                    index.write(feedmeparser.output_encode(indexstr, 'ascii'))
-                else:
-                    index.write(feedmeparser.output_encode(indexstr, encoding))
+                # No longer support "ascii" option. Write the encoded unicode.
+                print("*** writing indexstr, type", type(indexstr))
+                index.write(indexstr)
 
                 # Before the downloaded string, insert a final named anchor.
                 # On some sites we get a bug where we accidentally write a >>
@@ -1286,11 +1288,11 @@ Which (default = n): """)
 
                 index.write("\n</body>\n</html>\n")
                 index.close()
-        except Exception, e:
-            msglog.err("Error writing index file! " + str(e).encode('utf-8'))
-            msglog.err(str(sys.exc_info()[0]).encode('utf-8'))
-            msglog.err(str(sys.exc_info()[1]).encode('utf-8'))
-            print >>sys.stderr, traceback.format_exc(sys.exc_info()[2])
+        except Exception as e:
+            msglog.err("Error writing index file! " + str(e))
+            # msglog.err(str(sys.exc_info()[0]).encode('utf-8'))
+            # msglog.err(str(sys.exc_info()[1]).encode('utf-8'))
+            print(traceback.format_exc(), file=sys.stderr)
 
         # Update the cache for this site:
         if not nocache:
@@ -1313,10 +1315,10 @@ Which (default = n): """)
         #
         if not nocache:
             if verbose:
-                print >>sys.stderr, feedname, ": Updating cache file"
+                print(feedname, ": Updating cache file", file=sys.stderr)
             cache.save_to_file()
         elif verbose:
-            print >>sys.stderr, feedname, ": Not updating cache file"
+            print(feedname, ": Not updating cache file", file=sys.stderr)
 
     else:
         msglog.warn(feedname + ": no new content")
@@ -1324,53 +1326,58 @@ Which (default = n): """)
         # We may have made the directory. If so, remove it:
         # if there's no index file then there's no way to access anything there.
         if os.path.exists(outdir):
-            print >>sys.stderr, "Removing directory", outdir
+            print("Removing directory", outdir, file=sys.stderr)
             shutil.rmtree(outdir)
 
 #
 # Main -- read the config file and loop over sites.
 #
 if __name__ == '__main__':
-    from optparse import OptionParser
+    import argparse
 
-    usage = """%prog [site ...]
+    usage = """
 If no site is specified, feedme will update all the feeds in
 ~/.config/feedme.conf."""
     LongVersion = feedmeparser.VersionString + ": an RSS feed reader.\n\
-Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
+Copyright 2017 by Akkana Peck; share and enjoy under the GPL v2 or later."
 
-    optparser = OptionParser(usage=usage, version=LongVersion)
-    optparser.add_option("-n", "--nocache",
+    parser = argparse.ArgumentParser(prog="feedme", description=usage)
+    parser.add_argument('--version', action='version', version=LongVersion)
+    parser.add_argument('feeds', type=str, nargs='+',
+                        help="feeds to fetch")
+    parser.add_argument("-n", "--nocache",
                          action="store_true", dest="nocache",
                          default=False,
                          help="Don't consult the cache, or update it")
-    optparser.add_option("-s", "--show-sites",
+    parser.add_argument("-s", "--show-sites",
                          action="store_true", dest="show_sites",
                          default=False,
                          help="Show available sites")
-    optparser.add_option("-l", "--log", metavar="logfile",
+    parser.add_argument("-l", "--log", metavar="logfile",
                          action="store", dest="log_file_name",
                          help="Save output to a log file")
-    optparser.add_option("-c", "--config-help",
+    parser.add_argument("-c", "--config-help",
                          action="store_true", dest="config_help",
                          default=False,
                          help="Print help on configuration files")
-    (options, args) = optparser.parse_args()
+    options = parser.parse_args()
+    print("Parsed args. args:", options)
 
     config = feedmeparser.read_config_file()
+    print("Read config file")
 
     msglog = MsgLog()
 
     sections = config.sections()
 
     if options.config_help:
-        print LongVersion
-        print ConfigHelp
+        print(LongVersion)
+        print(ConfigHelp)
         sys.exit(0)
 
     if options.show_sites:
         for feedname in sections:
-            print "%-25s %s" % (feedname, config.get(feedname, 'url'))
+            print("%-25s %s" % (feedname, config.get(feedname, 'url')))
         sys.exit(0)
 
     if options.nocache:
@@ -1379,24 +1386,26 @@ Copyright 2011 by Akkana Peck; share and enjoy under the GPL v2 or later."
     else:
         try:
             cache = FeedmeCache.newcache()
-        except Exception, e:
+        except Exception as e:
             # I don't know what causes a pickle error,
             # but cPickle.BadPickleGet can happen
             # and can be very hard to debug when it does.
-            msglog.err("Error reading cache! " + str(e).encode('utf-8'))
-            msglog.err(str(sys.exc_info()[0]).encode('utf-8'))
-            msglog.err(str(sys.exc_info()[1]).encode('utf-8'))
-            print >>sys.stderr, traceback.format_exc(sys.exc_info()[2])
+            msglog.err("Error reading cache! " + str(e))
+            # msglog.err(str(sys.exc_info()[0]).encode('utf-8'))
+            # msglog.err(str(sys.exc_info()[1]).encode('utf-8'))
+            print(traceback.format_exc(), file=sys.stderr)
 
             # Refuse to run: unexpectedly running a whole feedme
             # without a cache is too painful.
-            print >>sys.stderr, """
+            print("""
 Can't read the cache file! Sorry, exiting.
 Use -N to re-load all previously cached stories and reinitialize the cache.
-"""
+""", file=sys.stderr)
             sys.exit(1)
 
         last_time = cache.last_time
+
+    print("Set up cache")
 
     # logfilename = config.get('DEFAULT', 'logfile')
     # if logfilename:
@@ -1412,10 +1421,11 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
     logfilename = os.path.join(feeddir, 'LOG')
 
     # Set up a tee to the log file, and redirect stderr there:
-    print "teeing output to", logfilename
+    print("teeing output to", logfilename)
     stderrsav = sys.stderr
     outputlog = open(logfilename, "w", buffering=1)
     sys.stderr = tee(stderrsav, outputlog)
+    print("Set up tee")
 
     # Remove any obsolete feeds, no longer in the cnnfig file, from the cache.
     if cache and len(cache):
@@ -1430,11 +1440,17 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
                 feeds_to_remove.append(feedurl)
 
         for feedurl in feeds_to_remove:
-            print >>sys.stderr, feedurl, "is obsolete, will delete from cache"
+            print(feedurl, "is obsolete, will delete from cache", file=sys.stderr)
             del cache[feedurl]
 
+    print("diddled with cache")
+    print("options", options)
+    print("options.feeds is", options.feeds)
+    print("len(options.feeds) is", len(options.feeds))
+
     try:
-        if len(args) == 0:
+        print("About to run. len(options) is", len(options.feeds))
+        if len(options.feeds) == 0:
             for feedname in sections:
                 # This can hang if feedparser hangs parsing the initial RSS.
                 # So give the user a chance to ^C out of one feed
@@ -1442,32 +1458,34 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
                 try:
                     get_feed(feedname, config, cache, last_time, msglog)
                 except KeyboardInterrupt:
-                    print >>sys.stderr, "Interrupt! Skipping feed", feedname
+                    print("Interrupt! Skipping feed", feedname, file=sys.stderr)
                     handle_keyboard_interrupt("Type q to quit, anything else to skip to next feed: ")
                     # We don't actually have to check the return value;
                     # handle_keyboard_interrupt will quit if the user types q.
 
         else:
-            for arg in args:
-                print >>sys.stderr, 'Getting feed for', arg
-                get_feed(arg, config, cache, last_time, msglog)
+            print("looping over args")
+            for feed in options.feeds:
+                print('Getting feed for', feed)
+                print('Getting feed for', feed, file=sys.stderr)
+                get_feed(feed, config, cache, last_time, msglog)
 
     # This causes a lot of premature exits. Not sure why we end up
     # here rather than in the inner KeyboardInterrupt section.
     except KeyboardInterrupt:
-        print >>sys.stderr, "Caught keyboard interrupt at the wrong time!"
-        print traceback.format_exc(sys.exc_info()[2])
+        print("Caught keyboard interrupt at the wrong time!", file=sys.stderr)
+        print(traceback.format_exc())
         #sys.exit(1)
-    except OSError, e:
-        print >>sys.stderr, "Caught an OSError"
-        print >>sys.stderr, e
+    except OSError as e:
+        print("Caught an OSError", file=sys.stderr)
+        print(e, file=sys.stderr)
         #sys.exit(e.errno)
 
     try:
         # Now we're done. It's time to move the log file into its final place.
         datestr = time.strftime("%m-%d-%a")
         datedir = os.path.join(feeddir, datestr)
-        print >>sys.stderr, "Renaming", logfilename, "to", os.path.join(datedir, 'LOG')
+        print("Renaming", logfilename, "to", os.path.join(datedir, 'LOG'), file=sys.stderr)
         os.rename(logfilename,
                   os.path.join(datedir, 'LOG'))
 
@@ -1500,15 +1518,15 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
                         otherfiles.append(f)
 
             for f in htmlfiles:
-                print >>manifest, f
+                print(f, file=manifest)
             for f in otherfiles:
-                print >>manifest, f
+                print(f, file=manifest)
 
-            print >>manifest, ".EOF."
+            print(".EOF.", file=manifest)
             manifest.close()
-    except OSError, e:
-        print >>sys.stderr, "Couldn't move LOG or create MANIFEST:"
-        print e
+    except OSError as e:
+        print("Couldn't move LOG or create MANIFEST:", file=sys.stderr)
+        print(e)
 
     # Clean up old directories:
     clean_up(config)
@@ -1516,9 +1534,9 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
     # Dump any errors we encountered.
     msgs = msglog.get_msgs()
     if msgs:
-        print >>sys.stderr, "\n===== Messages ===="
-        print >>sys.stderr, msgs.encode('utf-8', 'backslashreplace')
+        print("\n===== Messages ====", file=sys.stderr)
+        print(msgs, file=sys.stderr)
     msgs = msglog.get_errs()
     if msgs:
-        print >>sys.stderr, "\n====== Errors ====="
-        print >>sys.stderr, msgs.encode('utf-8', 'backslashreplace')
+        print("\n====== Errors =====", file=sys.stderr)
+        print(msgs, file=sys.stderr)
