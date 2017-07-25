@@ -1262,7 +1262,7 @@ Which (default = n): """)
         # we'll include it; otherwise we'll omit it.
         # (Test case: Popular Science, which includes large images
         # in its RSS even if the stories had a small inline image.)
-        index_str = parser.rewrite_images(content)
+        indexstr = parser.rewrite_images(indexstr)
 
         try:
             indexfile = os.path.join(outdir, "index.html")
