@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 # URL parser for feedme, http://shallowsky.com/software/feedme/
-# Copyright 2011 by Akkana Peck. Share and enjoy under the GPL v2 or later.
+# Copyright 2011-2017 by Akkana Peck.
+# Share and enjoy under the GPL v2 or later.
 
 import os, sys
 import urllib2
@@ -188,6 +189,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         self.skipping = None
         self.remapped_images = {}
         self.base_href = None
+        self.verbose = False
 
     def fetch_url(self, url, newdir, newname, title=None, author=None,
                   footer='', referrer=None, user_agent=None):
@@ -198,8 +200,8 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
            and download any images into $newdir.
            Raises NoContentError if it can't get the page or skipped it.
         """
-        verbose = self.config.getboolean(self.feedname, 'verbose')
-        if verbose:
+        self.verbose = self.config.getboolean(self.feedname, 'verbose')
+        if self.verbose:
             print >>sys.stderr, "Fetching link", url, \
                 "to", newdir + "/" + newname
 
@@ -226,7 +228,8 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
 
         self.encoding = self.config.get(self.feedname, 'encoding')
 
-        html = self.download_url(url, referrer, user_agent, verbose=verbose)
+        html = self.download_url(url, referrer, user_agent,
+                                 verbose=self.verbose)
 
         # Does it contain any of skip_content_pats anywhere? If so, bail.
         skip_content_pats = get_config_multiline(self.config, self.feedname,
@@ -256,22 +259,22 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         page_ends = get_config_multiline(self.config, self.feedname, 'page_end')
         if len(page_starts) > 0:
             for page_start in page_starts:
-                if verbose:
+                if self.verbose:
                     print >>sys.stderr, "looking for page_start", page_start
                 match = html.find(page_start)
                 if match >= 0:
-                    if verbose:
+                    if self.verbose:
                         print >>sys.stderr, "Found page_start", page_start
                     html = html[match:]
                     break
 
         if len(page_ends) > 0:
             for page_end in page_ends:
-                if verbose:
+                if self.verbose:
                     print >>sys.stderr, "looking for page_end", page_end
                 match = html.find(page_end)
                 if match >= 0:
-                    if verbose:
+                    if self.verbose:
                         print >>sys.stderr, "Found page_end", page_end
                     html = html[0 : match]
 
@@ -281,14 +284,19 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                                          'skip_pats')
         if len(skip_pats) > 0:
             for skip in skip_pats:
-                if verbose:
+                if self.verbose:
                     print >>sys.stderr, "Trying to skip '%s'" % skip
                     #print >>sys.stderr, "in", html.encode('utf-8')
                     #sys.stderr.flush()
                 # flags=DOTALL doesn't exist in re.sub until 2.7,
                 #html = re.sub(skip, '', html, flags=re.DOTALL)
                 # but does exist in a compiled re expression:
-                regexp = re.compile(skip, flags=re.DOTALL)
+                try:
+                    regexp = re.compile(skip, flags=re.DOTALL)
+                except Exception as e:
+                    print >>sys.stderr, "Couldn't compile regexp", skip
+                    print >>sys.stderr, str(e)
+                    continue
                 html = regexp.sub('', html)
                 # Another way would be to use (.|\\n) in place of .
                 # For some reason [.\n] doesn't work.
@@ -341,7 +349,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
             # page url so we won't make another recursive call.
             singlefile = outfilename + ".single"
             try:
-                if verbose:
+                if self.verbose:
                     print >>sys.stderr, \
                         "Trying to fetch single-page url with referrer =", \
                         response.geturl(), "instead of", url
@@ -356,7 +364,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                     #os.rename(outfilename, outfilename + '.1')
                     os.remove(outfilename)
                     os.rename(singlefile, outfilename)
-                    if verbose:
+                    if self.verbose:
                         print >>sys.stderr, "Removing", outfilename, \
                             "and renaming", singlefile
                 else:
@@ -419,13 +427,24 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         try:
             tree = lxml.html.fromstring(content)
             for e in tree.iter():
-                if e.tag == 'img' and 'src' in e.keys():
-                    try:
-                        src = self.make_absolute(e.attrib['src'])
-                        if src in self.remapped_images.keys():
-                            e.attrib['src'] = self.remapped_images[src]
-                    except KeyError:
-                        pass
+                if e.tag == 'img':
+                    if 'src' in e.keys():
+                        try:
+                            src = self.make_absolute(e.attrib['src'])
+                            if src in self.remapped_images.keys():
+                                e.attrib['src'] = self.remapped_images[src]
+                                continue
+                        except KeyError:
+                            pass
+                        if self.verbose:
+                            print >>sys.stderr, "Removing img", e.attrib['src']
+                        e.drop_tree()
+                    # img src wasn't in e.keys, or remapping it
+                    # didn't result in the right attribute.
+                    else:
+                        if self.verbose:
+                            print >>sys.stderr, "Removing img with no src"
+                        e.drop_tree()
 
             return lxml.html.tostring(tree)
         except Exception, e:
@@ -459,7 +478,7 @@ tree = lxml.html.fromstring(html)
             self.handle_data(tree.tail)
 
     def handle_starttag(self, tag, attrs):
-        #if self.config.getboolean(self.feedname, 'verbose'):
+        #if self.verbose:
         #    print "start tag", tag, attrs
 
         # meta refreshes won't work when we're offline, but we
@@ -582,8 +601,12 @@ tree = lxml.html.fromstring(html)
             except:
                 nonlocal_images = False
             if nonlocal_images or self.same_host(req.get_host(), self.host):
-                base = os.path.basename(src)
-                # Clean up the basename, since it might have illegal chars.
+                # base = os.path.basename(src)
+                # For now, don't take the basename; we want to know
+                # if images are unique, and the basename alone
+                # can't tell us that.
+                base = src.replace('/', '_')
+                # Clean up the filename, since it might have illegal chars.
                 # Only allow alphanumerics or others in a short whitelist.
                 # Don't allow % in the whitelist -- it causes problems
                 # with recursively copying the files over http later.
@@ -597,15 +620,17 @@ tree = lxml.html.fromstring(html)
                 # storyname-0418-jpg/image, storyname-0418-jpg/image etc.)
                 # so we can't assume that just because the basename is unique,
                 # the image must be.
-                if os.path.exists(imgfilename) and \
-                   src not in self.remapped_images:
-                    howmany = 2
-                    while True:
-                        newimgfile = "%d-%s" % (howmany, imgfilename)
-                        if not os.path.exists(newimgfile):
-                            imgfilename = newimgfile
-                            break
-                        howmany += 1
+                # if os.path.exists(imgfilename) and \
+                #    src not in self.remapped_images:
+                #     howmany = 2
+                #     while True:
+                #         newimgfile = "%d-%s" % (howmany, imgfilename)
+                #         if not os.path.exists(newimgfile):
+                #             imgfilename = newimgfile
+                #             break
+                #         howmany += 1
+                # But we don't need this clause if we use the whole image path,
+                # not just the basename.
 
                 try:
                     if not os.path.exists(imgfilename):

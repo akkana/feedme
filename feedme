@@ -3,11 +3,8 @@
 # feedme: download RSS/Atom feeds and convert to HTML, epub, Plucker,
 # or other formats suitable for offline reading on a handheld device,
 #
-# Copyright 2009-2016 by Akkana Peck <akkana@shallowsky.com>
+# Copyright 2009-2017 by Akkana Peck <akkana@shallowsky.com>
 # and licensed under the GPLv2 or later.
-#
-# Some older code taken from feedread,
-# Copyright (C) 2009 Benjamin M. A'Lee <bma@subvert.org.uk>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,8 +16,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details:
 # <http://www.gnu.org/licenses/>.
-
-# Goals for feedme 0.9: use real HTML parsing, not rexexp; add image fetching
 
 ConfigHelp = """Configuration options:
 
@@ -1260,6 +1255,14 @@ Which (default = n): """)
             indexstr = indexstr[:m.start()] \
                 + "<br>\n<center><i>[end]</i></center>\n<br>\n" \
                 + indexstr[m.end():]
+
+        # Rewrite images to local, so we don't hit the network
+        # trying to download images sites put directly in their RSS feeds.
+        # If the images are the same as one already downloaded for a story,
+        # we'll include it; otherwise we'll omit it.
+        # (Test case: Popular Science, which includes large images
+        # in its RSS even if the stories had a small inline image.)
+        index_str = parser.rewrite_images(content)
 
         try:
             indexfile = os.path.join(outdir, "index.html")
