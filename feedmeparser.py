@@ -16,6 +16,7 @@ import urllib.parse
 from http.cookiejar import CookieJar
 import io
 import gzip
+import traceback
 
 has_ununicode=True
 
@@ -171,7 +172,6 @@ class FeedmeURLDownloader(object):
             print("Didn't read anything from response.read()", file=sys.stderr)
             response.close()
             raise NoContentError
-        print("response.read() returned type", type(contents))
 
         if is_gzip:
             buf = io.StringIO(contents)
@@ -451,15 +451,21 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                         e.drop_tree()
 
             # lxml.html.tostring returns bytes, despite the name.
-            # And converting it with s() doesn't work, have to use decode
-            # with a charset.
+            # And converting it with str() doesn't work,
+            # must use decode with a charset.
             if not encoding:
+                # We may or may not have a self.encoding defined here;
+                # for the indexstr we often don't, so default to UTF-8.
+                if not self.encoding:
+                    self.encoding = "UTF-8"
                 encoding = self.encoding
             return lxml.html.tostring(tree).decode(encoding=encoding)
 
         except Exception as e:
-            print("Couldn't rewrite images in content:", str(e), file=sys.stderr)
-            print("content: '" + content + "'", file=sys.stderr)
+            print("Couldn't rewrite images in content:" + str(e),
+                  file=sys.stderr)
+            print("Content type:", type(content), file=sys.stderr)
+            print(traceback.format_exc(), file=sys.stderr)
             return content
 
     def crawl_tree(self, tree):
@@ -607,7 +613,7 @@ tree = lxml.html.fromstring(html)
                                                          'nonlocal_images')
             except:
                 nonlocal_images = False
-            if nonlocal_images or self.same_host(req.get_host(), self.host):
+            if nonlocal_images or self.same_host(req.host, self.host):
                 # base = os.path.basename(src)
                 # For now, don't take the basename; we want to know
                 # if images are unique, and the basename alone
@@ -677,7 +683,8 @@ tree = lxml.html.fromstring(html)
                 # Looks like it's probably a nonlocal image.
                 # Possibly this could be smarter about finding similar domains,
                 # or having a list of allowed image domains.
-                print(req.get_host(), "and", self.host, "are too different -- not fetching", file=sys.stderr)
+                print(req.host, "and", self.host,
+                      "are too different -- not fetching", file=sys.stderr)
 
         # Now we've done any needed processing to the tag and its attrs.
         # t's time to write them to the output file.

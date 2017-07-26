@@ -942,6 +942,12 @@ def get_feed(feedname, config, cache, last_time, msglog):
             else:
                 author = None
 
+
+            # A parser is mostly needed for levels > 1, but even with
+            # levels=1 we'll use it at the end for rewriting images
+            # in the index string.
+            parser = feedmeparser.FeedmeHTMLParser(config, feedname)
+
             #
             # Follow the link and make a file for it:
             #
@@ -949,7 +955,6 @@ def get_feed(feedname, config, cache, last_time, msglog):
                 try :    # Try to trap keyboard interrupts, + others
                     # For the sub-pages, we're getting HTML, not RSS.
                     # Nobody seems to have RSS pointing to RSS.
-                    parser = feedmeparser.FeedmeHTMLParser(config, feedname)
                     fnam = str(pagenum) + ".html"
 
                     # Add a link in the footer to the (we hope) next story:
@@ -1343,7 +1348,7 @@ Copyright 2017 by Akkana Peck; share and enjoy under the GPL v2 or later."
 
     parser = argparse.ArgumentParser(prog="feedme", description=usage)
     parser.add_argument('--version', action='version', version=LongVersion)
-    parser.add_argument('feeds', type=str, nargs='+',
+    parser.add_argument('feeds', type=str, nargs='*',
                         help="feeds to fetch")
     parser.add_argument("-n", "--nocache",
                          action="store_true", dest="nocache",
@@ -1364,7 +1369,6 @@ Copyright 2017 by Akkana Peck; share and enjoy under the GPL v2 or later."
     print("Parsed args. args:", options)
 
     config = feedmeparser.read_config_file()
-    print("Read config file")
 
     msglog = MsgLog()
 
@@ -1405,16 +1409,6 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
 
         last_time = cache.last_time
 
-    print("Set up cache")
-
-    # logfilename = config.get('DEFAULT', 'logfile')
-    # if logfilename:
-    #     logfilename = feedmeparser.sub_tilde(logfilename)
-
-    # Ignore the config file logfile setting, and log to feeds/LOG.
-    # When we're finished, we'll move the file to inside the newly
-    # created feed directory.
-
     feeddir = feedmeparser.sub_tilde(config.get('DEFAULT', 'dir'))
     if not os.path.exists(feeddir):
         os.makedirs(feeddir)
@@ -1425,7 +1419,6 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
     stderrsav = sys.stderr
     outputlog = open(logfilename, "w", buffering=1)
     sys.stderr = tee(stderrsav, outputlog)
-    print("Set up tee")
 
     # Remove any obsolete feeds, no longer in the cnnfig file, from the cache.
     if cache and len(cache):
@@ -1443,14 +1436,13 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
             print(feedurl, "is obsolete, will delete from cache", file=sys.stderr)
             del cache[feedurl]
 
-    print("diddled with cache")
-    print("options", options)
-    print("options.feeds is", options.feeds)
-    print("len(options.feeds) is", len(options.feeds))
-
     try:
-        print("About to run. len(options) is", len(options.feeds))
-        if len(options.feeds) == 0:
+        if options.feeds:
+            for feed in options.feeds:
+                print('Getting feed for', feed)
+                print('Getting feed for', feed, file=sys.stderr)
+                get_feed(feed, config, cache, last_time, msglog)
+        else:
             for feedname in sections:
                 # This can hang if feedparser hangs parsing the initial RSS.
                 # So give the user a chance to ^C out of one feed
@@ -1463,12 +1455,6 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
                     # We don't actually have to check the return value;
                     # handle_keyboard_interrupt will quit if the user types q.
 
-        else:
-            print("looping over args")
-            for feed in options.feeds:
-                print('Getting feed for', feed)
-                print('Getting feed for', feed, file=sys.stderr)
-                get_feed(feed, config, cache, last_time, msglog)
 
     # This causes a lot of premature exits. Not sure why we end up
     # here rather than in the inner KeyboardInterrupt section.
