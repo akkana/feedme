@@ -44,7 +44,7 @@ has_ununicode=True
 #     else:
 #         return s
 
-VersionString = "FeedMe 1.0b3"
+VersionString = "FeedMe 1.0b4"
 
 def get_config_multiline(config, feedname, configname):
     configlines = config.get(feedname, configname)
