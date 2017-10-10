@@ -895,6 +895,8 @@ def read_config_file():
                            'page_end':'',
                            'single_page_pats' : '',
                            'url_substitute' : '',
+                           'simplify_rss' : 'false',
+                           'rss_entry_size' : '0',  # max size in bytes
 
                            # Patterns to skip within a story.
                            # Anything within the regexps will be excised
@@ -934,6 +936,53 @@ def read_config_file():
                 print("Can't read", filepath)
 
     return config
+
+class HTMLSimplifier:
+    keeptags = [ 'p', 'br', 'div' ]
+    encoding = 'utf-8'
+
+    def __init__(self):
+        self.outstr = ''
+
+    def simplify(self, htmlstring):
+        tree = lxml.html.fromstring(htmlstring)
+        self.crawl_tree(tree)
+        return self.outstr
+
+    def crawl_tree(self, tree):
+        if type(tree.tag) is str:
+            # lxml.html gives comments tag = <built-in function Comment>
+            # This is not documented anywhere and there seems to be
+            # no way to ask "Is this element a comment?"
+            # So we only handle tags that are type str.
+            self.handle_starttag(tree.tag, tree.attrib)
+            if tree.text:
+                #print tree.tag, "contains text", tree.text
+                self.handle_data(tree.text)
+            for node in tree:
+                self.crawl_tree(node)
+            self.handle_endtag(tree.tag, tree.attrib)
+        # print the tail even if it was a comment -- the tail is
+        # part of the parent tag, not the current tag.
+        if tree.tail:
+            #print tree.tag, "contains text", tree.tail
+            self.handle_data(tree.tail)
+
+    def handle_starttag(self, tag, attrs):
+        # Only keep a few well-defined tags:
+        if tag in self.keeptags:
+            self.outstr += "<%s>" % tag
+
+    def handle_endtag(self, tag, attrs):
+        # Only keep a few well-defined tags:
+        if tag in self.keeptags:
+            self.outstr += "</%s>" % tag
+
+    def handle_data(self, data):
+        if type(data) is str:
+            self.outstr += data
+        else:
+            print("Data isn't str! type =", type(data), file=sys.stderr)
 
 if __name__ == '__main__':
     config = read_config_file()

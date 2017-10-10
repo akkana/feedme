@@ -1170,6 +1170,11 @@ Which (default = s): """)
             else:
                 content = "[No content]"
 
+            # Sites that put too much formatting crap in the RSS:
+            if config.getboolean(feedname, 'simplify_rss'):
+                simp = feedmeparser.HTMLSimplifier()
+                content = simp.simplify(content) + " ... "
+
             # There's an increasing trend to load up RSS pages with images.
             # Try to remove them, as well as any links that contain
             # only an image.
@@ -1199,6 +1204,14 @@ Which (default = s): """)
             for pat in index_skip_pats:
                 content = re.sub(pat, '', content)
                 author = re.sub(pat, '', author)
+
+            # LA Daily Post has lately started putting the entire story
+            # in the description, along with a lot of formatting crap
+            # that tends to make the text unreadable (color or font size).
+            # Try to strip all that crap:
+            entrysize = int(config.get(feedname, 'rss_entry_size'))
+            if entrysize:
+                content = content[:entrysize]
 
             indexstr += content
 
