@@ -716,10 +716,15 @@ def get_feed(feedname, config, cache, last_time, msglog):
             response = None
 
     # except xml.sax._exceptions.SAXException, e:
+    except urllib.error.HTTPError as e:
+        print("HTTP error parsing URL:", sitefeedurl, file=sys.stderr)
+        print(str(e), file=sys.stderr)
+        return
     except Exception as e:
         print("Couldn't parse feed: URL:", sitefeedurl, file=sys.stderr)
         print(str(e), file=sys.stderr)
-        traceback.print_tb()
+        ex_type, ex, tb = sys.exc_info()
+        traceback.print_tb(tb)
         # print(traceback.format_exc())
         return
 

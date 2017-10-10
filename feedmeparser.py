@@ -174,7 +174,7 @@ class FeedmeURLDownloader(object):
             raise NoContentError
 
         if is_gzip:
-            buf = io.StringIO(contents)
+            buf = io.BytesIO(contents)
             f = gzip.GzipFile(fileobj=buf)
             contents = f.read()
 
