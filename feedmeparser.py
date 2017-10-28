@@ -24,6 +24,8 @@ has_ununicode=True
 # simple traceback without going into several levels of recursive
 # "During handling of the above exception, another exception occurred"
 # if there's anything involved that might have a nonascii character.
+# This doesn't work reliably either:
+# TypeError: unorderable types: int() < traceback() in the print line.
 def ptraceback():
     ex_type, ex, tb = sys.exc_info()
     print(str(traceback.format_exc(tb)), file=sys.stderr)

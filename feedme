@@ -275,7 +275,21 @@ http://www.redmountainsw.com/wordpress/archives/python-subclassing-file-types
 
     def write(self, text):
         self.fd1.write(text)
-        self.fd2.write(text)
+        # UnicodeEncodeError: 'ascii' codec can't encode character '\u2019' in position 4: ordinal not in range(128)
+        # fd1 is stderr.
+        # fd2 was opened with: outputlog = open(logfilename, "w", buffering=1)
+        # But it only happens when invoked from the web server,
+        # maybe because the web server's environment is C rather than UTF-8,
+        # and seemingly only when initiated from a phone (not from wget).
+        try:
+            self.fd2.write(text)
+        except UnicodeEncodeError:
+            s = "caught a UnicodeEncodeError trying to write a " \
+                + str(type(text)) + '\n'
+            self.fd1.write(s)
+            self.fd2.write(s)
+            # This just raises another error, probably for the same reason:
+            # feedmeparser.ptraceback()
 
     def flush(self):
         self.fd1.flush()
@@ -786,10 +800,15 @@ def get_feed(feedname, config, cache, last_time, msglog):
             # Make sure the id is a string; most of these components
             # inside item are bytes.
             # XXX Is href[] ever even used? Is this clause obsolete?
+            # Answer: no, at least A Word A Day uses it.
+            # But sometimes this clause will be triggered on a site
+            # that doesn't have "links" in its RSS source
+            # (e.g. Washington Post), which then won't have href either.
             #
             if 'links' in item:
-                href = [str(i['href']) \
-                            for i in item.links if i['rel'] == 'alternate']
+                href = [str(i['href']) for i in item.links
+                        if 'rel' in i and 'href' in i
+                        and i['rel'] == 'alternate']
             else:
                 href = []
 
@@ -1211,7 +1230,7 @@ Which (default = s): """)
             # Try to strip all that crap:
             entrysize = int(config.get(feedname, 'rss_entry_size'))
             if entrysize:
-                content = content[:entrysize]
+                content = content[:entrysize] + " ..."
 
             indexstr += content
 
@@ -1436,7 +1455,7 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
     # Set up a tee to the log file, and redirect stderr there:
     print("teeing output to", logfilename)
     stderrsav = sys.stderr
-    outputlog = open(logfilename, "w", buffering=1)
+    outputlog = open(logfilename, "w", buffering=1, encoding='utf-8')
     sys.stderr = tee(stderrsav, outputlog)
 
     # Remove any obsolete feeds, no longer in the cnnfig file, from the cache.
