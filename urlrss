@@ -130,15 +130,17 @@ if 'xtraurls' in form:
         # and redirect stderr to there:
         sys.stderr = debuglog
 
-        if cgi_mode:
-            print >>debuglog, "CGI mode"
-        else:
-            print >>debuglog, "devicepath:", devicepath
+        print >>debuglog, "CGI mode"
         print >>debuglog, "urlfiles:", urlfiles
         print >>debuglog, "rssfile:", rssfile
         print >>debuglog, "urlarchive:", urlarchive
         print >>debuglog, "feedme exec:", feedme_exec
         print >>debuglog, 'HOME:', os.environ['HOME']
+
+    cgi_out = '''Content-type: text/plain
+Content-Disposition: inline; filename=urlrss-out.txt
+
+'''
 
     # If we're run as a CGI, then we'll be expected to start
     # a new feedme process. But if there's already one running,
@@ -146,20 +148,19 @@ if 'xtraurls' in form:
     # A good first check is whether there's a feedme_exec process
     # running as the current user.
     feedmeproc = find_process(feedme_exec, os.getuid())
+
     if feedmeproc:
         if debuglog:
             print >>sys.stderr, "feedme already running, pid", feedmeproc[-1]
-        print '''Content-type: text/plain
 
-Feedme is already running! PID %s''' % feedmeproc[-1]
+        print cgi_out
+        print 'Feedme is already running! PID %s' % feedmeproc[-1]
         sys.exit(0)
+
     if debuglog:
         print >>sys.stderr, "feedme isn't running yet -- whew!"
 
-    cgi_out = '''Content-type: text/plain
-
-Extra URLs
-'''
+    cgi_out += 'Extra URLs\n'
 
 else:
     # Mount the device's SD card if it isn't already mounted:
