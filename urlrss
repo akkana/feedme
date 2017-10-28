@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Make a local RSS file based on a list of URLs,
 # so we can run feedme to collect those URLs.
@@ -13,7 +13,7 @@
 import os, sys
 import time, datetime
 import subprocess
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import xml.sax.saxutils
 
 import cgi
@@ -73,17 +73,18 @@ def find_process(progname, uid):
        sorts of edge cases where it fails.
     '''
     bname = os.path.basename(progname)
-    print >>sys.stderr, "Trying to find a process named", bname, "with uid", uid
+    print("Trying to find a process named", bname, "with uid", uid, file=sys.stderr)
     pids = [pid for pid in os.listdir('/proc') if pid.isdigit()]
     for pid in pids:
         try:
             with open(os.path.join('/proc', pid, 'cmdline'), 'rb') as procfd:
-                args = procfd.read().split('\x00')
+                args = procfd.read().split(b'\x00')
                 # The script name, feedme, probably isn't actually the first
                 # argument; the first is probably python, then feedme.
                 cname = os.path.basename(args[0])
-                if cname.startswith("python"):
+                if cname.startswith(b"python"):
                     cname = os.path.basename(args[1])
+                cname = cname.decode("utf-8")
                 if cname != bname:
                     continue
             # The process name matches. Does the UID?
@@ -122,7 +123,7 @@ if 'xtraurls' in form:
 
     # Tilde-expand our various configuration variables,
     # now that we know HOME is set appropriately.
-    urlfiles = map(os.path.expanduser, urlfiles)
+    urlfiles = list(map(os.path.expanduser, urlfiles))
     rssfile = os.path.expanduser(rssfile)
     urlarchive = os.path.expanduser(urlarchive)
 
@@ -130,12 +131,12 @@ if 'xtraurls' in form:
         # and redirect stderr to there:
         sys.stderr = debuglog
 
-        print >>debuglog, "CGI mode"
-        print >>debuglog, "urlfiles:", urlfiles
-        print >>debuglog, "rssfile:", rssfile
-        print >>debuglog, "urlarchive:", urlarchive
-        print >>debuglog, "feedme exec:", feedme_exec
-        print >>debuglog, 'HOME:', os.environ['HOME']
+        print("CGI mode", file=debuglog)
+        print("urlfiles:", urlfiles, file=debuglog)
+        print("rssfile:", rssfile, file=debuglog)
+        print("urlarchive:", urlarchive, file=debuglog)
+        print("feedme exec:", feedme_exec, file=debuglog)
+        print('HOME:', os.environ['HOME'], file=debuglog)
 
     cgi_out = '''Content-type: text/plain
 Content-Disposition: inline; filename=urlrss-out.txt
@@ -151,14 +152,14 @@ Content-Disposition: inline; filename=urlrss-out.txt
 
     if feedmeproc:
         if debuglog:
-            print >>sys.stderr, "feedme already running, pid", feedmeproc[-1]
+            print("feedme already running, pid", feedmeproc[-1], file=sys.stderr)
 
-        print cgi_out
-        print 'Feedme is already running! PID %s' % feedmeproc[-1]
+        print(cgi_out)
+        print('Feedme is already running! PID %s' % feedmeproc[-1])
         sys.exit(0)
 
     if debuglog:
-        print >>sys.stderr, "feedme isn't running yet -- whew!"
+        print("feedme isn't running yet -- whew!", file=sys.stderr)
 
     cgi_out += 'Extra URLs\n'
 
@@ -170,16 +171,16 @@ else:
             # Ignore return value: it will be nonzero if already mounted.
             # So check to see if it's mounted now:
             if not os.path.ismount(devicepath):
-                print "Can't mount %s!" % devicepath
+                print("Can't mount %s!" % devicepath)
                 sys.exit(1)
-        else: print "Device is already mounted."
+        else: print("Device is already mounted.")
         urlfiles.append(os.path.join(devicepath, "feeds", "saved-urls"))
 
 # Loop over all the url files to get our list of urls:
 for urlfile in urlfiles:
     try:
         ifp = open(urlfile)
-        print >>sys.stderr, "Reading URLs from", urlfile
+        print("Reading URLs from", urlfile, file=sys.stderr)
     except:
         continue
 
@@ -192,7 +193,7 @@ for urlfile in urlfiles:
     os.unlink(urlfile)
 
 if not urls:
-    print >>sys.stderr, "No saved URLs"
+    print("No saved URLs", file=sys.stderr)
     if os.path.exists(rssfile):
         os.unlink(rssfile)
 
@@ -203,25 +204,25 @@ else:
 
     try:
         ofp = open(rssfile, "w")
-    except Exception, e:
+    except Exception as e:
         cgi_out += "\nCouldn't write to RSS file %s\n" % rssfile
         cgi_out += str(e)
-        print cgi_out
-        print >>sys.stderr, cgi_out
+        print(cgi_out)
+        print(cgi_out, file=sys.stderr)
         sys.exit(1)
 
-    print >>ofp, """<rss version="0.91">
+    print("""<rss version="0.91">
 <channel>
   <title>FeedMe URLs</title>
   <description>Saved URLs %s</description>
-  <language>en</language>""" % datetime.datetime.now().ctime()
+  <language>en</language>""" % datetime.datetime.now().ctime(), file=ofp)
 
     try:
         archivefp = open(urlarchive, "a")
-        print >>archivefp, "\n<h4>Feedme URLs %s</h4>" \
-            % datetime.datetime.now().ctime()
+        print("\n<h4>Feedme URLs %s</h4>" \
+            % datetime.datetime.now().ctime(), file=archivefp)
     except:
-        print >>sys.stderr, "Couldn't open archive file", urlarchive
+        print("Couldn't open archive file", urlarchive, file=sys.stderr)
         archivefp = None
 
     for url in urls:
@@ -229,7 +230,7 @@ else:
         try:
             cgi_out += url + " ..."
             sys.stdout.flush()
-            urlobj = urllib2.urlopen(url, timeout=60)
+            urlobj = urllib.request.urlopen(url, timeout=60)
             newurl = urlobj.geturl()
             urlobj.close()
             if newurl != url:
@@ -248,27 +249,27 @@ else:
         escaped_url = xml.sax.saxutils.escape(url)
 
         # Save it in the RSS file:
-        print >>ofp, """
+        print("""
 <item>
   <title>%s</title>
   <description>%s</description>
   <link>%s</link>
-</item>""" % (escaped_url, escaped_url, escaped_url)
+</item>""" % (escaped_url, escaped_url, escaped_url), file=ofp)
 
         # Save an HTML copy to the archive file:
         if archivefp:
-            print >>archivefp, "<a href='%s'>%s</a><br>" % (url, url)
+            print("<a href='%s'>%s</a><br>" % (url, url), file=archivefp)
 
-    print >>ofp, """</channel>
-</rss>"""
+    print("""</channel>
+</rss>""", file=ofp)
 
     ofp.close()
     if archivefp:
         archivefp.close()
 
     if urls:
-        print >>sys.stderr, "Saved %s urls to %s and %s" % (len(urls),
-                                                            rssfile, urlarchive)
+        print("Saved %s urls to %s and %s" % (len(urls),
+                                                            rssfile, urlarchive), file=sys.stderr)
     # Done making the Xtra RSS file (if any).
 
 if cgi_mode:
@@ -287,7 +288,7 @@ if cgi_mode:
     # Start feedme running in the background, so we can return immediately.
     # Most of the time we want very little output, so the CGI finishes.
     if True:
-        print >>sys.stderr, "Trying to run %s ..." % feedme_exec
+        print("Trying to run %s ..." % feedme_exec, file=sys.stderr)
         subprocess.Popen([feedme_exec], shell=False,
                          stdout=devnull, stderr=devnull)
     else:
@@ -296,16 +297,17 @@ if cgi_mode:
         # see the output in the browser.
         pp = subprocess.Popen([feedme_exec], shell=False,
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        print >>sys.stderr, \
-            "Feedme should be running now. Will try to capture output."
+        print("Feedme should be running now. Will try to capture output.",
+              file=sys.stderr)
+        print("Running %s", feedme_exec)
         output = pp.communicate()
-        print >>sys.stderr, "\n==== stdin:"
-        print >>sys.stderr, output[0]
-        print >>sys.stderr, "\n==== stderr:"
-        print >>sys.stderr, output[1]
+        print("\n==== stdin:", file=sys.stderr)
+        print(output[0], file=sys.stderr)
+        print("\n==== stderr:", file=sys.stderr)
+        print(output[1], file=sys.stderr)
         cgi_out += "\n\n==== stdin:\n" + output[0]
         cgi_out += "\n\n==== stderr:\n" + output[1]
 
-    print cgi_out
-    print >>sys.stderr, "CGI OUTPUT:"
-    print >>sys.stderr, cgi_out
+    print(cgi_out)
+    print("CGI OUTPUT:", file=sys.stderr)
+    print(cgi_out, file=sys.stderr)
