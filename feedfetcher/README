@@ -1,6 +1,9 @@
 
 How to set up feedme so that it runs remotely on a web server,
-triggered from a laptop or android device:
+triggered from a phone, laptop or other web-enabled device:
+
+(Yes, these instructions are somewhat complex. But fortunately
+you should only need to do it once!)
 
 On the web server, create $SERVERDIR/feedme and $SERVERDIR/feeds
 ($SERVERDIR will probably be /var/www/ for simple setups).
@@ -10,32 +13,80 @@ no longer needs to be writable, but $SERVERDIR/feeds and
 /$SERVERDIR/feedme/.cache/feedme still will need to remain
 writable by www-data forever.
 
-When you copy over your .config/feedme/feedme.conf, make sure
-that dir = points to a directory writable by the web server.
-If you were using something like ~/feeds for your own homedir,
-that may cause feedme not to start (and there will be no obvious
-error message in that case, since it will have no place to
-log the error).
+Create $SERVERDIR/feedme/.config with an appropriate configuration
+(feedme.conf plus optional links to other .conf files).
+In feedme.conf, make sure that dir = points to a directory writable by
+the web server. If you were using something like ~/feeds for your own
+homedir, that may cause feedme not to start (and there will be no
+obvious error message in that case, since it will have no place to log
+the error). I suggest using $SERVERDIR/feeds where $SERVERDIR is the
+same path you'd use from a login shell, e.g. /var/www/feeds.
 
-Create $SERVERDIR/feedme/.config with an appropriate config file.
+Copy or link the binaries you need --
+feedme, feedmeparser.py, and urlrss.cgi --
+to $SERVERDIR/feedme/urlrss.cgi and make sure they're executable.
+(Your web server will also need to be able to execute CGI scripts
+in that directory. If not, mvoe urlrss.cgi to wherever CGI scripts
+need to live. You may also need to move feedme and feedmeparser.py,
+but I'm not sure since I allow CGIs anywhere.)
 
-Copy urlrss to $SERVERDIR/feedme/urlrss.cgi and make sure it's executable.
+Now you should be able to initiate a feed by visiting the URL
+pointing to urlrss.cgi, also specifying any "Extra URLs" you want
+fetched if you use them. Extra URLs must be URL encoded and connected
+by the string '%0a', for instance,
+   urlrss.cgi?xtraurls=http%3A%2F%2Fblog.arduino.cc%2F2013%2F07%2F10%2Fsend-in-the-clones%2F%0ahttp%3A%2F%2Fread.bi%2F10Lbfh9%0ahttp%3A%2F%2Fwww.popsci.com%2Ftechnology%2Farticle%2F2013-07%2Fdrones-civil-war%0ahttp%3A%2F%2Fwww.thisamericanlife.org%2Fblog%2F2015%2F05%2Fcanvassers-study-in-episode-555-has-been-retracted
+If you don't need any extra URLs, it's safest to call
+urlrss.cgi?xtraurls=none since in the past I've sometimes seen bugs
+with Python's CGI module having trouble if the argument isn't present.
 
-Install SL4A and Python for Android on your Android device:
-- Download both sl4a_r6.apk and PythonForAndroid_r4.apk
-- Install sl4a from the apk
-- Find SL4A in Applications and run it. It will say "no matches found",
-  but that's okay: the important thing is that it creates the directory
-  /sdcard/sl4a/scripts, without which PythonForAndroid will fail to install.
-- Install PythonForAndroid from the apk
-- Find Python for Android in Applications and run it. Tap Install.
-- Go back to the home screen and run SL4A again, and now you should
-  see scripts.
+If everything is set up correctly, urlrss.cgi should save off the xtraurls
+and then start feedme. You can then check on the progress of the feeding
+by periodically checking your feeds directory (the one you specified
+in feedme.conf with dir =). The last file to be written will be MANIFEST,
+so when you see that, wait a few seconds (to make sure the manifest is
+completely written) then fetch the MANIFEST, which will contain a list
+of filenames fetched in the feed. Those are the files you need to download.
+HTML files are first, image files last, so if you're on a bad connection
+and have trouble fetching all the images, you can kill the fetch at
+that point without losing any HTML content.
 
-Edit feedfetcher.py to point to your server.
-Then copy feedfetcher.py into sl4a/scripts/ on your Android device.
-(Or use it on a laptop or desktop.)
 
-Optional: Make a home screen shortcut for feedfetcher:
-- Hit the add icon button ("+") on the main screen.
-- Shortcut-->Scripts-->Select script-->Select foreground or background
+TESTING/DEBUGGING:
+
+Testing feedme alone is easy: you can run it directly.
+Make a backup of .cache/feedme/feedme.dat (or, if you've already run
+feedme that day, make a backup of .cache/feedme/feedme.YYMMDDday.dat
+and copy that repeatedly to feedme.dat) or use -n (--nocache).
+
+But when you need to test the whole setup, including feedfetcher,
+testing can be more difficult.
+Start by saving the cache file, as noted in the previous paragraph.
+With an appropriate cache in place, you can start feedme by using
+curl or wget to call the special url from anywhere:
+    wget "http://example.com/path/to/urlrss.cgi?xtraurls=none"
+
+So a typical debug cycle might be:
+
+On the server, as root or www-data or whoever:
+  rm -rf /var/www/feeds/$(date +'%m-%d-%a')
+  cp feedme.dat.sav /var/www/feedme/.cache/feedme.dat
+From anywhere:
+  wget --content-disposition 'http://example.com/feedme/urlrss.cgi?xtraurls=none'
+or
+  wget -O output.txt 'http://example.com/feedme/urlrss.cgi?xtraurls=none'
+
+and then, on the server,
+  tail -f /var/www/feeds/LOG
+to see feedme's progress and check for error messages.
+If LOG never appears, check /var/www/feeds/log-urlrss
+which might explain why.
+
+If you don't have shell access to the server, load
+http://example.com/feeds/
+in a browser and watch for log-urlrss, LOG and MANIFEST.
+
+If you're tailing LOG rather than watching for MANIFEST,
+feedme is finished when you see a line like:
+Renaming /var/www/feeds/LOG to /var/www/feeds/10-28-Sat/LOG
+
+
