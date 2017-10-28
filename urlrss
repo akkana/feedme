@@ -27,9 +27,14 @@ if len(sys.argv) > 1:
 else:
     devicepath = "/droidsd"
 
+# The home dir of the server -- under which we should find feeds and feedme.
+# if we're in CGI mode. Must end with a slash.
+# If not CGI mode, this isn't used.
+serverhome = '/var/www/'
+
 # Where to look for the saved URL files.
-# This will be tilde-expanded after we've ascertained whether
-# we're running from a CGI.
+# This will be tilde-expanded;
+# in CGI mode, ~ will expand to serverhome/feedme.
 urlfiles = [ "~/feeds/localurls" ]
 
 # Where to create the RSS file.
@@ -39,10 +44,6 @@ rssfile = "~/feeds/xtraurls.rss"
 # Where to save an HTML-format archive of the URLs.
 # We'll append to what's already there.
 urlarchive = "~/.cache/feedme/xtraurls.html"
-
-# The home dir of the server -- under which we should find feeds and feedme.
-# Must end with a slash.
-serverhome = '/var/www/'
 
 # The path to feedme on the web server, as seen from the www-data user.
 # If you've set serverhome you can probably leave this alone.
