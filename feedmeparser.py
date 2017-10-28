@@ -20,6 +20,14 @@ import traceback
 
 has_ununicode=True
 
+# Python3 seems to have no straightforward way to just print a
+# simple traceback without going into several levels of recursive
+# "During handling of the above exception, another exception occurred"
+# if there's anything involved that might have a nonascii character.
+def ptraceback():
+    ex_type, ex, tb = sys.exc_info()
+    print(str(traceback.format_exc(tb)), file=sys.stderr)
+
 # XXX
 # This doesn't work any more, in the Python 3 world, because everything
 # is already encoded into a unicode string before we can get here.
@@ -244,7 +252,12 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                 raise NoContentError("Skipping, skip_content_pats " + pat)
 
         outfilename = os.path.join(self.newdir, self.newname)
-        self.outfile = open(outfilename, "w")
+        # XXX Open outfile with the right encoding -- which seems to
+        # be a no-op, as we'll still get
+        # "UnicodeEncodeError: 'ascii' codec can't encode character
+        # unless we explicitly encode everything with fallbacks.
+        # So much for python3 being easier to deal with for unicode.
+        self.outfile = open(outfilename, "w", encoding=self.encoding)
         self.outfile.write("""<html>\n<head>
 <meta http-equiv="Content-Type" content="text/html; charset=%s">
 <link rel="stylesheet" type="text/css" title="Feeds" href="../../feeds.css"/>
@@ -465,7 +478,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
             print("Couldn't rewrite images in content:" + str(e),
                   file=sys.stderr)
             print("Content type:", type(content), file=sys.stderr)
-            print(traceback.format_exc(), file=sys.stderr)
+            ptraceback()
             return content
 
     def crawl_tree(self, tree):
@@ -653,7 +666,7 @@ tree = lxml.html.fromstring(html)
                         # the image, such as exceptions.IOError from
                         # [Errno 36] File name too long
                         # XXX Might want to wrap this in its own try.
-                        local_file = open(imgfilename, "w")
+                        local_file = open(imgfilename, "wb")
                         # Write to our local file
                         local_file.write(f.read())
                         local_file.close()
@@ -667,17 +680,20 @@ tree = lxml.html.fromstring(html)
 
                 # handle download errors
                 except urllib.error.HTTPError as e:
-                    print("HTTP Error:", e.code, "on", src, file=sys.stderr)
+                    print("HTTP Error on image:", e.code,
+                          "on", src, file=sys.stderr)
                     # Since we couldn't download, point instead to the
                     # absolute URL, so it will at least work with a
                     # live net connection.
                     attrs['src'] = src
                 except urllib.error.URLError as e:
-                    print("URL Error:", e.reason, "on", src, file=sys.stderr)
+                    print("URL Error on image:", e.reason,
+                          "on", src, file=sys.stderr)
                     attrs['src'] = src
                 except Exception as e:
                     print("Error downloading image:", str(e), \
                         "on", src, file=sys.stderr)
+                    ptraceback()
                     attrs['src'] = src
             else:
                 # Looks like it's probably a nonlocal image.
@@ -734,6 +750,10 @@ tree = lxml.html.fromstring(html)
             self.wrote_data = True
 
         if type(data) is str:
+            # XXXXXX This is getting:
+            # UnicodeEncodeError: 'ascii' codec can't encode character '\u2019' in position 193: ordinal not in range(128)
+            # How do we protect against that?
+            # Is there any reliable way to write str to a file in python3?
             self.outfile.write(data)
         else:
             print("Data isn't str! type =", type(data), file=sys.stderr)

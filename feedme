@@ -723,8 +723,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
     except Exception as e:
         print("Couldn't parse feed: URL:", sitefeedurl, file=sys.stderr)
         print(str(e), file=sys.stderr)
-        ex_type, ex, tb = sys.exc_info()
-        traceback.print_tb(tb)
+        feedmeparser.ptraceback()
         # print(traceback.format_exc())
         return
 
@@ -1098,7 +1097,8 @@ Which (default = s): """)
                         msglog.warn(errmsg)
                     else:
                         errmsg += "ValueError on url " + item_link + "\n"
-                        errmsg += traceback.format_exc()
+                        ex_type, ex, tb = sys.exc_info()
+                        errmsg += traceback.format_exc(tb)
                         msglog.err(errmsg)
 
                     itemnum -= 1
@@ -1315,7 +1315,7 @@ Which (default = n): """)
             msglog.err("Error writing index file! " + str(e))
             # msglog.err(str(sys.exc_info()[0]).encode('utf-8'))
             # msglog.err(str(sys.exc_info()[1]).encode('utf-8'))
-            print(traceback.format_exc(), file=sys.stderr)
+            print(traceback.format_exc(tb), file=sys.stderr)
 
         # Update the cache for this site:
         if not nocache:
@@ -1415,7 +1415,8 @@ Copyright 2017 by Akkana Peck; share and enjoy under the GPL v2 or later."
             msglog.err("Error reading cache! " + str(e))
             # msglog.err(str(sys.exc_info()[0]).encode('utf-8'))
             # msglog.err(str(sys.exc_info()[1]).encode('utf-8'))
-            print(traceback.format_exc(), file=sys.stderr)
+            ex_type, ex, tb = sys.exc_info()
+            print(traceback.format_exc(tb), file=sys.stderr)
 
             # Refuse to run: unexpectedly running a whole feedme
             # without a cache is too painful.
