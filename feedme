@@ -965,7 +965,6 @@ def get_feed(feedname, config, cache, last_time, msglog):
             else:
                 author = None
 
-
             # A parser is mostly needed for levels > 1, but even with
             # levels=1 we'll use it at the end for rewriting images
             # in the index string.
