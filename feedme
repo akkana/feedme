@@ -844,13 +844,6 @@ def get_feed(feedname, config, cache, last_time, msglog):
                         break
                 if skipping:
                     continue
-                # XXX Remove this after we've gotten WashPost skips debugged.
-                elif verbose:
-                    print(item_link, \
-                        "didn't match any of the skip patterns:",
-                          file=sys.stderr)
-                    for spat in skip_link_pats:
-                        print("   ", spat, file=sys.stderr)
 
             # How about the title? Does that match a skip pattern?
             item_title = str(item.title)
