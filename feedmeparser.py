@@ -27,8 +27,12 @@ has_ununicode=True
 # This doesn't work reliably either:
 # TypeError: unorderable types: int() < traceback() in the print line.
 def ptraceback():
-    ex_type, ex, tb = sys.exc_info()
-    print(str(traceback.format_exc(tb)), file=sys.stderr)
+    try:
+        ex_type, ex, tb = sys.exc_info()
+        print(str(traceback.format_exc(tb)), file=sys.stderr)
+    except:
+        print("******** Yikes! Exception trying to print traceback",
+              file=sys.stderr)
 
 # XXX
 # This doesn't work any more, in the Python 3 world, because everything
