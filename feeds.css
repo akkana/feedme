@@ -16,9 +16,18 @@ div.index { margin-top: 1em; margin-bottom: 1.45em; }
 tt, pre { font-size: 1.2em; }
  */
 
+img { max-width: 100%; height: auto; !important; }
+
 /* Hack to get XKCD What-If images to display.
  * They're transparent PNG, so we'd otherwise see them as black on black.
  */
-.illustration { background-color: white; }
+.illustration { background-color: white; max-width: initial; }
 
-img { max-width: 100%; height: auto; !important; }
+/* Similar for XKCD */
+#comic { background-color: white; }
+#comic img { background-color: white; max-width: initial; }
+
+/* Longreads has an annoying modal blocker on some stories */
+div[class="modal"] {
+    display: none !important;
+}
