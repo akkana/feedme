@@ -1,6 +1,9 @@
 <html>
 <head>
 <title>FeedMe: a Lightweight Feed/RSS Reader</title>
+<style type="text/css">
+  dt { font-style: italic; }
+</style>
 </head>
 <body>
 
@@ -66,55 +69,93 @@ in a section labeled <code>[DEFAULT]</code>.
 <p>
 These options apply to the whole feedme process:
 
-<pre>
+<dl>
+<dt>
   ascii
+<dd>
     Convert all pages to plain ASCII. Useful for reading devices like Palm
     that can't display other character sets reliably.
+<dt>
   dir
+<dd>
     Where to save the collected pages.
     See save_days for how long they will be kept.
+<dt>
   formats
+<dd>
     Comma-separated list of output formats.
     Default "none", which will result in HTML output.
     Other options: epub, fb2, plucker.
+<dt>
   verbose
+<dd>
     Print lots of debugging chatter while feeding.
+<dt>
   min_width
+<dd>
     The minimum number of characters in an item link. Links shorter than this
     will be padded to this length (to make tapping easier). Default 25.
+<dt>
   save_days
+<dd>
     How long to retain feeds locally.
-</pre>
+</dl>
 
 <p>
 These options can be set in the <code>[DEFAULT]</code> section
 and may be overridden for specific feeds:
 
-<pre>
+<dl>
+<dt>
   continue_on_timeout
+<dd>
     Normally, if one page times out, feedme will assume the site is down.
     On sites that link to content from many different URLs, set this
     to true.
+<dt>
   encoding
+<dd>
     Normally feedme will try to guess the encoding from the page.
     But some pages lie, so use this to override that.
+<dt>
   levels
-    Level 1: only save the RSS page.
+<dd>
+    Level 1: only save the RSS page.<br>
     Level 2: save sub-pages.
+<dt>
   nocache
+<dd>
     Don't check whether we've seen an entry before: collect everything.
+<dt>
   nonlocal_images
+<dd>
     Normally feedme will ignore images from other domains (usually ads).
     But some sites link to images from all over; set this to true in that case.
+<dt>
+  rss_entry_size
+<dd>
+    Limit RSS entries to this many characters. This is for sites that
+    put the entire story into the RSS page.
+<dt>
+  simplify
+<dd>
+    Clean up the HTML: try to remove things like text colors and sizes
+    that sometimes make stories unreadable.
+<dt>
   skip_images
+<dd>
     Don't save images. Default true.
+<dt>
   skip_links:
+<dd>
     For sites with levels=1 where you just want a single news feed and
     never want to click on anything (e.g. slashdot), this can eliminate
     distracting links that you might tap on accidentally while scrolling.
+<dt>
   url
+<dd>
     The RSS URL for the site.
-</pre>
+</dl>
 
 <h3>Defining a new feed</h3>
 <p>
@@ -140,31 +181,41 @@ and so forth. Here are some additional options you may want for
 some sites to clean up the stories and eliminate stories you
 don't want to see. All "pats" are lists of patterns (see below
 for an example).
-<pre>
-single_page_pats
+<p>
+<dl>
+<dt>single_page_pats
+<dd>
   Sites that spread stories over many pages often have a naming
   convention in their "view as single page" URLs. This is a pattern,
-  e.g. http://exmaple.com/.*single.html
+  e.g. http://exmaple.com/.*single.html. Feedme will look for
+  this pattern in a story, and if it sees it, it will follow the
+  link and use it instead of the original story link.
 
-skip_pats
+<dt>skip_pats
+<dd>
   For sites that embed annoying things in the middle of stories:
   maybe video clips, or ads, or distracting pull-quotes.
   Anything matching one of the skip_pats will be deleted from the story.
 
-skip_link_pats
+<dt>skip_link_pats
+<dd>
   Skip links with these patterns.
-skip_title_pats
+<dt>skip_title_pats
+<dd>
   Skip anything with titles containing these patterns.
-skip_content_pats
+<dt>skip_content_pats
+<dd>
   Skip anything whose content includes these patterns.
-index_skip_content_pats
+<dt>index_skip_content_pats
+<dd>
   Skip anything where the index content includes:
 
-when
+<td>when
+<dd>
   When to check this site, if not always.
   May be a weekday, e.g. Sat, or a month date, e.g. 1 to check only
   on the first day of any month.
-</pre>
+</dl>
 
 <p>
 A few options, like page_start, page_end, single_page_pats, and skip_pats,
