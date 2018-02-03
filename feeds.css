@@ -1,4 +1,6 @@
-body { 
+/* Stylesheet for feedme output read on Android phones */
+
+body {
   color: white !important;
   background: #000 !important;
   font-size: 1.1em;
@@ -12,11 +14,15 @@ a:visited { color: #ffdd00 !important; }
 div.index { margin-top: 1em; margin-bottom: 1.45em; }
 
 /* Android's default preformatted font is tiny in 1.6.
- * But it's fine in 2.3.
+ * But it's fine in 2.3 and later (until the Oct 2017 WebView bustage
+ * after which no fix seems to work).
 tt, pre { font-size: 1.2em; }
  */
 
-img { max-width: 100%; height: auto; !important; }
+/* Limit images to viewport width. High Country News wraps their img
+ * tags inside a <figure style="width:1200px"> so handle figure too.
+ */
+img, figure { max-width: 98.5%; height: auto; !important; }
 
 /* Hack to get XKCD What-If images to display.
  * They're transparent PNG, so we'd otherwise see them as black on black.
