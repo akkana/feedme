@@ -800,7 +800,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
             # Make sure the id is a string; most of these components
             # inside item are bytes.
             # XXX Is href[] ever even used? Is this clause obsolete?
-            # Answer: no, at least A Word A Day uses it.
+            # Answer: not obsolete, at least A Word A Day uses it.
             # But sometimes this clause will be triggered on a site
             # that doesn't have "links" in its RSS source
             # (e.g. Washington Post), which then won't have href either.
@@ -815,7 +815,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
             if 'id' in item:
                 item_id = str(item.id)
                 if verbose:
-                    print("ID %s" % item_id, file=sys.stderr)
+                    print("\nID %s" % item_id, file=sys.stderr)
             elif href:
                 item_id = str(href[0])
                 if verbose:
@@ -879,10 +879,23 @@ def get_feed(feedname, config, cache, last_time, msglog):
             # See if we've already seen this page:
             try:
                 pagenum = suburls.index(item_id)
-                # We've already seen a link to this URL. It's probably
-                # a link to a different named anchor within the same file.
+                # We've already seen a link to this URL.
+                # That could mean it's a link to a different named anchor
+                # within the same file, or it could mean that it's just
+                # a duplicate (see below).
             except ValueError:
                 pagenum = None
+
+            # Is it a duplicate story that we've already seen in this run?
+            # Some sites, like Washington Post, repeat the same stories
+            # multiple times on their RSS feed, but stories won't be
+            # added to our real feedcache until we've succeeded in
+            # fetching the whole site. So check the temporary cache.
+            if newfeedcache and item_id in newfeedcache:
+                if verbose:
+                    print("%s repeated -- skipping" % item_id,
+                          file=sys.stderr)
+                continue
 
             if not pagenum:
                 # Haven't seen it yet this run. But is it in the cache already?
