@@ -26,6 +26,12 @@ applicable to all feeds:
   ascii
     Convert all pages to plain ASCII. Useful for reading devices like Palm
     that can't display other character sets reliably.
+  block_nonlocal_images
+    If images aren't downloaded, normally the img tag will still point
+    to the image on the original website. But that can result in unwanted
+    data use: people with limited or metered bandwidth can set this to True
+    to remove the original image URL so it can't be downloaded when the
+    story is viewed.
   dir
     Where to save the collected pages.
     See save_days for how long they will be kept.
@@ -758,7 +764,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
         if sitefeedurl not in cache:
             cache[sitefeedurl] = []
         feedcache = cache[sitefeedurl]
-        newfeedcache = []
+    newfeedcache = []
 
     # suburls: mapping of URLs we've encountered to local URLs.
     # Any anchors (#anchor) will be discarded.

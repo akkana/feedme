@@ -626,12 +626,38 @@ tree = lxml.html.fromstring(html)
             req = urllib.request.Request(src)
             req.add_header('User-Agent', self.user_agent)
 
-            # For now, only fetch images that come from the HTML's host:
+            # Should we only fetch images that come from the HTML's host?
+            # Should we rewrite images that come from elsewhere,
+            # to avoid unwanted data use?
             try:
                 nonlocal_images = self.config.getboolean(self.feedname,
                                                          'nonlocal_images')
             except:
                 nonlocal_images = False
+
+            try:
+                block_nonlocal = self.config.getboolean(self.feedname,
+                                                        'block_nonlocal_images')
+            except:
+                block_nonlocal = False
+
+            # If we can't or won't download an image, what should
+            # we replace it with?
+            alt_srcset = None
+            if block_nonlocal:
+                print("Using bogus image source for nonlocal images",
+                      file=sys.stderr)
+                alt_src = 'file:///nonexistant'
+                if 'srcset' in list(attrs.keys()):
+                    alt_srcset = 'file:///nonexistant'
+                # XXX Would be nice, in this case, to put a link around
+                # the image so the user could tap on it if they wanted
+                # to see it, at least if it isn't already inside a link.
+                # That would be easy in BeautifulSoup but it's hard
+                # with this start/end tag model.
+            else:
+                alt_src = src
+
             if nonlocal_images or self.same_host(req.host, self.host):
                 # base = os.path.basename(src)
                 # For now, don't take the basename; we want to know
@@ -691,22 +717,35 @@ tree = lxml.html.fromstring(html)
                     # Since we couldn't download, point instead to the
                     # absolute URL, so it will at least work with a
                     # live net connection.
-                    attrs['src'] = src
+                    attrs['src'] = alt_src
+                    if alt_srcset:
+                        attrs['srcset'] = alt_srcset
                 except urllib.error.URLError as e:
                     print("URL Error on image:", e.reason,
                           "on", src, file=sys.stderr)
-                    attrs['src'] = src
+                    attrs['src'] = alt_src
+                    if alt_srcset:
+                        attrs['srcset'] = alt_srcset
                 except Exception as e:
                     print("Error downloading image:", str(e), \
                         "on", src, file=sys.stderr)
                     ptraceback()
-                    attrs['src'] = src
+                    attrs['src'] = alt_src
+                    if alt_srcset:
+                        attrs['srcset'] = alt_srcset
             else:
                 # Looks like it's probably a nonlocal image.
                 # Possibly this could be smarter about finding similar domains,
                 # or having a list of allowed image domains.
                 print(req.host, "and", self.host,
                       "are too different -- not fetching", file=sys.stderr)
+                # But that means we're left with a nonlocal image in the source.
+                # That could mean unwanted data use to fetch the image
+                # when viewing the file. So remove the image tag and
+                # replace it with a link.
+                attrs['src'] = alt_src
+                if alt_srcset:
+                    attrs['srcset'] = alt_srcset
 
         # Now we've done any needed processing to the tag and its attrs.
         # t's time to write them to the output file.
@@ -944,6 +983,7 @@ def read_config_file():
                            'save_days' : '7',
                            'skip_images' : 'true',
                            'nonlocal_images' : 'false',
+                           'block_nonlocal_images' : 'false',
                            'skip_links' : 'false',
                            'when' : '',  # Day, like tue, or month-day, like 14
                            'min_width' : '25', # min # chars in an item link
