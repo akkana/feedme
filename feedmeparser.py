@@ -627,19 +627,19 @@ tree = lxml.html.fromstring(html)
             req.add_header('User-Agent', self.user_agent)
 
             # Should we only fetch images that come from the HTML's host?
-            # Should we rewrite images that come from elsewhere,
-            # to avoid unwanted data use?
             try:
                 nonlocal_images = self.config.getboolean(self.feedname,
                                                          'nonlocal_images')
             except:
                 nonlocal_images = False
 
+            # Should we rewrite images that come from elsewhere,
+            # to avoid unwanted data use?
             try:
                 block_nonlocal = self.config.getboolean(self.feedname,
                                                         'block_nonlocal_images')
             except:
-                block_nonlocal = False
+                block_nonlocal = True
 
             # If we can't or won't download an image, what should
             # we replace it with?
