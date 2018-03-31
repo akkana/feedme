@@ -132,6 +132,20 @@ and may be overridden for specific feeds:
     Normally feedme will ignore images from other domains (usually ads).
     But some sites link to images from all over; set this to true in that case.
 <dt>
+  block_nonlocal
+<dd>
+    If we're not allowing nonlocal images, setting block_nonlocal to true
+    will rewrite the img src attribute of all nonlocal images.
+    This will cause some "broken images" tags to show.
+    Use it if you're on a fixed data plan and don't want to incur
+    extra data charges downloading images while reading stories.
+    Default false.
+<dt>
+  max_srcset_size
+<dd>
+  On sites that use <i>srcset</i> for their images, how big do we want
+  them to think our screen is? Integer, default 800.
+<dt>
   rss_entry_size
 <dd>
     Limit RSS entries to this many characters. This is for sites that

@@ -613,8 +613,48 @@ tree = lxml.html.fromstring(html)
                 attrs['href'] = self.make_absolute(href)
             #print "a attrs now are", attrs
 
-        elif tag == 'img' and 'src' in list(attrs.keys()):
-            src = attrs['src']
+        elif tag == 'img':
+            keys = list(attrs.keys())
+            # Handle both src and srcset.
+            if 'src' in keys:
+                src = attrs['src']
+            else:
+                src = None
+            if 'srcset' in keys:
+                # srcset="http://site/img1.jpg 1024w,
+                #         http://site/img1.jpg 150w, ..."
+                # If there's a srcset, pick the largest one that's still
+                # under max_srcset_size, and set src to that.
+                # That's what we'll try to download.
+                try:
+                    maximgwidth = int(self.config.get(self.feedname,
+                                                      'max_srcset_size'))
+                except:
+                    maximgwidth = 800
+                try:
+                    curwidth = 0
+                    srcset = [ x.strip().split(' ')
+                               for x in attrs['srcset'].split(',') ]
+                    for pair in srcset:
+                        w = pair[1].strip().lower()
+                        if not w.endswith('w'):
+                            continue
+                        w = int(w[:-1])
+                        if w > curwidth and w <= maximgwidth:
+                            curwidth = w
+                            curimg = pair[0].strip()
+                            print("Using '%s' at width %d" % (curimg, curwidth),
+                                  file=sys.stderr)
+                    if curimg:
+                        src = curimg
+                        del attrs['srcset']
+                except:
+                    print("Exception parsing srcset:", e.code,
+                          attrs['srcset'], file=sys.stderr)
+
+            if not src and not srcset:
+                # Don't do anything to this image, it has no src or srcset
+                return
 
             # Make relative URLs absolute
             src = self.make_absolute(src)
@@ -639,7 +679,7 @@ tree = lxml.html.fromstring(html)
                 block_nonlocal = self.config.getboolean(self.feedname,
                                                         'block_nonlocal_images')
             except:
-                block_nonlocal = True
+                block_nonlocal = False
 
             # If we can't or won't download an image, what should
             # we replace it with?
@@ -648,7 +688,7 @@ tree = lxml.html.fromstring(html)
                 print("Using bogus image source for nonlocal images",
                       file=sys.stderr)
                 alt_src = 'file:///nonexistant'
-                if 'srcset' in list(attrs.keys()):
+                if 'srcset' in list(attrs.keys()): # Shouldn't happen
                     alt_srcset = 'file:///nonexistant'
                 # XXX Would be nice, in this case, to put a link around
                 # the image so the user could tap on it if they wanted
