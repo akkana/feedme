@@ -9,6 +9,8 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QToolBar, QTabWidget, \
     QAction, QStatusBar, QProgressBar, QShortcut
 
 import sys, os
+import posixpath
+import shutil
 
 import quickbrowse
 
@@ -28,10 +30,19 @@ class FeedViewerWindow(quickbrowse.BrowserWindow):
         super(FeedViewerWindow, self).__init__(*args, **kwargs)
 
         self.cur_feed = None
-        self.cur_page = None
+        self.cur_url = None
         self.last_url = None
 
         self.urlbar = DummyURLbar()
+
+        # FeedViewer should remember where it was, but for now,
+        # always start on the feed page.
+        # We need to load something here, so quickbrowse will call new_tab
+        # and give us self.webviews[0] so we can set up events.
+        self.feed_page()
+
+        self.webviews[0].urlChanged.connect(self.url_changed)
+        self.webviews[0].loadFinished.connect(self.load_finished)
 
     def init_chrome(self):
         self.setWindowTitle("FeedViewer")
@@ -66,11 +77,11 @@ class FeedViewerWindow(quickbrowse.BrowserWindow):
         btn_act.triggered.connect(self.go_forward)
         toolbar.addAction(btn_act)
 
-        self.tabwidget = QTabWidget()
         self.webviews = []
 
+        self.tabwidget = QTabWidget()
+        self.tabwidget.setTabBarAutoHide(True)
         self.setCentralWidget(self.tabwidget)
-
         self.tabwidget.tabBar().installEventFilter(self)
         self.prev_middle = -1
         self.active_tab = 0
@@ -89,23 +100,6 @@ class FeedViewerWindow(quickbrowse.BrowserWindow):
         QShortcut("Alt+Left", self, activated=self.go_back)
         QShortcut("Alt+Right", self, activated=self.go_forward)
 
-    # Intercept quickbrowse's new_tab so that for the first tab,
-    # we can intercept the BrowserView's url_changed.
-    def new_tab(self, url=None):
-        # Is it the first tab?
-        not_first_tab = (len(self.webviews) > 0)
-
-        super(FeedViewerWindow, self).new_tab(url)
-
-        if not_first_tab:
-            return
-
-        webview = self.webviews[0]
-        webview.urlChanged.connect(self.url_changed)
-        webview.loadFinished.connect(self.load_finished)
-
-        print("First tab: connecting")
-
     def go_back(self):
         self.webviews[self.active_tab].back()
 
@@ -116,7 +110,7 @@ class FeedViewerWindow(quickbrowse.BrowserWindow):
         '''Load the top-level page showing feeds available.'''
 
         self.cur_feed = None
-        self.cur_page = None
+        self.cur_url = None
 
         html = ''
 
@@ -128,7 +122,9 @@ class FeedViewerWindow(quickbrowse.BrowserWindow):
             day_feeds_html = ''
 
             # Loop over directories in the day dir, which should be feeds:
-            for f in os.listdir(full_d):
+            dayfeeds = os.listdir(full_d)
+            dayfeeds.sort()
+            for f in dayfeeds:
                 full_f = os.path.join(full_d, f)
                 if not os.path.isdir(full_f):
                     continue
@@ -149,24 +145,29 @@ class FeedViewerWindow(quickbrowse.BrowserWindow):
         html = '''<html>
 <head>
 <title>Feeds</title>
-<link rel="stylesheet" type="text/css" title="Feeds" href="feeds.css">
+<link rel="stylesheet" type="text/css" title="Feeds" href="file://%s/feeds.css">
 </head>
 <body>
 %s
 </body>
 </html>
-''' % (html)
+''' % (self.feed_dir, html)
 
-        print("html:", html)
-        print("Feed dir:", self.feed_dir)
-        print("base:", 'file://' + self.feed_dir)
+        # print("html:", html)
+        # print("Feed dir:", self.feed_dir)
+        # print("base:", 'file://' + self.feed_dir)
         self.load_html(html, 'file://' + self.feed_dir)
 
     def delete_feed(self):
-        print("Can't delete feed yet")
+        thisfeeddir = posixpath.join(self.feed_dir, self.cur_feed)
+        print("deleting", thisfeeddir)
+        shutil.rmtree(thisfeeddir)
+        self.feed_page()
 
     def table_of_contents(self):
-        print("Can't go to table of contents yet")
+        self.load_url('file://' + posixpath.join(self.feed_dir,
+                                                 self.cur_feed,
+                                                 "index.html"))
 
     def reload(self):
         self.webviews[self.active_tab].reload()
@@ -177,25 +178,32 @@ class FeedViewerWindow(quickbrowse.BrowserWindow):
             return None
 
         path = url.path()
+        print("whichfeed", path)
         if not path.startswith(self.feed_dir):
             return None
-
         path = path[len(self.feed_dir) + 1:]
-        return path.split('/')[0]
+        if not path:
+            return None
+
+        splitpath = path.split('/')
+        if len(splitpath) < 2:
+            print("Yikes, splitpath has too few components:", splitpath)
+            return splitpath[0]
+        return splitpath[0] + '/' + splitpath[1]
 
     #
     # Slots, in addition to what the parent BrowserWindow class registers:
     #
 
     def url_changed(self, url):
-        print("FeedmeView URL changed", url)
+        # print("FeedmeView URL changed", url)
         self.last_url = url
 
     def load_finished(self, ok):
-        print("FeedmeView load finished", ok)
+        # print("FeedmeView load finished", ok)
         if ok and self.last_url:
-            self.cur_page = self.last_url
-            self.cur_feed = self.whichfeed(self.cur_page)
+            self.cur_url = self.last_url
+            self.cur_feed = self.whichfeed(self.cur_url)
         self.last_url = None
 
 
@@ -207,12 +215,8 @@ if __name__ == '__main__':
 
     app = QApplication(sys.argv)
 
-    win = FeedViewerWindow(width=600, height=800)
+    win = FeedViewerWindow(width=500, height=700)
 
     win.show()
-
-    # FeedViewer should remember where it was, but for now,
-    # always start on the feed page:
-    win.feed_page()
 
     app.exec()
