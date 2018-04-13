@@ -632,6 +632,7 @@ tree = lxml.html.fromstring(html)
                 except:
                     maximgwidth = 800
                 try:
+                    curimg = None
                     curwidth = 0
                     srcset = [ x.strip().split(' ')
                                for x in attrs['srcset'].split(',') ]
@@ -648,7 +649,7 @@ tree = lxml.html.fromstring(html)
                     if curimg:
                         src = curimg
                         del attrs['srcset']
-                except:
+                except Exception as e:
                     print("Exception parsing srcset:", e.code,
                           attrs['srcset'], file=sys.stderr)
 
