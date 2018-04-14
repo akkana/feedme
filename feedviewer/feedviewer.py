@@ -44,6 +44,10 @@ class FeedViewerWindow(quickbrowse.BrowserWindow):
         self.webviews[0].urlChanged.connect(self.url_changed)
         self.webviews[0].loadFinished.connect(self.load_finished)
 
+        # To get scroll position we need a QWebEnginePage.
+        webpage = self.webviews[0].page()
+        webpage.scrollPositionChanged.connect(self.scroll_position_changed)
+
     def init_chrome(self):
         self.setWindowTitle("FeedViewer")
 
@@ -206,6 +210,15 @@ class FeedViewerWindow(quickbrowse.BrowserWindow):
             self.cur_feed = self.whichfeed(self.cur_url)
         self.last_url = None
 
+    def scroll_position_changed(self, position):
+        print("Scroll position changed:", position)
+        print("Page says", self.webviews[0].page().scrollPosition())
+        # Happily, these are the same. They seem to be in pixels.
+        print("Contents size", self.webviews[0].page().contentsSize())
+
+        # If this doesn't work out, there are also apparently
+        # ways of getting scroll pos from JS. See _update_pos() in
+        # qutebrowser/qutebrowser/browser/webengine/webenginetab.py
 
 if __name__ == '__main__':
     # # Return control to the shell before creating the window:
