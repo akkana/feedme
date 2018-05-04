@@ -652,6 +652,8 @@ tree = lxml.html.fromstring(html)
                 except Exception as e:
                     print("Exception parsing srcset:", e.code,
                           attrs['srcset'], file=sys.stderr)
+            else:
+                srcset = None
 
             if not src and not srcset:
                 # Don't do anything to this image, it has no src or srcset
