@@ -97,6 +97,12 @@ import email.utils as email_utils
 # Our module for parsing HTML inside feeds:
 import feedmeparser
 
+# We'll use XDG for the config and cache directories if it's available
+try:
+    import xdg.BaseDirectory
+except:
+    pass
+
 #
 # Clean up old feed directories
 #
@@ -466,9 +472,13 @@ class FeedmeCache(object):
     @staticmethod
     def get_cache_dir():
         if 'XDG_CACHE_HOME' in os.environ:
-            return os.path.join(os.environ['XDG_CACHE_HOME'], 'feedme')
+            cachehome = os.environ['XDG_CACHE_HOME']
+        elif 'xdg.BaseDirectory' in sys.modules:
+            cachehome = xdg.BaseDirectory.xdg_cache_home
+        else:
+            cachehome = feedmeparser.sub_tilde('~/.cache')
 
-        return os.path.join(feedmeparser.sub_tilde('~/.cache'), 'feedme')
+        return os.path.join(cachehome, 'feedme')
 
     @staticmethod
     def newcache():

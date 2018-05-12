@@ -18,6 +18,12 @@ import io
 import gzip
 import traceback
 
+# We'll use XDG for the config and cache directories if it's available
+try:
+    import xdg.BaseDirectory
+except:
+    pass
+
 has_ununicode=True
 
 # Python3 seems to have no straightforward way to just print a
@@ -986,9 +992,13 @@ def read_config_file():
     # Read the config file
     #
     if 'XDG_CONFIG_HOME' in os.environ:
-        confdir = os.path.join(os.environ['XDG_CONFIG_HOME'], 'feedme')
+        confighome = os.environ['XDG_CONFIG_HOME']
+    elif 'xdg.BaseDirectory' in sys.modules:
+        confighome = xdg.BaseDirectory.xdg_config_home
     else:
-        confdir = os.path.join(os.environ['HOME'], '.config', 'feedme')
+        confighome = os.path.join(os.environ['HOME'], '.config')
+
+    confdir = os.path.join(confighome, 'feedme')
 
     main_conf_file = 'feedme.conf'
     conffile = os.path.join(confdir, main_conf_file)
