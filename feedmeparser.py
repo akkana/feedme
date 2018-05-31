@@ -43,8 +43,8 @@ def ptraceback():
 # XXX
 # This doesn't work any more, in the Python 3 world, because everything
 # is already encoded into a unicode string before we can get here.
-# If we ever need to go back and support ununicode or re-coding,
-# We'll have to revisit this.
+# If I ever need to go back and support ununicode or re-coding,
+# I'll have to revisit this.
 
 # try:
 #     import ununicode
@@ -129,6 +129,7 @@ class FeedmeURLDownloader(object):
         if ctype and ctype != '' and not ctype.startswith("text") \
            and not ctype.startswith("application/rss") \
            and not ctype.startswith("application/xml") \
+           and not ctype.startswith("application/x-rss+xml") \
            and not ctype.startswith("application/atom+xml"):
             print(url, "isn't text -- content-type was", \
                 ctype, ". Skipping.", file=sys.stderr)
@@ -493,6 +494,52 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
             ptraceback()
             return content
 
+    # The srcset spec is here:
+    # http://w3c.github.io/html/semantics-embedded-content.html#element-attrdef-img-srcset
+    # https://html.spec.whatwg.org/multipage/images.html#srcset-attribute
+    # A simple version is easy:
+    # srcset="http://site/img1.jpg 1024w,
+    #         http://site/img1.jpg 150w, ..."
+    # but some sites, like Wired, embed commas inside their
+    # image URLs. Since the spaces aren't required, that
+    # makes the w and the comma the only way to parse it,
+    # and w and comma are both legal URL characters.
+    #
+    # The key is: "If an image candidate string contains no descriptors
+    # and no ASCII whitespace after the URL, the following image candidate
+    # string, if there is one, must begin with one or more ASCII whitespace."
+    # so basically, a comma that's separating image descriptors
+    # either has to have a space after it, or a w or x before it.
+    def parse_srcset(self, srcset_attr):
+        '''Parse a SRCSET attribute inside an IMG tag.
+           Return a list of pairs [(img_url, descriptor), ...]
+           where the descriptor is a resolution ending in w (pixel width)
+           or x (pixel density).
+        '''
+        commaparts = srcset_attr.split(',')
+        parts = []
+        for part in commaparts:
+            # First, might we be continuing an image URL from the previous part?
+            # That's the case if the previous part lacked a descriptor
+            # and this part doesn't start with a space.
+            if not part.startswith(' ') and parts and not parts[-1][1]:
+                part = parts.pop(-1)[0] + ',' + part
+
+            # Does this part have a descriptor?
+            match = re.search(' *[0-9]+[wx]$', part)
+            if match:
+                matched = match.group()
+                parts.append((part[0:-len(matched)].strip(), matched.strip()))
+            else:
+                # Possibly shouldn't strip this, in case there's a
+                # continuation (this might only be the first part of
+                # an image URL, before a comma) and the URL might have
+                # a space in it. But since spaces in URLs are illegal,
+                # let's hope for now that no one does that.
+                parts.append((part.strip(), None))
+
+        return parts
+
     def crawl_tree(self, tree):
         """For testing:
 import lxml.html
@@ -627,8 +674,7 @@ tree = lxml.html.fromstring(html)
             else:
                 src = None
             if 'srcset' in keys:
-                # srcset="http://site/img1.jpg 1024w,
-                #         http://site/img1.jpg 150w, ..."
+                # The intent here:
                 # If there's a srcset, pick the largest one that's still
                 # under max_srcset_size, and set src to that.
                 # That's what we'll try to download.
@@ -637,14 +683,22 @@ tree = lxml.html.fromstring(html)
                                                       'max_srcset_size'))
                 except:
                     maximgwidth = 800
-                try:
+
+                srcset = self.parse_srcset(attrs['srcset'])
+                if srcset:
                     curimg = None
                     curwidth = 0
-                    srcset = [ x.strip().split(' ')
-                               for x in attrs['srcset'].split(',') ]
                     for pair in srcset:
                         w = pair[1].strip().lower()
                         if not w.endswith('w'):
+                            # It probably ends in x and is a resolution-based
+                            # descriptor. We don't handle those yet,
+                            # but just in case we don't see any width-based
+                            # ones, let's save the image.
+                            if not curimg:
+                                curimg = pair[0].strip()
+                            print("srcset non-width descriptor '%s" % w,
+                                  file=sys.stderr)
                             continue
                         w = int(w[:-1])
                         if w > curwidth and w <= maximgwidth:
@@ -655,9 +709,6 @@ tree = lxml.html.fromstring(html)
                     if curimg:
                         src = curimg
                         del attrs['srcset']
-                except Exception as e:
-                    print("Exception parsing srcset:", e.code,
-                          attrs['srcset'], file=sys.stderr)
             else:
                 srcset = None
 
