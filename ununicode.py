@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python2
 
 # Ununicode.toascii(): convert perfectly good unicode or utf-8
 # strings to puny pathetic plain ascii.
@@ -43,8 +43,8 @@ def toascii(line, errfilename = None, in_encoding = 'utf-8'):
         if strstart < 0 : strstart = 0
         strend = end + contextsize
         if strend > unilen : strend = unilen
-        print(msg, ":", \
-            uni[strstart:strend].encode('ascii', 'backslashreplace'), file=errfile[0])
+        print >> errfile, msg, ":", \
+            uni[strstart:strend].encode('ascii', 'backslashreplace')
 # [ u for u in uni[start:end]]
 
     output = ''
