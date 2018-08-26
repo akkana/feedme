@@ -950,7 +950,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
                         # for the cache, skip it with a warning.
                         days = int(config.get('DEFAULT', 'save_days'))
                         too_old = time.time() - days * 60 * 60 * 24
-                        if pub_date <= too_old:
+                        if pub_date <= too_old and not nocache:
                             msglog.warn("%s is so old (%s) it's expired from the cache -- skipping" \
                                         % (item_id, str(item.published)))
                             # XXX Remove from suburls?
