@@ -1024,6 +1024,14 @@ tree = lxml.html.fromstring(html)
         if tag == 'font':
             return True
 
+        # <link rel="stylesheet" isn't always in the head.
+        # Undark puts them at the end of the document but they still
+        # apply to the whole document, making text unreadable.
+        # I don't know of any other legitimate uses for <link>
+        # so let's just remove them all.
+        if tag == 'link':
+            return True
+
         return False
 
 def sub_tilde(name):
