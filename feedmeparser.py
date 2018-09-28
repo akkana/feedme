@@ -245,7 +245,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
 
         # Do we need to do any substitution on the URL first?
         urlsub = get_config_multiline(self.config, self.feedname,
-                                           'url_substitute')
+                                      'url_substitute')
         if urlsub:
             print("Substituting", urlsub[0], "to", urlsub[1], file=sys.stderr)
             print("Rewriting:", url, file=sys.stderr)
@@ -259,7 +259,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
 
         # Does it contain any of skip_content_pats anywhere? If so, bail.
         skip_content_pats = get_config_multiline(self.config, self.feedname,
-                                              'skip_content_pats')
+                                                 'skip_content_pats')
         for pat in skip_content_pats:
             if re.search(pat, html):
                 raise NoContentError("Skipping, skip_content_pats " + pat)
@@ -758,7 +758,10 @@ tree = lxml.html.fromstring(html)
             else:
                 alt_src = src
 
-            if nonlocal_images or self.same_host(req.host, self.host):
+            alt_domains = get_config_multiline(self.config, self.feedname,
+                                               'alt_domains')
+            if nonlocal_images or self.similar_host(req.host, self.host,
+                                                    alt_domains):
                 # base = os.path.basename(src)
                 # For now, don't take the basename; we want to know
                 # if images are unique, and the basename alone
@@ -835,8 +838,6 @@ tree = lxml.html.fromstring(html)
                         attrs['srcset'] = alt_srcset
             else:
                 # Looks like it's probably a nonlocal image.
-                # Possibly this could be smarter about finding similar domains,
-                # or having a list of allowed image domains.
                 print(req.host, "and", self.host,
                       "are too different -- not fetching", file=sys.stderr)
                 # But that means we're left with a nonlocal image in the source.
@@ -908,6 +909,17 @@ tree = lxml.html.fromstring(html)
     #         #print "Skipping entityref"
     #         return
     #     self.outfile.write('&' + name + ';')
+
+    def similar_host(self, host1, host2, alt_domains):
+        """Are two hosts close enough for the purpose of downloading images?
+           Or is host1 close to anything in alt_domains?
+        """
+        if self.same_host(host1, host2):
+            return True
+        for d in alt_domains:
+            if self.same_host(host1, d):
+                return True
+        return False
 
     def same_host(self, host1, host2):
         """Are two hosts close enough for the purpose of downloading images?"""
@@ -1089,6 +1101,9 @@ def read_config_file():
                            'skip_content_pats' : '',
                            # Skip anything where the index content includes:
                            'index_skip_content_pats' : '',
+
+                           # acceptable alternate sources for images:
+                           'alt_domains' : '',
 
                            'nocache' : 'false',
                            'logfile' : '',

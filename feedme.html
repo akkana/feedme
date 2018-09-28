@@ -197,6 +197,15 @@ don't want to see. All "pats" are lists of patterns (see below
 for an example).
 <p>
 <dl>
+<dt>alt_domains
+<dd>
+  Normally, feedme will only fetch images from the same domain
+  as the site being read, and if nonlocal_images is set, it will
+  replace all other images with a dummy image.
+  alt_domains specifies a list of domains that are acceptable sources
+  of images for a given site, for sites that host images somewhere other
+  than their normal domain.
+
 <dt>single_page_pats
 <dd>
   Sites that spread stories over many pages often have a naming
@@ -232,7 +241,8 @@ for an example).
 </dl>
 
 <p>
-A few options, like page_start, page_end, single_page_pats, and skip_pats,
+A few options, like alt_domains,
+page_start, page_end, single_page_pats, and skip_pats,
 can specify multiple patterns. Specify them by putting them on separate
 lines (whitespace at the beginning is optional and ignored):
 <pre>
