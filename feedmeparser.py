@@ -64,7 +64,7 @@ def ptraceback():
 #     else:
 #         return s
 
-VersionString = "FeedMe 1.0b4"
+VersionString = "FeedMe 1.0b5"
 
 def get_config_multiline(config, feedname, configname):
     configlines = config.get(feedname, configname)
@@ -467,7 +467,8 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                         except KeyError:
                             pass
                         if self.verbose:
-                            print("Removing img", e.attrib['src'], file=sys.stderr)
+                            print("Removing img", e.attrib['src'],
+                                  file=sys.stderr)
                         e.drop_tree()
                     # img src wasn't in e.keys, or remapping it
                     # didn't result in the right attribute.
@@ -678,6 +679,7 @@ tree = lxml.html.fromstring(html)
                 # If there's a srcset, pick the largest one that's still
                 # under max_srcset_size, and set src to that.
                 # That's what we'll try to download.
+                # Then remove the srcset attribute.
                 try:
                     maximgwidth = int(self.config.get(self.feedname,
                                                       'max_srcset_size'))
@@ -686,35 +688,45 @@ tree = lxml.html.fromstring(html)
 
                 srcset = self.parse_srcset(attrs['srcset'])
                 if srcset:
-                    curimg = None
-                    curwidth = 0
-                    for pair in srcset:
-                        w = pair[1].strip().lower()
-                        if not w.endswith('w'):
-                            # It probably ends in x and is a resolution-based
-                            # descriptor. We don't handle those yet,
-                            # but just in case we don't see any width-based
-                            # ones, let's save the image.
-                            if not curimg:
+                    try:
+                        curimg = None
+                        curwidth = 0
+                        for pair in srcset:
+                            w = pair[1].strip().lower()
+                            if not w.endswith('w'):
+                                # It probably ends in x and is a resolution-based
+                                # descriptor. We don't handle those yet,
+                                # but just in case we don't see any width-based
+                                # ones, let's save the image.
+                                if not curimg:
+                                    curimg = pair[0].strip()
+                                print("srcset non-width descriptor '%s" % w,
+                                      file=sys.stderr)
+                                continue
+                            w = int(w[:-1])
+                            if w > curwidth and w <= maximgwidth:
+                                curwidth = w
                                 curimg = pair[0].strip()
-                            print("srcset non-width descriptor '%s" % w,
-                                  file=sys.stderr)
-                            continue
-                        w = int(w[:-1])
-                        if w > curwidth and w <= maximgwidth:
-                            curwidth = w
-                            curimg = pair[0].strip()
-                            print("Using '%s' at width %d" % (curimg, curwidth),
-                                  file=sys.stderr)
-                    if curimg:
-                        src = curimg
-                        del attrs['srcset']
-            else:
-                srcset = None
+                                print("Using '%s' at width %d" % (curimg, curwidth),
+                                      file=sys.stderr)
+                        if curimg:
+                            src = curimg
+                    except:
+                        # Wired sometimes has srcset with just a single url
+                        # that's the same as the src=. In that case it
+                        # wouldn't do us any good anyway.
+                        # And there are all sorts of nutty and random things
+                        # sites do with srcset.
+                        print("Error parsing srcset: %s" % attrs['srcset'],
+                              file=sys.stderr)
+                        pass
 
-            if not src and not srcset:
+            if not src:
                 # Don't do anything to this image, it has no src or srcset
                 return
+
+            if 'srcset' in keys:
+                del attrs['srcset']
 
             # Make relative URLs absolute
             src = self.make_absolute(src)
@@ -743,13 +755,10 @@ tree = lxml.html.fromstring(html)
 
             # If we can't or won't download an image, what should
             # we replace it with?
-            alt_srcset = None
             if block_nonlocal:
                 print("Using bogus image source for nonlocal images",
                       file=sys.stderr)
                 alt_src = 'file:///nonexistant'
-                if 'srcset' in list(attrs.keys()): # Shouldn't happen
-                    alt_srcset = 'file:///nonexistant'
                 # XXX Would be nice, in this case, to put a link around
                 # the image so the user could tap on it if they wanted
                 # to see it, at least if it isn't already inside a link.
@@ -795,7 +804,8 @@ tree = lxml.html.fromstring(html)
 
                 try:
                     if not os.path.exists(imgfilename):
-                        print("Fetching", src, "to", imgfilename, file=sys.stderr)
+                        print("Fetching image", src, "to", imgfilename,
+                              file=sys.stderr)
                         f = urllib.request.urlopen(req)
                         # Lots of things can go wrong with downloading
                         # the image, such as exceptions.IOError from
@@ -821,32 +831,25 @@ tree = lxml.html.fromstring(html)
                     # absolute URL, so it will at least work with a
                     # live net connection.
                     attrs['src'] = alt_src
-                    if alt_srcset:
-                        attrs['srcset'] = alt_srcset
                 except urllib.error.URLError as e:
                     print("URL Error on image:", e.reason,
                           "on", src, file=sys.stderr)
                     attrs['src'] = alt_src
-                    if alt_srcset:
-                        attrs['srcset'] = alt_srcset
                 except Exception as e:
                     print("Error downloading image:", str(e), \
                         "on", src, file=sys.stderr)
                     ptraceback()
                     attrs['src'] = alt_src
-                    if alt_srcset:
-                        attrs['srcset'] = alt_srcset
             else:
                 # Looks like it's probably a nonlocal image.
                 print(req.host, "and", self.host,
-                      "are too different -- not fetching", file=sys.stderr)
+                      "are too different -- not fetching image",
+                      file=sys.stderr)
                 # But that means we're left with a nonlocal image in the source.
                 # That could mean unwanted data use to fetch the image
                 # when viewing the file. So remove the image tag and
                 # replace it with a link.
                 attrs['src'] = alt_src
-                if alt_srcset:
-                    attrs['srcset'] = alt_srcset
 
         # Now we've done any needed processing to the tag and its attrs.
         # t's time to write them to the output file.

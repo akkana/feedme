@@ -7,8 +7,8 @@
 </head>
 <body>
 
-<img align=right src="feedme.jpg" width=350 height=290 border=0
- alt="[Yum, RSS!]">
+<img align=right src="http://shallowsky.com/software/feedme/feedme.jpg"
+ width=350 height=290 border=0 alt="[Yum, RSS!]">
 
 <h1>FeedMe: a Lightweight Feed/RSS reader</h1>
 
@@ -25,11 +25,12 @@ such as Epub, FB2, Plucker or plain text for devices that can't handle HTML.
 <p>
 <b>Download:</b>
 FeedMe is now maintained on <a href="https://github.com/akkana/feedme">GitHub:
-FeedMe</a>. It's currently at 1.0b3.
+FeedMe</a>. It's currently at 1.0b5.
 
 <p>
-You will need Python, and python's feedparser module (on Ubuntu or Arch,
-that's the package <i>python-feedparser</i>) and lxml (package python-lxml).
+You will need Python 3, python's feedparser module (on Ubuntu or Debian,
+that's the package <i>python3-feedparser</i>) and lxml (package python3-lxml).
+Of course you can also install feedparser and lxml from PyPI if you prefer.
 
 <p>
 I know there are lots of other RSS readers -- but they all seem
@@ -40,6 +41,8 @@ readable, simple format that displays well on a small screen, without
 images and tables and stylesheets and javascript and all that other
 HTML cruft, and in a self-contained way so I can read it without
 needing a net connection or using up data allocation.
+You may remember older Palm apps that worked this way,
+like AvantGo or Sitescooper.
 
 <p>
 So I wrote FeedMe. I've been using it daily for many years, so I guess
@@ -48,22 +51,24 @@ it works well enough for my purposes. Maybe it will work for you too.
 <p>
 FeedMe is sort of an RSS version of
 <a href="http://sitescooper.taint.org/">Sitescooper</a>.
-By default, it produces simplified HTML,
-but optionally it can convert pages to EPUB or
+By default, it produces HTML that's been simplified to work well on
+a small screen,
+but optionally it can convert pages to plaintext, EPUB, FB2 or
 <a href="http://plkr.org">Plucker</a> format.
 
 <h2>The feedme.conf file</h2>
 
 <p>
-The <a href="feedme.conf">sample feedme.conf configuration file</a>
-should be vaguely self-explanatory. Install it in
-<i>~/$XDG_CONFIG_HOME/feedme/feedme.conf</i> or
-<i>~/.config/feedme/feedme.conf</i>.
-Here are options inside it:
-
-<h3>Site options</h3>
+The <a href="siteconf/feedme.conf">sample feedme.conf configuration file</a>
+should be vaguely self-explanatory, though it doesn't contain every option.
 <p>
-The feedme.conf file starts with a set of default options,
+Install your <i>feedme.conf</i>
+<i>~/.config/feedme/feedme.conf</i> (the usual Linux location), or
+<i>~/$XDG_CONFIG_HOME/feedme/feedme.conf</i>.
+
+<h3>General options</h3>
+<p>
+The feedme.conf file should start with a set of default options
 in a section labeled <code>[DEFAULT]</code>.
 
 <p>
@@ -101,11 +106,86 @@ These options apply to the whole feedme process:
     How long to retain feeds locally.
 </dl>
 
+<h3>Defining a new feed</h3>
 <p>
-These options can be set in the <code>[DEFAULT]</code> section
-and may be overridden for specific feeds:
+The recommended way of adding a new feed is by creating (or linking)
+a new file in your feedme config directory, the same location where
+<i>feedme.conf</i> lives.
+<p>
+The <i>siteconf</i> directory here contains a collection of sample feeds.
+They aren't guaranteed to be up-to-date; sometimes I give up on a site
+and stop updating it. If you don't need to make any changes, the easiest
+way to use these files is to symlink them into your feedme config directory:
+for example,
+<code>ln -s ~/src/feedme/siteconf/washington-post.conf ~/.config/feedme/</code>
+<p>
+If you wish, you can also define feeds by adding sections directly to
+the <i>feedme.conf</i> file.
+<p>
+To define a new feed, start by setting a name, in square brackets,
+like <code>[Anytown Post-Dispatch]</code>
+Set <i>url</i> to the site's RSS URL.
+Then go to the RSS page in a browser, click on a story,
+view the HTML source of the story, find the place where the actual story
+begins (it may be three quarters of the way down the page or even
+farther) and find something that indicates the start of the story,
+after all the sidebars and advertising and tracking javascript and
+other cruft. Save this as <code>page_start</code>.
+Optionally, scroll down to the end of the story and find
+a <code>page_end</code> as well. Your site file should look something
+like this:
+<pre>
+[Anytown Post-Dispatch]
+url = http://example.com/feeds.rss
+page_start = &lt;story&gt;
+page_end = &lt;/story&gt;
+</pre>
+(though page_start and page_end will probably be more complicated
+than that on most sites).
+<p>
+At this point you can test it by running feedme on the name you just set:
+<pre>
+feedme -n 'Anytown Post-Dispatch'
+</pre>
+<p>
+The -n (nocache) option tells feedme to fetch stories even if there's
+nothing new; while testing, you want that since otherwise, after the
+first time, feedme will tell you that there are no new stories to fetch.
 
-<dl>
+<p>
+Once you have a basic site, you can start tuning the site-specific options.
+
+<h3>Basic options for specific feeds</h3>
+<p>
+Here are some basic options that can be set in
+the <code>[DEFAULT]</code> section of your <i>feedme.conf</i>,
+and can be overridden for specific feeds:
+
+<dt>
+  url
+<dd>
+    The RSS URL for the site.
+<dt>
+  levels
+<dd>
+    Level 1: only save the RSS page.
+    Level 2: save sub-pages.
+<dt>
+  skip_images
+<dd>
+    Don't save images. Default true.
+<dt>
+  skip_links:
+<dd>
+    For sites with levels=1 where you just want a single news feed and
+    never want to click on anything (e.g. slashdot), this can eliminate
+    distracting links that you might tap on accidentally while scrolling.
+    (My husband wanted this. I doubt many other people will want it.)
+<dt>
+  simplify
+<dd>
+    Clean up the HTML: try to remove things like text colors and sizes
+    that sometimes make stories unreadable.
 <dt>
   continue_on_timeout
 <dd>
@@ -117,11 +197,6 @@ and may be overridden for specific feeds:
 <dd>
     Normally feedme will try to guess the encoding from the page.
     But some pages lie, so use this to override that.
-<dt>
-  levels
-<dd>
-    Level 1: only save the RSS page.<br>
-    Level 2: save sub-pages.
 <dt>
   nocache
 <dd>
@@ -140,6 +215,17 @@ and may be overridden for specific feeds:
     Use it if you're on a fixed data plan and don't want to incur
     extra data charges downloading images while reading stories.
     Default false.
+
+</dl>
+
+
+<h3>Trickier Site Options</h3>
+<p>
+These options aren't as easy to explain or understand,
+but you may need them for particular sites.
+
+<dl>
+
 <dt>
   max_srcset_size
 <dd>
@@ -150,53 +236,7 @@ and may be overridden for specific feeds:
 <dd>
     Limit RSS entries to this many characters. This is for sites that
     put the entire story into the RSS page.
-<dt>
-  simplify
-<dd>
-    Clean up the HTML: try to remove things like text colors and sizes
-    that sometimes make stories unreadable.
-<dt>
-  skip_images
-<dd>
-    Don't save images. Default true.
-<dt>
-  skip_links:
-<dd>
-    For sites with levels=1 where you just want a single news feed and
-    never want to click on anything (e.g. slashdot), this can eliminate
-    distracting links that you might tap on accidentally while scrolling.
-<dt>
-  url
-<dd>
-    The RSS URL for the site.
-</dl>
 
-<h3>Defining a new feed</h3>
-<p>
-To define each new feed, start by defining the URL.
-Then go to the RSS page in a browser, click on a story,
-view the HTML source of the story, find the place where the actual story
-begins (it may be three quarters of the way down the page or even
-farther) and find something that indicates the start of the story,
-after all the sidebars and advertising and tracking javascript and
-other cruft. Save this as <code>page_start</code>.
-Optionally, scroll down to the end of the story and find
-a <code>page_end</code> as well.
-<pre>
-url = http://example.com/feeds.rss
-page_start = <story>
-page_end = </story>
-</pre>
-
-<p>
-There are quite a few other options you can set for the feed.
-Of course, you can override values like levels, nocache, skip_images
-and so forth. Here are some additional options you may want for
-some sites to clean up the stories and eliminate stories you
-don't want to see. All "pats" are lists of patterns (see below
-for an example).
-<p>
-<dl>
 <dt>alt_domains
 <dd>
   Normally, feedme will only fetch images from the same domain
@@ -242,8 +282,8 @@ for an example).
 
 <p>
 A few options, like alt_domains,
-page_start, page_end, single_page_pats, and skip_pats,
-can specify multiple patterns. Specify them by putting them on separate
+page_start, page_end, or any of the "pats" options, can understand
+multiple patterns. Specify them by putting them on separate
 lines (whitespace at the beginning is optional and ignored):
 <pre>
 skip_pats = style=".*?"
@@ -254,28 +294,35 @@ skip_link_pats = skip_link_pat = http://www.site.com/articles/video/
 
 <h3>Output Formats</h3>
 <p>
-Supported formats since 0.7 include plucker and epub; to get them,
-set <code>formats = epub</code> (or plucker, or plucker,epub to get both).
-For HTML only and no additional formats, set <code>formats = none</code>
+Feedme always produces HTML as an output format.
+If that's all you need, the default <code>formats = none</code> is fine.
 <p>
 Downloaded HTML will be put in ~/feeds/ (which must exist; you can
-specify a different location in feedme.conf).
+specify a different location as <i>dir</i> in feedme.conf).
 <p>
 Feedme can then convert the HTML into one of three formats:
-epub, plucker, or fb2. You'll need to have appropriate conversion tools
+epub, plucker, or fb2.
+To get them,
+set <code>formats = epub</code> (or plucker, or fb2).
+You can specify multiple formats, comma separated, e.g. <i>epub,fb2</i>.
+<p>
+You'll need to have appropriate conversion tools
 installed on your system: plucker for plucker format, calibre's
-ebook-convert for the other two. You can specify more than one format,
-separated by commas, in feedme.conf; or format=none if you only need
-the downloaded HTML.
+ebook-convert for the other two.
 <p>
 FeedMe can optionally convert each page to plain ascii, eliminating
 accented characters and such (displaying them used to be a problem
 on Palm PDAs, but shouldn't be needed for most modern devices).
-For this option, set <code>ascii="yes"</code> in feedme.conf
-and install my <a href="../ununicode/">ununicode</a> module
+For this option, set <code>ascii="yes"</code> in feedme.conf and install my
+<a href="http://shallowsky.com/software/ununicode/">ununicode</a> module
 somewhere in your python path.
+<p>
+Warning: these conversions haven't been tested in a while, though
+they used to work fine. If you have problems, please file a bug or
+contact me.
 
 <h2>Maintenance:</h2>
+<p>
 Feedme uses three important directories:
 <p>
 Feedme's configuration file is <i>~/.config/feedme/feedme.conf</i>.
@@ -287,8 +334,8 @@ Feedme will also keep backup cache files for about a week, named by date;
 you can use these to go back to an earlier state in case you lost your
 feeds or accidentally deleted something.
 <p>
-~/feeds is where it stores the downloaded HTML, by default
-(you can change this in the configuration file).
+~/feeds is where it stores the downloaded HTML by default
+(you can change this as <code>dir</code> in the <i>feedme.conf</i>).
 Stories are downloaded as <i>sitename/number.html</i>, e.g.
 <i>~/feeds/BBC_World_News/2.html</i>. These stories are cleaned
 out every <i>save_days</i> (set in your feedme.conf).
@@ -302,10 +349,11 @@ reader, I had an alias that ran <code>rm ~/.plucker/feedme/*</code>
 to remove the  previous day's plucks just before I ran feedme.
 
 <p>
-FeedMe's license is GPLv2 or (at your option) later.
+FeedMe's license is GPLv2 or (at your option) any later GPL version.
+<p>
 Thanks to Carla Schroder for the name suggestion!
 
-<h2>Reading it</h2>
+<h2>Reading Your Feeds</h2>
 <p>
 Currently, I read the feeds I fetch with Feedme with an Android program
 I wrote,
