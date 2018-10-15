@@ -638,7 +638,8 @@ class FeedmeCache(object):
 # Get a single feed
 #
 def get_feed(feedname, config, cache, last_time, msglog):
-    """Fetch a single feed"""
+    """Fetch a single site's feed.
+    """
     # Mandatory arguments:
     try:
         sitefeedurl = config.get(feedname, 'url')
@@ -782,6 +783,11 @@ def get_feed(feedname, config, cache, last_time, msglog):
     # to the same page.
     suburls = []
 
+    # Some sites, like Washington Post, repeat the same story
+    # several times but with different URLs (and no ID specified).
+    # The only way to tell we've seen them before is by title.
+    titles = []
+
     # indexstr is the contents of the index.html file.
     # Kept as a string until we know whether there are new, non-cached
     # stories so it's worth updating the copy on disk.
@@ -892,7 +898,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
             else:
                 anchor = ""
 
-            # See if we've already seen this page:
+            # See if we've already seen this page's ID:
             try:
                 pagenum = suburls.index(item_id)
                 # We've already seen a link to this URL.
@@ -907,11 +913,26 @@ def get_feed(feedname, config, cache, last_time, msglog):
             # multiple times on their RSS feed, but stories won't be
             # added to our real feedcache until we've succeeded in
             # fetching the whole site. So check the temporary cache.
+            # On the other hand, Risks Digest has a single story and
+            # a lot of RSS entries with links to #name tags in that story.
+            # So in that case we should include the entry but not
+            # re-fetch the story.
             if newfeedcache and item_id in newfeedcache:
                 if verbose:
                     print("%s repeated -- skipping" % item_id,
                           file=sys.stderr)
                 continue
+
+            # How about the title? Have we already seen that before?
+            # Washington Post runs the same story (same title) several
+            # times with different URLs.
+            # If we ever need to handle a feed where different stories
+            # have the same title, this will have to be configurable.
+            if item.title in titles:
+                print('Skipping repeated title with a new ID: "%s", ID "%s"' \
+                      % (item.title, item_id), file=sys.stderr)
+                continue
+            titles.append(item.title)
 
             if not pagenum:
                 # Haven't seen it yet this run. But is it in the cache already?
@@ -993,10 +1014,11 @@ def get_feed(feedname, config, cache, last_time, msglog):
             parser = feedmeparser.FeedmeHTMLParser(config, feedname)
 
             #
-            # Follow the link and make a file for it:
+            # If it's a normal multi-level site,
+            # follow the link and make a file for it:
             #
-            if levels > 1 :        # Normal multi-level site
-                try :    # Try to trap keyboard interrupts, + others
+            if levels > 1:
+                try:    # Try to trap keyboard interrupts, + others
                     # For the sub-pages, we're getting HTML, not RSS.
                     # Nobody seems to have RSS pointing to RSS.
                     fnam = str(pagenum) + ".html"
@@ -1218,6 +1240,9 @@ Which (default = s): """)
             # There's an increasing trend to load up RSS pages with images.
             # Try to remove them, as well as any links that contain
             # only an image.
+            # XXX Eventually, try to actually display them.
+            # The trick is reconciling their paths with paths from
+            # individual stories so we don't get multiple copies.
             if config.getboolean(feedname, 'skip_images'):
                 content = re.sub('<a [^>]*href=.*> *<img .*?></a>', '', content)
                 content = re.sub('<img .*?>', '', content)
