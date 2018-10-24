@@ -414,6 +414,10 @@ def last_time_this_feed(feeddir):
     newest_mtime_dir = None
     newest_parsed_time = 0
     newest_parsed_dir = None
+
+    # Now feeddir is the top level feeds directory, containing dated subdirs.
+    # Look over old feed subdirs to find the most recent time we fed
+    # this particular feedname.
     for d in os.listdir(feeddir):
         dpath = os.path.join(feeddir, d)
         if os.path.isdir(dpath):
@@ -433,8 +437,12 @@ def last_time_this_feed(feeddir):
                 # where it can get a ValueError: unconverted data remains.
                 # Guard against this:
                 try:
-                    parsed_time = time.mktime(time.strptime(d, "%m-%d-%a"))
-                except:
+                    # The feed directory name doesn't have a year,
+                    # so make the year the same as the modtime:
+                    ddate = "%s-%d" % (d, time.localtime(modtime).tm_year)
+                    parsed_time = time.mktime(time.strptime(ddate,
+                                                            "%m-%d-%a-%Y"))
+                except ValueError:
                     msglog.msg("Skipping directory %s" % d)
                     continue
                 if parsed_time > newest_parsed_time:
@@ -532,7 +540,8 @@ class FeedmeCache(object):
             import pickle
             d = pickle.load(open(self.filename))
             self.thedict = d
-            print("Warning: old-style pickle-based cache file", file=sys.stderr)
+            print("**** Warning: old-style pickle-based cache file",
+                  file=sys.stderr)
             return
 
         # Must be a new-style file.
