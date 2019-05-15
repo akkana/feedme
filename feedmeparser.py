@@ -1118,7 +1118,7 @@ def read_config_file():
                            'when' : '',  # Day, like tue, or month-day, like 14
                            'min_width' : '25', # min # chars in an item link
                            'continue_on_timeout' : 'false',
-                           'user_agent' : None,
+                           'user_agent' : VersionString,
                            'ascii' : 'false',
                            'allow_gzip' : 'true'})
 
