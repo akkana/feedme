@@ -192,7 +192,7 @@ class FeedmeURLDownloader(object):
         if not contents:
             print("Didn't read anything from response.read()", file=sys.stderr)
             response.close()
-            raise NoContentError
+            raise NoContentError("Empty response.read()")
 
         if is_gzip:
             buf = io.BytesIO(contents)
@@ -358,10 +358,11 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         # Did we write anything real, any real content?
         # XXX Currently this requires text, might want to add img tags.
         if not self.wrote_data:
-            print("Didn't get any content for", title, file=sys.stderr)
+            errstr = "No real content"
+            print(errstr, file=sys.stderr)
             self.outfile.close()
             os.remove(outfilename)
-            raise NoContentError
+            raise NoContentError(errstr)
 
         # feed() won't write the final tags, so that we can add a footer:
         self.outfile.write(footer)
