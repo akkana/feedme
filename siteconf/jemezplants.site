@@ -1,0 +1,7 @@
+[Jemez Mountain Plants]
+url = https://jemezmountainplants.blog/rss
+skip_images = false
+page_start = <div class="menu-primary-container">
+page_end = <div id="comment-form-nascar">
+rss_entry_size = 1200
+
