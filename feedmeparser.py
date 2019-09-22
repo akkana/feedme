@@ -273,6 +273,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         self.outfile = open(outfilename, "w", encoding=self.encoding)
         self.outfile.write("""<html>\n<head>
 <meta http-equiv="Content-Type" content="text/html; charset=%s">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" type="text/css" title="Feeds" href="../../feeds.css"/>
 <title>%s</title>
 </head>
