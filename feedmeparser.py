@@ -856,6 +856,16 @@ tree = lxml.html.fromstring(html)
         # Now we've done any needed processing to the tag and its attrs.
         # t's time to write them to the output file.
         for attr in list(attrs.keys()):
+            # If the tag has style=, arguably we should just remove it entirely.
+            # But certainly remove it if it has style="font-anything" --
+            # don't want to let the page force its silly ideas of font
+            # size or face.
+            # And yes, this means we'll lose any other styles that are
+            # specified along with a font style. Probably no loss!
+            if attr == 'style' and 'font' in attrs[attr]:
+                print("Skipping a style tag!", attrs[attr], file=sys.stderr)
+                continue
+
             self.outfile.write(' ' + attr)
             if attrs[attr] and type(attrs[attr]) is str:
                 # make sure attr[1] doesn't have any embedded double-quotes
