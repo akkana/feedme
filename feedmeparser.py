@@ -64,7 +64,7 @@ def ptraceback():
 #     else:
 #         return s
 
-VersionString = "FeedMe 1.0b5"
+VersionString = "FeedMe 1.0"
 
 def get_config_multiline(config, feedname, configname):
     configlines = config.get(feedname, configname)
