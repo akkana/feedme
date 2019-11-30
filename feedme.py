@@ -87,7 +87,7 @@ import shutil
 import traceback
 
 import feedparser
-import urllib.request, urllib.error, urllib.parse
+import urllib.error
 import socket
 import posixpath
 
@@ -233,6 +233,8 @@ def make_fb2_file(indexfile, feedname, levels, ascii):
 #
 # Generate an ePub file
 # http://calibre-ebook.com/user_manual/cli/ebook-convert-3.html#html-input-to-epub-output
+# XXX Would be nice to have a way to do this without needing calibre,
+# so it could run on servers that don't have X/Qt libraries installed.
 #
 def make_epub_file(indexfile, feedname, levels, ascii):
     make_calibre_file(indexfile, feedname, ".epub", levels, ascii,
@@ -409,6 +411,9 @@ def last_time_this_feed(feeddir):
     '''
     feeddir, feedname = os.path.split(feeddir)
     feeddir = os.path.dirname(feeddir)
+
+    if not os.path.exists(feeddir):
+        return 0
 
     newest_mtime = 0
     newest_mtime_dir = None
@@ -693,9 +698,10 @@ def get_feed(feedname, config, cache, last_time, msglog):
     feedfile = feedname.replace(" ", "_")
     # Also, make sure there are no colons (illegal in filenames):
     feedfile = feedfile.replace(":", "")
-    print("feedfile:", feedfile, file=sys.stderr)
     outdir = os.path.join(feeddir,  feedfile)
-    print("outdir:", outdir, file=sys.stderr)
+    if verbose:
+        print("feedfile:", feedfile, file=sys.stderr)
+        print("outdir:", outdir, file=sys.stderr)
 
     # When did we last run this feed?
     # This code is probably brittle so wrap it in try/except.

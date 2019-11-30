@@ -1,0 +1,364 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://purl.org/rss/1.0/" xmlns:admin="http://webns.net/mvcb/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:slash="http://purl.org/rss/1.0/modules/slash/" xmlns:syn="http://purl.org/rss/1.0/modules/syndication/" xmlns:taxo="http://purl.org/rss/1.0/modules/taxonomy/" xmlns:feedburner="http://rssnamespace.org/feedburner/ext/1.0">
+
+<channel rdf:about="https://slashdot.org/">
+<title>Slashdot</title>
+<link>https://slashdot.org/</link>
+<description>News for nerds, stuff that matters</description>
+<dc:language>en-us</dc:language>
+<dc:rights>Copyright 1997-2016, SlashdotMedia. All Rights Reserved.</dc:rights>
+<dc:date>2019-11-30T03:58:14+00:00</dc:date>
+<dc:publisher>Dice</dc:publisher>
+<dc:creator>help@slashdot.org</dc:creator>
+<dc:subject>Technology</dc:subject>
+<syn:updateBase>1970-01-01T00:00+00:00</syn:updateBase>
+<syn:updateFrequency>1</syn:updateFrequency>
+<syn:updatePeriod>hourly</syn:updatePeriod>
+<items>
+ <rdf:Seq>
+  <rdf:li rdf:resource="https://science.slashdot.org/story/19/11/29/207243/with-suction-cups-and-lots-of-luck-scientists-measure-blue-whales-heart-rate?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed" />
+  <rdf:li rdf:resource="https://news.slashdot.org/story/19/11/29/1744204/walmart-dodged-us-tax-on-2-billion-by-routing-cash-through-multiple-countries-whistleblower-says?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed" />
+  <rdf:li rdf:resource="https://tech.slashdot.org/story/19/11/29/2019245/hsbc-swaps-paper-records-for-blockchain-to-track-20-billion-worth-of-assets?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed" />
+  <rdf:li rdf:resource="https://tech.slashdot.org/story/19/11/29/1950230/sms-replacement-is-exposing-users-to-text-call-interception-thanks-to-sloppy-telecos?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed" />
+  <rdf:li rdf:resource="https://tech.slashdot.org/story/19/11/29/1958207/black-friday-shoppers-beware-of-fake-five-star-reviews?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed" />
+  <rdf:li rdf:resource="https://news.slashdot.org/story/19/11/29/1855253/manhattan-attorney-announces-arrest-of-united-states-citizen-who-works-for-ethereum-for-assisting-north-korea-in-evading-sanctions?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed" />
+  <rdf:li rdf:resource="https://apple.slashdot.org/story/19/11/29/1740226/intel-says-it-sold-its-modem-chip-business-to-apple-at-a-multi-billion-dollar-loss-because-qualcomm-tactics-left-it-with-no-other-choice?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed" />
+  <rdf:li rdf:resource="https://tech.slashdot.org/story/19/11/29/1611219/10-years-in-whatsapp-still-needs-true-multi-device-support?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed" />
+  <rdf:li rdf:resource="https://slashdot.org/story/19/11/29/1319224/china-seeks-to-root-out-fake-news-and-deepfakes-with-new-online-content-rules?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed" />
+  <rdf:li rdf:resource="https://science.slashdot.org/story/19/11/29/139213/scientists-turn-undersea-fiber-optic-cables-into-seismographs?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed" />
+  <rdf:li rdf:resource="https://it.slashdot.org/story/19/11/29/130253/hacker-stole-unreleased-music-and-then-tried-to-frame-someone-else?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed" />
+  <rdf:li rdf:resource="https://tech.slashdot.org/story/19/11/28/2347231/the-great-org-heist?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed" />
+  <rdf:li rdf:resource="https://tech.slashdot.org/story/19/11/28/2332207/some-uber-drivers-use-bogus-identities-and-shared-accounts?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed" />
+  <rdf:li rdf:resource="https://tech.slashdot.org/story/19/11/28/2216211/chinese-online-streaming-service-iqiyi-says-ai-has-enhanced-efficiency-throughout-its-business?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed" />
+  <rdf:li rdf:resource="https://science.slashdot.org/story/19/11/28/1923201/mystery-sounds-from-storms-could-help-predict-tornadoes?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed" />
+ </rdf:Seq>
+</items>
+<image rdf:resource="https://a.fsdn.com/sd/topics/topicslashdot.gif" />
+<textinput rdf:resource="https://slashdot.org/search.pl" />
+<atom10:link xmlns:atom10="http://www.w3.org/2005/Atom" rel="self" type="application/rdf+xml" href="http://rss.slashdot.org/Slashdot/slashdot" /><feedburner:info uri="slashdot/slashdot" /><atom10:link xmlns:atom10="http://www.w3.org/2005/Atom" rel="hub" href="http://pubsubhubbub.appspot.com/" /></channel>
+<image rdf:about="https://a.fsdn.com/sd/topics/topicslashdot.gif">
+<title>Slashdot</title>
+<url>https://a.fsdn.com/sd/topics/topicslashdot.gif</url>
+<link>https://slashdot.org/</link>
+</image>
+<item rdf:about="https://science.slashdot.org/story/19/11/29/207243/with-suction-cups-and-lots-of-luck-scientists-measure-blue-whales-heart-rate?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed">
+<title>With Suction Cups and Lots of Luck, Scientists Measure Blue Whale's Heart Rate</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/A-gNFu_3PNI/with-suction-cups-and-lots-of-luck-scientists-measure-blue-whales-heart-rate</link>
+<description>Using a bright orange electrocardiogram machine attached with suction cups to the body of a blue whale, scientists for the first time have measured the heart rate of the world's largest creature and came away with insight about the renowned behemoth's physiology. From a report: The blue whale, which can reach up to 100 feet (30 meters) long and weigh 200 tons, lowers its heart rate to as little as two beats per minute as it lunges under the ocean surface for food, researchers said. The maximum heart rate they recorded was 37 beats per minute after the air-breathing marine mammal returned to the surface from a foraging dive. "The blue whale is the largest animal of all-time and has long fascinated biologists," said Stanford University marine biologist Jeremy Goldbogen, who led the study published in the journal Proceedings of the National Academy of Sciences. "In particular, new measures of vital rates and physiological rates help us understand how animals work at the upper extreme of body mass," Goldbogen added. "What is life like and what is the pace of life at such a large scale?" Generally speaking, the larger the animal, the lower the heart rate, minimizing the amount of work the heart does while distributing blood around the body. The normal human resting heart rate ranges from about 60 to 100 beats per minute and tops out at about 200 during athletic exertion. The smallest mammals, shrews, have heart rates upwards of a thousand beats per minute.&lt;p&gt;&lt;div class="share_submission" style="position:relative;"&gt;
+&lt;a class="slashpop" href="http://twitter.com/home?status=With+Suction+Cups+and+Lots+of+Luck%2C+Scientists+Measure+Blue+Whale's+Heart+Rate%3A+http%3A%2F%2Fbit.ly%2F2XYZCFA"&gt;&lt;img src="https://a.fsdn.com/sd/twitter_icon_large.png"&gt;&lt;/a&gt;
+&lt;a class="slashpop" href="http://www.facebook.com/sharer.php?u=https%3A%2F%2Fscience.slashdot.org%2Fstory%2F19%2F11%2F29%2F207243%2Fwith-suction-cups-and-lots-of-luck-scientists-measure-blue-whales-heart-rate%3Futm_source%3Dslashdot%26utm_medium%3Dfacebook"&gt;&lt;img src="https://a.fsdn.com/sd/facebook_icon_large.png"&gt;&lt;/a&gt;
+
+&lt;a class="nobg" href="http://plus.google.com/share?url=https://science.slashdot.org/story/19/11/29/207243/with-suction-cups-and-lots-of-luck-scientists-measure-blue-whales-heart-rate?utm_source=slashdot&amp;amp;utm_medium=googleplus" onclick="javascript:window.open(this.href,'', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=600,width=600');return false;"&gt;&lt;img src="https://www.gstatic.com/images/icons/gplus-16.png" alt="Share on Google+"/&gt;&lt;/a&gt;
+
+
+
+&lt;/div&gt;&lt;/p&gt;&lt;p&gt;&lt;a href="https://science.slashdot.org/story/19/11/29/207243/with-suction-cups-and-lots-of-luck-scientists-measure-blue-whales-heart-rate?utm_source=rss1.0moreanon&amp;amp;utm_medium=feed"&gt;Read more of this story&lt;/a&gt; at Slashdot.&lt;/p&gt;&lt;iframe src="https://slashdot.org/slashdot-it.pl?op=discuss&amp;amp;id=15308140&amp;amp;smallembed=1" style="height: 300px; width: 100%; border: none;"&gt;&lt;/iframe&gt;&lt;img src="http://feeds.feedburner.com/~r/Slashdot/slashdot/~4/A-gNFu_3PNI" height="1" width="1" alt=""/&gt;</description>
+<dc:creator>msmash</dc:creator>
+<dc:date>2019-11-30T02:00:00+00:00</dc:date>
+<dc:subject>earth</dc:subject>
+<slash:department>moving-forward</slash:department>
+<slash:section>science</slash:section>
+<slash:comments>2</slash:comments>
+<slash:hit_parade>2,2,2,2,0,0,0</slash:hit_parade>
+<feedburner:origLink>https://science.slashdot.org/story/19/11/29/207243/with-suction-cups-and-lots-of-luck-scientists-measure-blue-whales-heart-rate?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed</feedburner:origLink></item>
+<item rdf:about="https://news.slashdot.org/story/19/11/29/1744204/walmart-dodged-us-tax-on-2-billion-by-routing-cash-through-multiple-countries-whistleblower-says?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed">
+<title>Walmart Dodged US Tax on $2 Billion by Routing Cash Through Multiple Countries, Whistleblower Says</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/zDTS0MuUQu0/walmart-dodged-us-tax-on-2-billion-by-routing-cash-through-multiple-countries-whistleblower-says</link>
+<description>Walmart, the world's biggest retail company, underpaid US taxes on nearly $2 billion worth of offshore cash, according to whistleblower documents filed by a former Walmart executive to the Internal Revenue Service (IRS) in 2011, and recently obtained by Quartz. From the report: The firm avoided nearly $200 million in taxes on that money and "dramatically" overstated its foreign tax credits in 2009 and 2010 by routing payments from Luxembourg to the United States via the United Kingdom and not declaring they came from a tax haven, the whistleblower wrote. If Walmart claimed all the tax credits, it could have improperly avoided paying close to $600 million in total via the maneuvers, according to the files. The whistleblower argued in the documents that the company should owe all that money to the IRS. A second former executive, who shared the files with Quartz, confirmed the whistleblower's allegations. Walmart denied any wrongdoing. "The transactions brought to our attention were appropriately reported to and audited by the IRS," a spokesman said in an emailed statement. "The tax years covering this matter were closed by the IRS more than seven years ago." The spokesman declined to say whether the company explicitly told the IRS that the money originated in Luxembourg, rather than the United Kingdom.&lt;p&gt;&lt;div class="share_submission" style="position:relative;"&gt;
+&lt;a class="slashpop" href="http://twitter.com/home?status=Walmart+Dodged+US+Tax+on+%242+Billion+by+Routing+Cash+Through+Multiple+Countries%2C+Whistleblower+Says%3A+http%3A%2F%2Fbit.ly%2F2spH7yh"&gt;&lt;img src="https://a.fsdn.com/sd/twitter_icon_large.png"&gt;&lt;/a&gt;
+&lt;a class="slashpop" href="http://www.facebook.com/sharer.php?u=https%3A%2F%2Fnews.slashdot.org%2Fstory%2F19%2F11%2F29%2F1744204%2Fwalmart-dodged-us-tax-on-2-billion-by-routing-cash-through-multiple-countries-whistleblower-says%3Futm_source%3Dslashdot%26utm_medium%3Dfacebook"&gt;&lt;img src="https://a.fsdn.com/sd/facebook_icon_large.png"&gt;&lt;/a&gt;
+
+&lt;a class="nobg" href="http://plus.google.com/share?url=https://news.slashdot.org/story/19/11/29/1744204/walmart-dodged-us-tax-on-2-billion-by-routing-cash-through-multiple-countries-whistleblower-says?utm_source=slashdot&amp;amp;utm_medium=googleplus" onclick="javascript:window.open(this.href,'', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=600,width=600');return false;"&gt;&lt;img src="https://www.gstatic.com/images/icons/gplus-16.png" alt="Share on Google+"/&gt;&lt;/a&gt;
+
+
+
+&lt;/div&gt;&lt;/p&gt;&lt;p&gt;&lt;a href="https://news.slashdot.org/story/19/11/29/1744204/walmart-dodged-us-tax-on-2-billion-by-routing-cash-through-multiple-countries-whistleblower-says?utm_source=rss1.0moreanon&amp;amp;utm_medium=feed"&gt;Read more of this story&lt;/a&gt; at Slashdot.&lt;/p&gt;&lt;iframe src="https://slashdot.org/slashdot-it.pl?op=discuss&amp;amp;id=15307816&amp;amp;smallembed=1" style="height: 300px; width: 100%; border: none;"&gt;&lt;/iframe&gt;&lt;img src="http://feeds.feedburner.com/~r/Slashdot/slashdot/~4/zDTS0MuUQu0" height="1" width="1" alt=""/&gt;</description>
+<dc:creator>msmash</dc:creator>
+<dc:date>2019-11-29T23:01:00+00:00</dc:date>
+<dc:subject>money</dc:subject>
+<slash:department>greenback-boogie</slash:department>
+<slash:section>news</slash:section>
+<slash:comments>94</slash:comments>
+<slash:hit_parade>94,89,83,74,17,7,7</slash:hit_parade>
+<feedburner:origLink>https://news.slashdot.org/story/19/11/29/1744204/walmart-dodged-us-tax-on-2-billion-by-routing-cash-through-multiple-countries-whistleblower-says?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed</feedburner:origLink></item>
+<item rdf:about="https://tech.slashdot.org/story/19/11/29/2019245/hsbc-swaps-paper-records-for-blockchain-to-track-20-billion-worth-of-assets?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed">
+<title>HSBC Swaps Paper Records For Blockchain To Track $20 Billion Worth of Assets</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/ZIeFX474Wh0/hsbc-swaps-paper-records-for-blockchain-to-track-20-billion-worth-of-assets</link>
+<description>HSBC aims to shift $20 billion worth of assets to a new blockchain-based custody platform by March, in one of the biggest deployments yet of the widely-hyped but still unproven technology by a global bank. From a report: The platform, known as Digital Vault, will give investors real-time access to records of securities bought on private markets, HSBC told Reuters, and seeks to capitalize on booming interest in such investments by yield-hungry investors. Banks and other financial firms have invested billions of dollars into finding uses for blockchain, a digital ledger that can be instantly and transparently updated. Few, however, have come up with practical or widely-used applications. Proponents say the blockchain will upend the financial sector by cutting out costly processes or the need for middlemen - though there have been few solid examples yet of such revolutionary use. The HSBC platform will digitize paper-based records of private placements, using blockchain to reduce the time it takes investors to make checks or queries on holdings.&lt;p&gt;&lt;div class="share_submission" style="position:relative;"&gt;
+&lt;a class="slashpop" href="http://twitter.com/home?status=HSBC+Swaps+Paper+Records+For+Blockchain+To+Track+%2420+Billion+Worth+of+Assets%3A+http%3A%2F%2Fbit.ly%2F33uYc6L"&gt;&lt;img src="https://a.fsdn.com/sd/twitter_icon_large.png"&gt;&lt;/a&gt;
+&lt;a class="slashpop" href="http://www.facebook.com/sharer.php?u=https%3A%2F%2Ftech.slashdot.org%2Fstory%2F19%2F11%2F29%2F2019245%2Fhsbc-swaps-paper-records-for-blockchain-to-track-20-billion-worth-of-assets%3Futm_source%3Dslashdot%26utm_medium%3Dfacebook"&gt;&lt;img src="https://a.fsdn.com/sd/facebook_icon_large.png"&gt;&lt;/a&gt;
+
+&lt;a class="nobg" href="http://plus.google.com/share?url=https://tech.slashdot.org/story/19/11/29/2019245/hsbc-swaps-paper-records-for-blockchain-to-track-20-billion-worth-of-assets?utm_source=slashdot&amp;amp;utm_medium=googleplus" onclick="javascript:window.open(this.href,'', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=600,width=600');return false;"&gt;&lt;img src="https://www.gstatic.com/images/icons/gplus-16.png" alt="Share on Google+"/&gt;&lt;/a&gt;
+
+
+
+&lt;/div&gt;&lt;/p&gt;&lt;p&gt;&lt;a href="https://tech.slashdot.org/story/19/11/29/2019245/hsbc-swaps-paper-records-for-blockchain-to-track-20-billion-worth-of-assets?utm_source=rss1.0moreanon&amp;amp;utm_medium=feed"&gt;Read more of this story&lt;/a&gt; at Slashdot.&lt;/p&gt;&lt;iframe src="https://slashdot.org/slashdot-it.pl?op=discuss&amp;amp;id=15308174&amp;amp;smallembed=1" style="height: 300px; width: 100%; border: none;"&gt;&lt;/iframe&gt;&lt;img src="http://feeds.feedburner.com/~r/Slashdot/slashdot/~4/ZIeFX474Wh0" height="1" width="1" alt=""/&gt;</description>
+<dc:creator>msmash</dc:creator>
+<dc:date>2019-11-29T22:01:00+00:00</dc:date>
+<dc:subject>technology</dc:subject>
+<slash:department>how-about-that</slash:department>
+<slash:section>technology</slash:section>
+<slash:comments>28</slash:comments>
+<slash:hit_parade>28,28,25,21,6,1,0</slash:hit_parade>
+<feedburner:origLink>https://tech.slashdot.org/story/19/11/29/2019245/hsbc-swaps-paper-records-for-blockchain-to-track-20-billion-worth-of-assets?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed</feedburner:origLink></item>
+<item rdf:about="https://tech.slashdot.org/story/19/11/29/1950230/sms-replacement-is-exposing-users-to-text-call-interception-thanks-to-sloppy-telecos?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed">
+<title>SMS Replacement is Exposing Users To Text, Call Interception Thanks To Sloppy Telecos</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/9SHZIE2yBwU/sms-replacement-is-exposing-users-to-text-call-interception-thanks-to-sloppy-telecos</link>
+<description>A standard used by phone carriers around the world can leave users open to all sorts of attacks, like text message and call interception, spoofed phone numbers, and leaking their coarse location, new research reveals. From a report: The Rich Communication Services (RCS) standard is essentially the replacement for SMS. The news shows how even as carriers move onto more modern protocols for communication, phone network security continues to be an exposed area with multiple avenues for attack in some implementations of RCS. "I'm surprised that large companies, like Vodafone, introduce a technology that exposes literally hundreds of millions of people, without asking them, without telling them," Karsten Nohl from cybersecurity firm Security Research Labs (SRLabs) told Motherboard in a phone call. 
+
+SRLabs researchers Luca Melette and Sina Yazdanmehr will present their RCS findings at the upcoming Black Hat Europe conference in December, and discussed some of their work at security conference DeepSec on Friday. RCS is a relatively new standard for carrier messaging and includes more features than SMS, such as photos, group chats, and file transfers. Back in 2015, Google announced it would be adopting RCS to move users away from SMS, and that it had acquired a company called Jibe Mobile to help with the transition. RCS essentially runs as an app on your phone that logs into a service with a username and password, Nohl explained.&lt;p&gt;&lt;div class="share_submission" style="position:relative;"&gt;
+&lt;a class="slashpop" href="http://twitter.com/home?status=SMS+Replacement+is+Exposing+Users+To+Text%2C+Call+Interception+Thanks+To+Sloppy+Telecos%3A+http%3A%2F%2Fbit.ly%2F33wb7pk"&gt;&lt;img src="https://a.fsdn.com/sd/twitter_icon_large.png"&gt;&lt;/a&gt;
+&lt;a class="slashpop" href="http://www.facebook.com/sharer.php?u=https%3A%2F%2Ftech.slashdot.org%2Fstory%2F19%2F11%2F29%2F1950230%2Fsms-replacement-is-exposing-users-to-text-call-interception-thanks-to-sloppy-telecos%3Futm_source%3Dslashdot%26utm_medium%3Dfacebook"&gt;&lt;img src="https://a.fsdn.com/sd/facebook_icon_large.png"&gt;&lt;/a&gt;
+
+&lt;a class="nobg" href="http://plus.google.com/share?url=https://tech.slashdot.org/story/19/11/29/1950230/sms-replacement-is-exposing-users-to-text-call-interception-thanks-to-sloppy-telecos?utm_source=slashdot&amp;amp;utm_medium=googleplus" onclick="javascript:window.open(this.href,'', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=600,width=600');return false;"&gt;&lt;img src="https://www.gstatic.com/images/icons/gplus-16.png" alt="Share on Google+"/&gt;&lt;/a&gt;
+
+
+
+&lt;/div&gt;&lt;/p&gt;&lt;p&gt;&lt;a href="https://tech.slashdot.org/story/19/11/29/1950230/sms-replacement-is-exposing-users-to-text-call-interception-thanks-to-sloppy-telecos?utm_source=rss1.0moreanon&amp;amp;utm_medium=feed"&gt;Read more of this story&lt;/a&gt; at Slashdot.&lt;/p&gt;&lt;iframe src="https://slashdot.org/slashdot-it.pl?op=discuss&amp;amp;id=15308104&amp;amp;smallembed=1" style="height: 300px; width: 100%; border: none;"&gt;&lt;/iframe&gt;&lt;img src="http://feeds.feedburner.com/~r/Slashdot/slashdot/~4/9SHZIE2yBwU" height="1" width="1" alt=""/&gt;</description>
+<dc:creator>msmash</dc:creator>
+<dc:date>2019-11-29T21:01:00+00:00</dc:date>
+<dc:subject>communications</dc:subject>
+<slash:department>security-woes</slash:department>
+<slash:section>technology</slash:section>
+<slash:comments>23</slash:comments>
+<slash:hit_parade>23,22,19,14,2,0,0</slash:hit_parade>
+<feedburner:origLink>https://tech.slashdot.org/story/19/11/29/1950230/sms-replacement-is-exposing-users-to-text-call-interception-thanks-to-sloppy-telecos?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed</feedburner:origLink></item>
+<item rdf:about="https://tech.slashdot.org/story/19/11/29/1958207/black-friday-shoppers-beware-of-fake-five-star-reviews?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed">
+<title>Black Friday Shoppers: Beware of Fake Five-Star Reviews</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/L7MKWZb2Dfg/black-friday-shoppers-beware-of-fake-five-star-reviews</link>
+<description>As shopping takes off for the holiday season, so do phony reviews -- and pressure is mounting on major retailers to fight back. From a report: More than a third of online reviews on major websites, including those on Amazon.com, Walmart and Sephora, are fake, meaning they are generated by robots or people paid to write them, according to Fakespot, which identifies fraudulent reviews. The problem has become so pervasive that the Federal Trade Commission has started cracking down on violators, and lawmakers are pressing Amazon to do a better job of policing reviews on its website. This month Apple Inc. pulled all product reviews and ratings from its online store without explanation. Amazon, Walmart and Sephora dispute Fakespot's findings but say they are taking steps to make their reviews more reliable. In Amazon's case, it said it has spent more than $400 million to protect customers from review abuse and other fraud or misconduct in the past year, and that it prevented more than 13 million attempts last year to leave inauthentic reviews on its website. Further reading: When Is a Star Not Always a Star? When It's an Online Review.&lt;p&gt;&lt;div class="share_submission" style="position:relative;"&gt;
+&lt;a class="slashpop" href="http://twitter.com/home?status=Black+Friday+Shoppers%3A+Beware+of+Fake+Five-Star+Reviews%3A+http%3A%2F%2Fbit.ly%2F37OVfBA"&gt;&lt;img src="https://a.fsdn.com/sd/twitter_icon_large.png"&gt;&lt;/a&gt;
+&lt;a class="slashpop" href="http://www.facebook.com/sharer.php?u=https%3A%2F%2Ftech.slashdot.org%2Fstory%2F19%2F11%2F29%2F1958207%2Fblack-friday-shoppers-beware-of-fake-five-star-reviews%3Futm_source%3Dslashdot%26utm_medium%3Dfacebook"&gt;&lt;img src="https://a.fsdn.com/sd/facebook_icon_large.png"&gt;&lt;/a&gt;
+
+&lt;a class="nobg" href="http://plus.google.com/share?url=https://tech.slashdot.org/story/19/11/29/1958207/black-friday-shoppers-beware-of-fake-five-star-reviews?utm_source=slashdot&amp;amp;utm_medium=googleplus" onclick="javascript:window.open(this.href,'', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=600,width=600');return false;"&gt;&lt;img src="https://www.gstatic.com/images/icons/gplus-16.png" alt="Share on Google+"/&gt;&lt;/a&gt;
+
+
+
+&lt;/div&gt;&lt;/p&gt;&lt;p&gt;&lt;a href="https://tech.slashdot.org/story/19/11/29/1958207/black-friday-shoppers-beware-of-fake-five-star-reviews?utm_source=rss1.0moreanon&amp;amp;utm_medium=feed"&gt;Read more of this story&lt;/a&gt; at Slashdot.&lt;/p&gt;&lt;iframe src="https://slashdot.org/slashdot-it.pl?op=discuss&amp;amp;id=15308128&amp;amp;smallembed=1" style="height: 300px; width: 100%; border: none;"&gt;&lt;/iframe&gt;&lt;img src="http://feeds.feedburner.com/~r/Slashdot/slashdot/~4/L7MKWZb2Dfg" height="1" width="1" alt=""/&gt;</description>
+<dc:creator>msmash</dc:creator>
+<dc:date>2019-11-29T20:01:00+00:00</dc:date>
+<dc:subject>business</dc:subject>
+<slash:department>watch-out</slash:department>
+<slash:section>technology</slash:section>
+<slash:comments>49</slash:comments>
+<slash:hit_parade>49,49,43,35,5,1,0</slash:hit_parade>
+<feedburner:origLink>https://tech.slashdot.org/story/19/11/29/1958207/black-friday-shoppers-beware-of-fake-five-star-reviews?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed</feedburner:origLink></item>
+<item rdf:about="https://news.slashdot.org/story/19/11/29/1855253/manhattan-attorney-announces-arrest-of-united-states-citizen-who-works-for-ethereum-for-assisting-north-korea-in-evading-sanctions?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed">
+<title>Manhattan Attorney Announces Arrest Of United States Citizen, Who Works For Ethereum, For Assisting North Korea In Evading Sanctions</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/mC9gs_0Kbcg/manhattan-attorney-announces-arrest-of-united-states-citizen-who-works-for-ethereum-for-assisting-north-korea-in-evading-sanctions</link>
+<description>Geoffrey S. Berman, the United States Attorney for the Southern District of New York, John C. Demers, the Assistant Attorney General for National Security, John Brown, Assistant Director of the Federal Bureau of Investigation Counterintelligence Division, and William F. Sweeney Jr., the Assistant Director-in-Charge of the New York Field Office of the FBI, announced today the unsealing of a criminal complaint charging VIRGIL GRIFFITH, a United States citizen who works for Ethereum, with violating the International Emergency Economic Powers Act by traveling to the Democratic People's Republic of Korea (DPRK or North Korea) in order deliver a presentation and technical advice on using cryptocurrency and blockchain technology to evade sanctions. From a press release: GRIFFITH was arrested at Los Angeles International Airport yesterday and will be presented in federal court in Los Angeles later today. U.S. Attorney Geoffrey S. Berman stated: "As alleged, Virgil Griffith provided highly technical information to North Korea, knowing that this information could be used to help North Korea launder money and evade sanctions. In allegedly doing so, Griffith jeopardized the sanctions that both Congress and the president have enacted to place maximum pressure on North Korea's dangerous regime." Assistant Attorney General John Demers said: "Despite receiving warnings not to go, Griffith allegedly traveled to one of the United States' foremost adversaries, North Korea, where he taught his audience how to use blockchain technology to evade sanctions. By this complaint, we begin the process of seeking justice for such conduct."&lt;p&gt;&lt;div class="share_submission" style="position:relative;"&gt;
+&lt;a class="slashpop" href="http://twitter.com/home?status=Manhattan+Attorney+Announces+Arrest+Of+United+States+Citizen%2C+Who+Works+For+Ethereum%2C+For+Assisting+North+Korea+In+Evading+Sanctions%3A+http%3A%2F%2Fbit.ly%2F2L60oLM"&gt;&lt;img src="https://a.fsdn.com/sd/twitter_icon_large.png"&gt;&lt;/a&gt;
+&lt;a class="slashpop" href="http://www.facebook.com/sharer.php?u=https%3A%2F%2Fnews.slashdot.org%2Fstory%2F19%2F11%2F29%2F1855253%2Fmanhattan-attorney-announces-arrest-of-united-states-citizen-who-works-for-ethereum-for-assisting-north-korea-in-evading-sanctions%3Futm_source%3Dslashdot%26utm_medium%3Dfacebook"&gt;&lt;img src="https://a.fsdn.com/sd/facebook_icon_large.png"&gt;&lt;/a&gt;
+
+&lt;a class="nobg" href="http://plus.google.com/share?url=https://news.slashdot.org/story/19/11/29/1855253/manhattan-attorney-announces-arrest-of-united-states-citizen-who-works-for-ethereum-for-assisting-north-korea-in-evading-sanctions?utm_source=slashdot&amp;amp;utm_medium=googleplus" onclick="javascript:window.open(this.href,'', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=600,width=600');return false;"&gt;&lt;img src="https://www.gstatic.com/images/icons/gplus-16.png" alt="Share on Google+"/&gt;&lt;/a&gt;
+
+
+
+&lt;/div&gt;&lt;/p&gt;&lt;p&gt;&lt;a href="https://news.slashdot.org/story/19/11/29/1855253/manhattan-attorney-announces-arrest-of-united-states-citizen-who-works-for-ethereum-for-assisting-north-korea-in-evading-sanctions?utm_source=rss1.0moreanon&amp;amp;utm_medium=feed"&gt;Read more of this story&lt;/a&gt; at Slashdot.&lt;/p&gt;&lt;iframe src="https://slashdot.org/slashdot-it.pl?op=discuss&amp;amp;id=15307992&amp;amp;smallembed=1" style="height: 300px; width: 100%; border: none;"&gt;&lt;/iframe&gt;&lt;img src="http://feeds.feedburner.com/~r/Slashdot/slashdot/~4/mC9gs_0Kbcg" height="1" width="1" alt=""/&gt;</description>
+<dc:creator>msmash</dc:creator>
+<dc:date>2019-11-29T18:56:00+00:00</dc:date>
+<dc:subject>usa</dc:subject>
+<slash:department>breaking-news</slash:department>
+<slash:section>news</slash:section>
+<slash:comments>66</slash:comments>
+<slash:hit_parade>66,63,49,39,14,8,5</slash:hit_parade>
+<feedburner:origLink>https://news.slashdot.org/story/19/11/29/1855253/manhattan-attorney-announces-arrest-of-united-states-citizen-who-works-for-ethereum-for-assisting-north-korea-in-evading-sanctions?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed</feedburner:origLink></item>
+<item rdf:about="https://apple.slashdot.org/story/19/11/29/1740226/intel-says-it-sold-its-modem-chip-business-to-apple-at-a-multi-billion-dollar-loss-because-qualcomm-tactics-left-it-with-no-other-choice?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed">
+<title>Intel Says It Sold Its Modem Chip Business To Apple at 'a Multi-Billion Dollar Loss' Because Qualcomm Tactics Left It With No Other Choice</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/jwNYa3HhcPo/intel-says-it-sold-its-modem-chip-business-to-apple-at-a-multi-billion-dollar-loss-because-qualcomm-tactics-left-it-with-no-other-choice</link>
+<description>Intel sold its smartphone modem chip business to Apple at "a multi-billion dollar loss," the U.S. chipmaker said in a court filing on Friday, alleging that rival Qualcomm forced it out of the market. From a report: Intel made the claims in a brief filed with the 9th U.S. Circuit Court of Appeals, where Qualcomm is seeking to overturn a sweeping antitrust decision against it after losing a lawsuit by the U.S. Federal Trade Commission. Intel, whose executives testified at the trial, argued on Friday that the ruling should stand. Appeal proceedings are expected to begin in January. In a 233-page decision issued in May, U.S. District Judge Lucy Koh in San Jose wrote that Qualcomm's patent licensing practices "strangled competition" in parts of the market for modem chips that connect smartphones to mobile data networks. She ordered the San Diego-based company to renegotiate licensing agreements at reasonable prices.&lt;p&gt;&lt;div class="share_submission" style="position:relative;"&gt;
+&lt;a class="slashpop" href="http://twitter.com/home?status=Intel+Says+It+Sold+Its+Modem+Chip+Business+To+Apple+at+'a+Multi-Billion+Dollar+Loss'+Because+Qualcomm+Tactics+Left+It+With+No+Other+Choice%3A+http%3A%2F%2Fbit.ly%2F33uscQs"&gt;&lt;img src="https://a.fsdn.com/sd/twitter_icon_large.png"&gt;&lt;/a&gt;
+&lt;a class="slashpop" href="http://www.facebook.com/sharer.php?u=https%3A%2F%2Fapple.slashdot.org%2Fstory%2F19%2F11%2F29%2F1740226%2Fintel-says-it-sold-its-modem-chip-business-to-apple-at-a-multi-billion-dollar-loss-because-qualcomm-tactics-left-it-with-no-other-choice%3Futm_source%3Dslashdot%26utm_medium%3Dfacebook"&gt;&lt;img src="https://a.fsdn.com/sd/facebook_icon_large.png"&gt;&lt;/a&gt;
+
+&lt;a class="nobg" href="http://plus.google.com/share?url=https://apple.slashdot.org/story/19/11/29/1740226/intel-says-it-sold-its-modem-chip-business-to-apple-at-a-multi-billion-dollar-loss-because-qualcomm-tactics-left-it-with-no-other-choice?utm_source=slashdot&amp;amp;utm_medium=googleplus" onclick="javascript:window.open(this.href,'', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=600,width=600');return false;"&gt;&lt;img src="https://www.gstatic.com/images/icons/gplus-16.png" alt="Share on Google+"/&gt;&lt;/a&gt;
+
+
+
+&lt;/div&gt;&lt;/p&gt;&lt;p&gt;&lt;a href="https://apple.slashdot.org/story/19/11/29/1740226/intel-says-it-sold-its-modem-chip-business-to-apple-at-a-multi-billion-dollar-loss-because-qualcomm-tactics-left-it-with-no-other-choice?utm_source=rss1.0moreanon&amp;amp;utm_medium=feed"&gt;Read more of this story&lt;/a&gt; at Slashdot.&lt;/p&gt;&lt;iframe src="https://slashdot.org/slashdot-it.pl?op=discuss&amp;amp;id=15307812&amp;amp;smallembed=1" style="height: 300px; width: 100%; border: none;"&gt;&lt;/iframe&gt;&lt;img src="http://feeds.feedburner.com/~r/Slashdot/slashdot/~4/jwNYa3HhcPo" height="1" width="1" alt=""/&gt;</description>
+<dc:creator>msmash</dc:creator>
+<dc:date>2019-11-29T18:02:00+00:00</dc:date>
+<dc:subject>intel</dc:subject>
+<slash:department>blame-game</slash:department>
+<slash:section>apple</slash:section>
+<slash:comments>34</slash:comments>
+<slash:hit_parade>34,34,29,26,6,4,2</slash:hit_parade>
+<feedburner:origLink>https://apple.slashdot.org/story/19/11/29/1740226/intel-says-it-sold-its-modem-chip-business-to-apple-at-a-multi-billion-dollar-loss-because-qualcomm-tactics-left-it-with-no-other-choice?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed</feedburner:origLink></item>
+<item rdf:about="https://tech.slashdot.org/story/19/11/29/1611219/10-years-in-whatsapp-still-needs-true-multi-device-support?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed">
+<title>10 Years In, WhatsApp Still Needs True Multi-Device Support</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/knrJBpyUDdw/10-years-in-whatsapp-still-needs-true-multi-device-support</link>
+<description>Paul Sawers, writing for VentureBeat: WhatsApp launched out of beta 10 years ago this month, and the messaging behemoth is now a completely different beast from the one that quietly arrived for iPhone users way back in November 2009. After Facebook shelled out around $20 billion to acquire the app in 2014, WhatsApp introduced voice calls, video calls, group calls, web and desktop apps, end-to-end encryption, and fingperprint unlocking. All the while, Facebook has been figuring out how to monetize its gargantuan acquisition by targeting businesses. However, there remains one glaring chink in WhatsApp's otherwise expansive armor -- namely, the lack of simultaneous multi-device support. Things could be about to change, however. 
+
+Given that WhatsApp is tethered to a user's mobile number and all messages are stored locally on devices, rather than on remote servers, syncing and accessing WhatsApp across devices poses something of a challenge. WhatsApp Web allows users to message from their desktop computer, but by essentially mirroring their mobile device -- one can't work without the other. Moreover, WhatsApp Web lacks many of the features of the mobile app, such as voice and video calling. Achieving true multi-device support -- without compromising security -- would be a big game changer for WhatsApp.&lt;p&gt;&lt;div class="share_submission" style="position:relative;"&gt;
+&lt;a class="slashpop" href="http://twitter.com/home?status=10+Years+In%2C+WhatsApp+Still+Needs+True+Multi-Device+Support%3A+http%3A%2F%2Fbit.ly%2F2P07hiM"&gt;&lt;img src="https://a.fsdn.com/sd/twitter_icon_large.png"&gt;&lt;/a&gt;
+&lt;a class="slashpop" href="http://www.facebook.com/sharer.php?u=https%3A%2F%2Ftech.slashdot.org%2Fstory%2F19%2F11%2F29%2F1611219%2F10-years-in-whatsapp-still-needs-true-multi-device-support%3Futm_source%3Dslashdot%26utm_medium%3Dfacebook"&gt;&lt;img src="https://a.fsdn.com/sd/facebook_icon_large.png"&gt;&lt;/a&gt;
+
+&lt;a class="nobg" href="http://plus.google.com/share?url=https://tech.slashdot.org/story/19/11/29/1611219/10-years-in-whatsapp-still-needs-true-multi-device-support?utm_source=slashdot&amp;amp;utm_medium=googleplus" onclick="javascript:window.open(this.href,'', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=600,width=600');return false;"&gt;&lt;img src="https://www.gstatic.com/images/icons/gplus-16.png" alt="Share on Google+"/&gt;&lt;/a&gt;
+
+
+
+&lt;/div&gt;&lt;/p&gt;&lt;p&gt;&lt;a href="https://tech.slashdot.org/story/19/11/29/1611219/10-years-in-whatsapp-still-needs-true-multi-device-support?utm_source=rss1.0moreanon&amp;amp;utm_medium=feed"&gt;Read more of this story&lt;/a&gt; at Slashdot.&lt;/p&gt;&lt;iframe src="https://slashdot.org/slashdot-it.pl?op=discuss&amp;amp;id=15307570&amp;amp;smallembed=1" style="height: 300px; width: 100%; border: none;"&gt;&lt;/iframe&gt;&lt;img src="http://feeds.feedburner.com/~r/Slashdot/slashdot/~4/knrJBpyUDdw" height="1" width="1" alt=""/&gt;</description>
+<dc:creator>msmash</dc:creator>
+<dc:date>2019-11-29T17:02:00+00:00</dc:date>
+<dc:subject>communications</dc:subject>
+<slash:department>how-about-that</slash:department>
+<slash:section>technology</slash:section>
+<slash:comments>15</slash:comments>
+<slash:hit_parade>15,15,14,13,2,0,0</slash:hit_parade>
+<feedburner:origLink>https://tech.slashdot.org/story/19/11/29/1611219/10-years-in-whatsapp-still-needs-true-multi-device-support?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed</feedburner:origLink></item>
+<item rdf:about="https://slashdot.org/story/19/11/29/1319224/china-seeks-to-root-out-fake-news-and-deepfakes-with-new-online-content-rules?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed">
+<title>China Seeks To Root Out Fake News and Deepfakes With New Online Content Rules</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/_1LPjGoEwuw/china-seeks-to-root-out-fake-news-and-deepfakes-with-new-online-content-rules</link>
+<description>Chinese regulators have announced new rules governing video and audio content online, including a ban on the publishing and distribution of "fake news" created with technologies such as artificial intelligence and virtual reality. From a report: Any use of AI or virtual reality also needs to be clearly marked in a prominent manner and failure to follow the rules could be considered a criminal offense, the Cyberspace Administration of China (CAC) said on its website. The rules, effective Jan. 1, were published publicly on its website on Friday after being issued to online video and audio service providers last week. In particular, the CAC highlighted potential problems caused by deepfake technology, which uses AI to create hyper-realistic videos where a person appears to say or do something they did not. Deepfake technology could "endanger national security, disrupt social stability, disrupt social order and infringe upon the legitimate rights and interests of others," according to a transcript of a press briefing published on the CAC's website.&lt;p&gt;&lt;div class="share_submission" style="position:relative;"&gt;
+&lt;a class="slashpop" href="http://twitter.com/home?status=China+Seeks+To+Root+Out+Fake+News+and+Deepfakes+With+New+Online+Content+Rules%3A+http%3A%2F%2Fbit.ly%2F34vaC00"&gt;&lt;img src="https://a.fsdn.com/sd/twitter_icon_large.png"&gt;&lt;/a&gt;
+&lt;a class="slashpop" href="http://www.facebook.com/sharer.php?u=https%3A%2F%2Fslashdot.org%2Fstory%2F19%2F11%2F29%2F1319224%2Fchina-seeks-to-root-out-fake-news-and-deepfakes-with-new-online-content-rules%3Futm_source%3Dslashdot%26utm_medium%3Dfacebook"&gt;&lt;img src="https://a.fsdn.com/sd/facebook_icon_large.png"&gt;&lt;/a&gt;
+
+&lt;a class="nobg" href="http://plus.google.com/share?url=https://slashdot.org/story/19/11/29/1319224/china-seeks-to-root-out-fake-news-and-deepfakes-with-new-online-content-rules?utm_source=slashdot&amp;amp;utm_medium=googleplus" onclick="javascript:window.open(this.href,'', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=600,width=600');return false;"&gt;&lt;img src="https://www.gstatic.com/images/icons/gplus-16.png" alt="Share on Google+"/&gt;&lt;/a&gt;
+
+
+
+&lt;/div&gt;&lt;/p&gt;&lt;p&gt;&lt;a href="https://slashdot.org/story/19/11/29/1319224/china-seeks-to-root-out-fake-news-and-deepfakes-with-new-online-content-rules?utm_source=rss1.0moreanon&amp;amp;utm_medium=feed"&gt;Read more of this story&lt;/a&gt; at Slashdot.&lt;/p&gt;&lt;iframe src="https://slashdot.org/slashdot-it.pl?op=discuss&amp;amp;id=15307036&amp;amp;smallembed=1" style="height: 300px; width: 100%; border: none;"&gt;&lt;/iframe&gt;&lt;img src="http://feeds.feedburner.com/~r/Slashdot/slashdot/~4/_1LPjGoEwuw" height="1" width="1" alt=""/&gt;</description>
+<dc:creator>msmash</dc:creator>
+<dc:date>2019-11-29T16:01:00+00:00</dc:date>
+<dc:subject>china</dc:subject>
+<slash:department>tussle-continues</slash:department>
+<slash:section>slashdot</slash:section>
+<slash:comments>44</slash:comments>
+<slash:hit_parade>44,43,36,29,14,5,2</slash:hit_parade>
+<feedburner:origLink>https://slashdot.org/story/19/11/29/1319224/china-seeks-to-root-out-fake-news-and-deepfakes-with-new-online-content-rules?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed</feedburner:origLink></item>
+<item rdf:about="https://science.slashdot.org/story/19/11/29/139213/scientists-turn-undersea-fiber-optic-cables-into-seismographs?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed">
+<title> Scientists Turn Undersea Fiber Optic Cables Into Seismographs</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/4zHMsRP37iE/scientists-turn-undersea-fiber-optic-cables-into-seismographs</link>
+<description>Monitoring seismic activity all over the world is an important task, but one that requires equipment to be at the site it's measuring -- difficult in the middle of the ocean. But new research from Berkeley could turn existing undersea fiber optic cables into a network of seismographs, creating an unprecedented global view of the Earth's tectonic movements. Iwastheone shares a report: Seismologists get almost all their data from instruments on land, which means most of our knowledge about seismic activity is limited to a third of the planet's surface. We don't even know where all the faults are since there's been no exhaustive study or long-term monitoring of the ocean floor. "There is a huge need for seafloor seismology," explained lead study author Nathaniel Lindsey in a Berkeley news release. "Any instrumentation you get out into the ocean, even if it is only for the first 50 kilometers from shore, will be very useful." Of course, the reason we haven't done so is because it's very hard to place, maintain, and access the precision instruments required for long-term seismic work underwater. But what if there were instruments already out there just waiting for us to take advantage of them? That's the idea Lindsey and his colleagues are pursuing with regard to undersea fiber optic cables. These cables carry data over long distances, sometimes as part of the internet's backbones, and sometimes as part of private networks. But one thing they all have in common is that they use light to do so -- light that gets scattered and distorted if the cable shifts or changes orientation. By carefully monitoring this "backscatter" phenomenon it can be seen exactly where the cable bends and to what extent -- sometimes to within a few nanometers. That means that researchers can observe a cable to find out the source of seismic activity with an extraordinary level of precision.&lt;p&gt;&lt;div class="share_submission" style="position:relative;"&gt;
+&lt;a class="slashpop" href="http://twitter.com/home?status=+Scientists+Turn+Undersea+Fiber+Optic+Cables+Into+Seismographs%3A+http%3A%2F%2Fbit.ly%2F2OWH9Fx"&gt;&lt;img src="https://a.fsdn.com/sd/twitter_icon_large.png"&gt;&lt;/a&gt;
+&lt;a class="slashpop" href="http://www.facebook.com/sharer.php?u=https%3A%2F%2Fscience.slashdot.org%2Fstory%2F19%2F11%2F29%2F139213%2Fscientists-turn-undersea-fiber-optic-cables-into-seismographs%3Futm_source%3Dslashdot%26utm_medium%3Dfacebook"&gt;&lt;img src="https://a.fsdn.com/sd/facebook_icon_large.png"&gt;&lt;/a&gt;
+
+&lt;a class="nobg" href="http://plus.google.com/share?url=https://science.slashdot.org/story/19/11/29/139213/scientists-turn-undersea-fiber-optic-cables-into-seismographs?utm_source=slashdot&amp;amp;utm_medium=googleplus" onclick="javascript:window.open(this.href,'', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=600,width=600');return false;"&gt;&lt;img src="https://www.gstatic.com/images/icons/gplus-16.png" alt="Share on Google+"/&gt;&lt;/a&gt;
+
+
+
+&lt;/div&gt;&lt;/p&gt;&lt;p&gt;&lt;a href="https://science.slashdot.org/story/19/11/29/139213/scientists-turn-undersea-fiber-optic-cables-into-seismographs?utm_source=rss1.0moreanon&amp;amp;utm_medium=feed"&gt;Read more of this story&lt;/a&gt; at Slashdot.&lt;/p&gt;&lt;iframe src="https://slashdot.org/slashdot-it.pl?op=discuss&amp;amp;id=15306974&amp;amp;smallembed=1" style="height: 300px; width: 100%; border: none;"&gt;&lt;/iframe&gt;&lt;img src="http://feeds.feedburner.com/~r/Slashdot/slashdot/~4/4zHMsRP37iE" height="1" width="1" alt=""/&gt;</description>
+<dc:creator>msmash</dc:creator>
+<dc:date>2019-11-29T15:01:00+00:00</dc:date>
+<dc:subject>science</dc:subject>
+<slash:department>moving-forward</slash:department>
+<slash:section>science</slash:section>
+<slash:comments>9</slash:comments>
+<slash:hit_parade>9,9,8,7,4,0,0</slash:hit_parade>
+<feedburner:origLink>https://science.slashdot.org/story/19/11/29/139213/scientists-turn-undersea-fiber-optic-cables-into-seismographs?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed</feedburner:origLink></item>
+<item rdf:about="https://it.slashdot.org/story/19/11/29/130253/hacker-stole-unreleased-music-and-then-tried-to-frame-someone-else?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed">
+<title>Hacker Stole Unreleased Music and Then Tried To Frame Someone Else</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/zFd8ay7VC94/hacker-stole-unreleased-music-and-then-tried-to-frame-someone-else</link>
+<description>US authorities charged a Texas man this week for hacking into the cloud accounts of two music companies and the social media account of a high-profile music producer, from where he stole unreleased songs that he later published online for free on public internet forums. From a report: When the man realized he could be caught, he contacted one of the hacked companies and tried to pin the blame on another individual. According to court documents published on Monday by the Department of Justice, the suspect is a 27-year-old named Christian Erazo, from Austin, Texas. US authorities say that Erazo worked with three other co-conspirators on a series of hacks that took place between late 2016 and April 2017. The group's primary targets were two music management companies, one located in New York, and the second in Los Angeles. According to investigators, the four hackers obtained and used employee credentials to access the companies' cloud storage accounts, from where they downloaded more than 100 unreleased songs. Most of the data came from the New York-based music label, from where the Erazo and co-conspirators stole more than 50 GBs of music. Erazo's indictment claims the group accessed the company's cloud storage account more than 2,300 times across several months.&lt;p&gt;&lt;div class="share_submission" style="position:relative;"&gt;
+&lt;a class="slashpop" href="http://twitter.com/home?status=Hacker+Stole+Unreleased+Music+and+Then+Tried+To+Frame+Someone+Else%3A+http%3A%2F%2Fbit.ly%2F2OvVud1"&gt;&lt;img src="https://a.fsdn.com/sd/twitter_icon_large.png"&gt;&lt;/a&gt;
+&lt;a class="slashpop" href="http://www.facebook.com/sharer.php?u=https%3A%2F%2Fit.slashdot.org%2Fstory%2F19%2F11%2F29%2F130253%2Fhacker-stole-unreleased-music-and-then-tried-to-frame-someone-else%3Futm_source%3Dslashdot%26utm_medium%3Dfacebook"&gt;&lt;img src="https://a.fsdn.com/sd/facebook_icon_large.png"&gt;&lt;/a&gt;
+
+&lt;a class="nobg" href="http://plus.google.com/share?url=https://it.slashdot.org/story/19/11/29/130253/hacker-stole-unreleased-music-and-then-tried-to-frame-someone-else?utm_source=slashdot&amp;amp;utm_medium=googleplus" onclick="javascript:window.open(this.href,'', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=600,width=600');return false;"&gt;&lt;img src="https://www.gstatic.com/images/icons/gplus-16.png" alt="Share on Google+"/&gt;&lt;/a&gt;
+
+
+
+&lt;/div&gt;&lt;/p&gt;&lt;p&gt;&lt;a href="https://it.slashdot.org/story/19/11/29/130253/hacker-stole-unreleased-music-and-then-tried-to-frame-someone-else?utm_source=rss1.0moreanon&amp;amp;utm_medium=feed"&gt;Read more of this story&lt;/a&gt; at Slashdot.&lt;/p&gt;&lt;iframe src="https://slashdot.org/slashdot-it.pl?op=discuss&amp;amp;id=15306940&amp;amp;smallembed=1" style="height: 300px; width: 100%; border: none;"&gt;&lt;/iframe&gt;&lt;img src="http://feeds.feedburner.com/~r/Slashdot/slashdot/~4/zFd8ay7VC94" height="1" width="1" alt=""/&gt;</description>
+<dc:creator>msmash</dc:creator>
+<dc:date>2019-11-29T14:00:00+00:00</dc:date>
+<dc:subject>security</dc:subject>
+<slash:department>security-woes</slash:department>
+<slash:section>it</slash:section>
+<slash:comments>32</slash:comments>
+<slash:hit_parade>32,32,24,20,5,2,0</slash:hit_parade>
+<feedburner:origLink>https://it.slashdot.org/story/19/11/29/130253/hacker-stole-unreleased-music-and-then-tried-to-frame-someone-else?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed</feedburner:origLink></item>
+<item rdf:about="https://tech.slashdot.org/story/19/11/28/2347231/the-great-org-heist?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed">
+<title>The Great&lt;nobr&gt; &lt;wbr&gt;&lt;/nobr&gt;.ORG Heist</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/rLnzpIvd2wA/the-great-org-heist</link>
+<description>Sam Klein: Ethos Capital, a new commercial investment firm founded in the past few months in Boston, has 2 staff and only one major investment: a deal to acquire the 501c3 non-profit that currently runs the .org domain (valued at a few $B), for an undisclosed sum. This was initiated immediately after ICANN decided in May, over almost universal opposition, to remove the price cap on .org registrations with no meaningful price protections for existing or future registrants. This seems to violate a range of ethical, ICANN, ISOC, and non-profit guidelines. It is certainly the privatisation of a not-for-profit monopoly into a for-profit one, which will benefit ISOC and a few individuals by inconveniencing millions of others. I have questions: 
+
+ 1. Do affected parties have recourse?
+ 2. Other than polite letters, is anything being done? (Maybe: Official complaints have been filed, but don't expect results.)
+ 3. Georgia Tech's Internet Governance Project has pointed ideas for ICANN. (You can .. join ISOC as a member to take part in future decisions.)
+ 4. Has anyone currently at ICANN + ISOC made substantive comment? (Yes: Richard Barnes, ISOC trustee and netizen, explains why he voted to sell .org.) Vint Cerf said: 'Hard to imagine $60/year would be a deal breaker for even small non-profits.')
+ 5. How did we reach the point of Net pioneers embracing 95% profit margins? Tim Berners-Lee adds, "I'm very concerned about the sale of .org to a private company. If the Public Interest Registry ends up not being required to act in the public interest, it would be a travesty. We need an urgent explanation."&lt;p&gt;&lt;div class="share_submission" style="position:relative;"&gt;
+&lt;a class="slashpop" href="http://twitter.com/home?status=The+Great+.ORG+Heist%3A+http%3A%2F%2Fbit.ly%2F2OXQQn1"&gt;&lt;img src="https://a.fsdn.com/sd/twitter_icon_large.png"&gt;&lt;/a&gt;
+&lt;a class="slashpop" href="http://www.facebook.com/sharer.php?u=https%3A%2F%2Ftech.slashdot.org%2Fstory%2F19%2F11%2F28%2F2347231%2Fthe-great-org-heist%3Futm_source%3Dslashdot%26utm_medium%3Dfacebook"&gt;&lt;img src="https://a.fsdn.com/sd/facebook_icon_large.png"&gt;&lt;/a&gt;
+
+&lt;a class="nobg" href="http://plus.google.com/share?url=https://tech.slashdot.org/story/19/11/28/2347231/the-great-org-heist?utm_source=slashdot&amp;amp;utm_medium=googleplus" onclick="javascript:window.open(this.href,'', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=600,width=600');return false;"&gt;&lt;img src="https://www.gstatic.com/images/icons/gplus-16.png" alt="Share on Google+"/&gt;&lt;/a&gt;
+
+
+
+&lt;/div&gt;&lt;/p&gt;&lt;p&gt;&lt;a href="https://tech.slashdot.org/story/19/11/28/2347231/the-great-org-heist?utm_source=rss1.0moreanon&amp;amp;utm_medium=feed"&gt;Read more of this story&lt;/a&gt; at Slashdot.&lt;/p&gt;&lt;iframe src="https://slashdot.org/slashdot-it.pl?op=discuss&amp;amp;id=15301874&amp;amp;smallembed=1" style="height: 300px; width: 100%; border: none;"&gt;&lt;/iframe&gt;&lt;img src="http://feeds.feedburner.com/~r/Slashdot/slashdot/~4/rLnzpIvd2wA" height="1" width="1" alt=""/&gt;</description>
+<dc:creator>msmash</dc:creator>
+<dc:date>2019-11-29T11:00:00+00:00</dc:date>
+<dc:subject>internet</dc:subject>
+<slash:department>tussle-continues</slash:department>
+<slash:section>technology</slash:section>
+<slash:comments>71</slash:comments>
+<slash:hit_parade>71,65,61,55,25,19,15</slash:hit_parade>
+<feedburner:origLink>https://tech.slashdot.org/story/19/11/28/2347231/the-great-org-heist?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed</feedburner:origLink></item>
+<item rdf:about="https://tech.slashdot.org/story/19/11/28/2332207/some-uber-drivers-use-bogus-identities-and-shared-accounts?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed">
+<title>Some Uber Drivers Use Bogus Identities and Shared Accounts</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/09jJEInDGkg/some-uber-drivers-use-bogus-identities-and-shared-accounts</link>
+<description>An anonymous reader shares a report: Uber faced a blow on Monday when London regulators refused to renew the ride-hailing company's operating permit because of safety concerns. The biggest issue lawmakers cited was drivers using false identities as they ferried unsuspecting passengers. At least 14,000 trips were made by unauthorized drivers, according to city regulator Transport for London. The way it worked is this: A number of drivers would share one account, and whenever one of them went out to drive, they'd upload their own photo to fool passengers. The unauthorized drivers were able to pose as vetted, licensed and insured, when often they weren't. Turns out, the issue of fraudulent Uber drivers isn't isolated to London. 
+
+Instances of unauthorized drivers, including convicted felons, being on the Uber app have surfaced in other cities, including San Francisco, Houston and Boston. Sometimes drivers reportedly used another person's license and Social Security number to sign up for the ride-hailing service. Other times they used fake names. And on some occasions they bought bogus identities on the internet. "For bad actors, it's not hard to circumvent Uber's signup process since it's designed to get drivers onboarded as quickly as possible and with as little hassle as possible," said Harry Campbell, a ride-hail driver who runs the popular Rideshare Guy blog. "From time to time, Uber uses a 'selfie check' to verify the driver, but it's not clear how accurate this method is."&lt;p&gt;&lt;div class="share_submission" style="position:relative;"&gt;
+&lt;a class="slashpop" href="http://twitter.com/home?status=Some+Uber+Drivers+Use+Bogus+Identities+and+Shared+Accounts%3A+http%3A%2F%2Fbit.ly%2F34vnumR"&gt;&lt;img src="https://a.fsdn.com/sd/twitter_icon_large.png"&gt;&lt;/a&gt;
+&lt;a class="slashpop" href="http://www.facebook.com/sharer.php?u=https%3A%2F%2Ftech.slashdot.org%2Fstory%2F19%2F11%2F28%2F2332207%2Fsome-uber-drivers-use-bogus-identities-and-shared-accounts%3Futm_source%3Dslashdot%26utm_medium%3Dfacebook"&gt;&lt;img src="https://a.fsdn.com/sd/facebook_icon_large.png"&gt;&lt;/a&gt;
+
+&lt;a class="nobg" href="http://plus.google.com/share?url=https://tech.slashdot.org/story/19/11/28/2332207/some-uber-drivers-use-bogus-identities-and-shared-accounts?utm_source=slashdot&amp;amp;utm_medium=googleplus" onclick="javascript:window.open(this.href,'', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=600,width=600');return false;"&gt;&lt;img src="https://www.gstatic.com/images/icons/gplus-16.png" alt="Share on Google+"/&gt;&lt;/a&gt;
+
+
+
+&lt;/div&gt;&lt;/p&gt;&lt;p&gt;&lt;a href="https://tech.slashdot.org/story/19/11/28/2332207/some-uber-drivers-use-bogus-identities-and-shared-accounts?utm_source=rss1.0moreanon&amp;amp;utm_medium=feed"&gt;Read more of this story&lt;/a&gt; at Slashdot.&lt;/p&gt;&lt;iframe src="https://slashdot.org/slashdot-it.pl?op=discuss&amp;amp;id=15301860&amp;amp;smallembed=1" style="height: 300px; width: 100%; border: none;"&gt;&lt;/iframe&gt;&lt;img src="http://feeds.feedburner.com/~r/Slashdot/slashdot/~4/09jJEInDGkg" height="1" width="1" alt=""/&gt;</description>
+<dc:creator>msmash</dc:creator>
+<dc:date>2019-11-29T05:00:00+00:00</dc:date>
+<dc:subject>transportation</dc:subject>
+<slash:department>bigger-problems</slash:department>
+<slash:section>technology</slash:section>
+<slash:comments>73</slash:comments>
+<slash:hit_parade>73,70,59,50,19,5,4</slash:hit_parade>
+<feedburner:origLink>https://tech.slashdot.org/story/19/11/28/2332207/some-uber-drivers-use-bogus-identities-and-shared-accounts?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed</feedburner:origLink></item>
+<item rdf:about="https://tech.slashdot.org/story/19/11/28/2216211/chinese-online-streaming-service-iqiyi-says-ai-has-enhanced-efficiency-throughout-its-business?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed">
+<title>Chinese Online Streaming Service iQiyi Says AI Has Enhanced Efficiency Throughout Its Business</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/ZkPQ__s_pvc/chinese-online-streaming-service-iqiyi-says-ai-has-enhanced-efficiency-throughout-its-business</link>
+<description>Wang Xuepu, vice president of Chinese online video streaming company iQiyi, says that artificial intelligence has enhanced the company's efficiency in all aspects of the business. From a report: "Now we can cut thousands of hours of work to just hours," Wang said in Mandarin at CNBC's East Tech West conference in the Nansha district of Guangzhou, China. He said that the company is using AI across its business like adding subtitles or integrating multimedia more quickly. Wang added AI has increased efficiency in the company's operations in many ways, including content creation, approval processes and market distribution. "iQiyi embodies the culture of Silicon Valley and culture of Hollywood. We really put an emphasis on technology development. More than half of our employees work in the technical side. We have invested in AI significantly. More than 60% of our patent submissions this year were related AI," said Wang. Wang said, for example, iQiyi has been able to predict the popularity of films and TV shows before taking them online by using big data. "We can use AI to help forecast film and TV series' viewer numbers before they are aired. With the data, we can predict the traffic and for TV series and that accuracy rate is 88%, with films we can reach near 90% accuracy," he said, according to a CNBC translation.&lt;p&gt;&lt;div class="share_submission" style="position:relative;"&gt;
+&lt;a class="slashpop" href="http://twitter.com/home?status=Chinese+Online+Streaming+Service+iQiyi+Says+AI+Has+Enhanced+Efficiency+Throughout+Its+Business%3A+http%3A%2F%2Fbit.ly%2F34r3pOm"&gt;&lt;img src="https://a.fsdn.com/sd/twitter_icon_large.png"&gt;&lt;/a&gt;
+&lt;a class="slashpop" href="http://www.facebook.com/sharer.php?u=https%3A%2F%2Ftech.slashdot.org%2Fstory%2F19%2F11%2F28%2F2216211%2Fchinese-online-streaming-service-iqiyi-says-ai-has-enhanced-efficiency-throughout-its-business%3Futm_source%3Dslashdot%26utm_medium%3Dfacebook"&gt;&lt;img src="https://a.fsdn.com/sd/facebook_icon_large.png"&gt;&lt;/a&gt;
+
+&lt;a class="nobg" href="http://plus.google.com/share?url=https://tech.slashdot.org/story/19/11/28/2216211/chinese-online-streaming-service-iqiyi-says-ai-has-enhanced-efficiency-throughout-its-business?utm_source=slashdot&amp;amp;utm_medium=googleplus" onclick="javascript:window.open(this.href,'', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=600,width=600');return false;"&gt;&lt;img src="https://www.gstatic.com/images/icons/gplus-16.png" alt="Share on Google+"/&gt;&lt;/a&gt;
+
+
+
+&lt;/div&gt;&lt;/p&gt;&lt;p&gt;&lt;a href="https://tech.slashdot.org/story/19/11/28/2216211/chinese-online-streaming-service-iqiyi-says-ai-has-enhanced-efficiency-throughout-its-business?utm_source=rss1.0moreanon&amp;amp;utm_medium=feed"&gt;Read more of this story&lt;/a&gt; at Slashdot.&lt;/p&gt;&lt;iframe src="https://slashdot.org/slashdot-it.pl?op=discuss&amp;amp;id=15301756&amp;amp;smallembed=1" style="height: 300px; width: 100%; border: none;"&gt;&lt;/iframe&gt;&lt;img src="http://feeds.feedburner.com/~r/Slashdot/slashdot/~4/ZkPQ__s_pvc" height="1" width="1" alt=""/&gt;</description>
+<dc:creator>msmash</dc:creator>
+<dc:date>2019-11-29T02:01:00+00:00</dc:date>
+<dc:subject>ai</dc:subject>
+<slash:department>how-about-that</slash:department>
+<slash:section>technology</slash:section>
+<slash:comments>39</slash:comments>
+<slash:hit_parade>39,38,35,29,8,0,0</slash:hit_parade>
+<feedburner:origLink>https://tech.slashdot.org/story/19/11/28/2216211/chinese-online-streaming-service-iqiyi-says-ai-has-enhanced-efficiency-throughout-its-business?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed</feedburner:origLink></item>
+<item rdf:about="https://science.slashdot.org/story/19/11/28/1923201/mystery-sounds-from-storms-could-help-predict-tornadoes?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed">
+<title>Mystery Sounds From Storms Could Help Predict Tornadoes</title>
+<link>http://rss.slashdot.org/~r/Slashdot/slashdot/~3/2J9ocd1VTDE/mystery-sounds-from-storms-could-help-predict-tornadoes</link>
+<description>Mysterious rumbles that herald tornadoes could one day be used to predict when and where they will strike, according to researchers. From a report: Storms emit sounds before tornadoes form, but the signals at less than 20Hz are below the limit for human hearing. What causes these rumbles has also been a conundrum. Now researchers said they have narrowed down the reasons for the sounds -- an important factor in harnessing the knowledge to improve warnings. "The three possibilities are core oscillations [in the tornado], pressure relaxation, and latent heat effects," said Dr Brian Elbing, of Oklahoma State University, who is part of the team behind the research. "They are all possibilities because what we have seen is that the signal occurs before the tornado touches the ground, continues after it touches the ground, and then disappears some time after the tornado leaves the ground." 
+
+The latest work was presented at the annual meeting of the American Physical Society's Division of Fluid Dynamics in Seattle. The low-frequency sound produced by tornadoes has been known about for several decades, but Elbing said a big problem has been a lack of understanding of what causes the sounds, and difficulties in unpicking them from a tornado and other aspects of the weather. The subject has seen renewed interest in recent years, with Elbing saying it could prove particularly useful for hilly areas such as Dixie Alley, which stretches from Texas to North Carolina. "Infrasound doesn't need line of sight like radar, so there is hope that this could significantly improve warnings in Dixie Alley where most deaths [from tornadoes] occur," he said.&lt;p&gt;&lt;div class="share_submission" style="position:relative;"&gt;
+&lt;a class="slashpop" href="http://twitter.com/home?status=Mystery+Sounds+From+Storms+Could+Help+Predict+Tornadoes%3A+http%3A%2F%2Fbit.ly%2F37LtXfo"&gt;&lt;img src="https://a.fsdn.com/sd/twitter_icon_large.png"&gt;&lt;/a&gt;
+&lt;a class="slashpop" href="http://www.facebook.com/sharer.php?u=https%3A%2F%2Fscience.slashdot.org%2Fstory%2F19%2F11%2F28%2F1923201%2Fmystery-sounds-from-storms-could-help-predict-tornadoes%3Futm_source%3Dslashdot%26utm_medium%3Dfacebook"&gt;&lt;img src="https://a.fsdn.com/sd/facebook_icon_large.png"&gt;&lt;/a&gt;
+
+&lt;a class="nobg" href="http://plus.google.com/share?url=https://science.slashdot.org/story/19/11/28/1923201/mystery-sounds-from-storms-could-help-predict-tornadoes?utm_source=slashdot&amp;amp;utm_medium=googleplus" onclick="javascript:window.open(this.href,'', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=600,width=600');return false;"&gt;&lt;img src="https://www.gstatic.com/images/icons/gplus-16.png" alt="Share on Google+"/&gt;&lt;/a&gt;
+
+
+
+&lt;/div&gt;&lt;/p&gt;&lt;p&gt;&lt;a href="https://science.slashdot.org/story/19/11/28/1923201/mystery-sounds-from-storms-could-help-predict-tornadoes?utm_source=rss1.0moreanon&amp;amp;utm_medium=feed"&gt;Read more of this story&lt;/a&gt; at Slashdot.&lt;/p&gt;&lt;iframe src="https://slashdot.org/slashdot-it.pl?op=discuss&amp;amp;id=15301376&amp;amp;smallembed=1" style="height: 300px; width: 100%; border: none;"&gt;&lt;/iframe&gt;&lt;img src="http://feeds.feedburner.com/~r/Slashdot/slashdot/~4/2J9ocd1VTDE" height="1" width="1" alt=""/&gt;</description>
+<dc:creator>msmash</dc:creator>
+<dc:date>2019-11-28T23:10:00+00:00</dc:date>
+<dc:subject>science</dc:subject>
+<slash:department>tussle-continues</slash:department>
+<slash:section>science</slash:section>
+<slash:comments>31</slash:comments>
+<slash:hit_parade>31,27,23,20,7,2,0</slash:hit_parade>
+<feedburner:origLink>https://science.slashdot.org/story/19/11/28/1923201/mystery-sounds-from-storms-could-help-predict-tornadoes?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed</feedburner:origLink></item>
+<textinput rdf:about="https://slashdot.org/search.pl">
+<title>Search Slashdot</title>
+<description>Search Slashdot stories</description>
+<name>query</name>
+<link>https://slashdot.org/search.pl</link>
+</textinput>
+</rdf:RDF>

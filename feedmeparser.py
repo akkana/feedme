@@ -10,9 +10,7 @@ import os, sys
 import urllib.request, urllib.error, urllib.parse
 import re
 from configparser import ConfigParser
-#from HTMLParser import HTMLParser
 import lxml.html
-import urllib.parse
 from http.cookiejar import CookieJar
 import io
 import gzip
@@ -90,6 +88,8 @@ class FeedmeURLDownloader(object):
            contents as a str. Allow for possible vagaries like cookies,
            redirection, compression etc.
         """
+        print("This is the real download_url",
+              url, referrer, user_agent, verbose)
         if verbose:
             print("download_url", url, "referrer=", referrer, \
                                 "user_agent", user_agent, file=sys.stderr)
@@ -1073,18 +1073,19 @@ def sub_tilde(name):
 #
 # Read the configuration file (don't act on it yet)
 #
-def read_config_file():
-    #
-    # Read the config file
-    #
-    if 'XDG_CONFIG_HOME' in os.environ:
-        confighome = os.environ['XDG_CONFIG_HOME']
-    elif 'xdg.BaseDirectory' in sys.modules:
-        confighome = xdg.BaseDirectory.xdg_config_home
-    else:
-        confighome = os.path.join(os.environ['HOME'], '.config')
+def read_config_file(confdir=None):
+    '''Read the config file from XDG_CONFIG_HOME/feedme/*.conf,
+       returning a ConfigParser object'''
 
-    confdir = os.path.join(confighome, 'feedme')
+    if not confdir:
+        if 'XDG_CONFIG_HOME' in os.environ:
+            confighome = os.environ['XDG_CONFIG_HOME']
+        elif 'xdg.BaseDirectory' in sys.modules:
+            confighome = xdg.BaseDirectory.xdg_config_home
+        else:
+            confighome = os.path.join(os.environ['HOME'], '.config')
+
+        confdir = os.path.join(confighome, 'feedme')
 
     main_conf_file = 'feedme.conf'
     conffile = os.path.join(confdir, main_conf_file)
