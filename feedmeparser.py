@@ -670,13 +670,15 @@ tree = lxml.html.fromstring(html)
             #print "a attrs now are", attrs
 
         elif tag == 'img':
+            print("img tag")
+            print("attrs", attrs)
             keys = list(attrs.keys())
             # Handle both src and srcset.
             if 'src' in keys:
                 src = attrs['src']
             else:
                 src = None
-            if 'srcset' in keys:
+            if 'srcset' in keys or 'data-lazy-srcset' in keys:
                 # The intent here:
                 # If there's a srcset, pick the largest one that's still
                 # under max_srcset_size, and set src to that.
@@ -688,7 +690,18 @@ tree = lxml.html.fromstring(html)
                 except:
                     maximgwidth = 800
 
-                srcset = self.parse_srcset(attrs['srcset'])
+                # ladailypost has this ridiculous setup
+                # where they set the src to something that isn't an image,
+                # then have data-lazy-src and/or data-lazy-srcset
+                # which presumably get loaded later with JavaScript.
+                if 'data-lazy-srcset' in attrs:
+                    srcset = self.parse_srcset(attrs['data-lazy-srcset'])
+                    print("parsed lazy srcset, srcset is", srcset)
+                elif 'srcset' in attrs:
+                    srcset = self.parse_srcset(attrs['srcset'])
+                else:
+                    srcset = None
+
                 if srcset:
                     try:
                         curimg = None
