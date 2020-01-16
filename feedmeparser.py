@@ -860,7 +860,7 @@ tree = lxml.html.fromstring(html)
                     attrs['src'] = alt_src
             else:
                 # Looks like it's probably a nonlocal image.
-                print(req.host, "and", self.host,
+                print("For", src, req.host, "and", self.host,
                       "are too different -- not fetching image",
                       file=sys.stderr)
                 # But that means we're left with a nonlocal image in the source.
