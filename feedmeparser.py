@@ -284,8 +284,8 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         if author:
             self.outfile.write("By: %s\n<p>\n" % author)
 
-        # Throw out everything before the first page_start pattern we see,
-        # and after the page_end patterns
+        # Throw out everything before the first page_start re pattern we see,
+        # and after the page_end patterns.
         page_starts = get_config_multiline(self.config, self.feedname,
                                            'page_start')
         page_ends = get_config_multiline(self.config, self.feedname, 'page_end')
@@ -293,23 +293,26 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
             for page_start in page_starts:
                 if self.verbose:
                     print("looking for page_start", page_start, file=sys.stderr)
-                print("type(html) is", type(html))
-                match = html.find(page_start)
-                if match >= 0:
+                start_re = re.compile(page_start, flags=re.DOTALL)
+                match = start_re.search(html, re.IGNORECASE)
+                if match:
                     if self.verbose:
-                        print("Found page_start", page_start, file=sys.stderr)
-                    html = html[match:]
+                        print("Found page_start regexp", page_start,
+                              file=sys.stderr)
+                    html = html[match.end():]
                     break
 
         if len(page_ends) > 0:
             for page_end in page_ends:
                 if self.verbose:
                     print("looking for page_end", page_end, file=sys.stderr)
-                match = html.find(page_end)
-                if match >= 0:
+                end_re = re.compile(page_end, flags=re.DOTALL)
+                match = start_re.search(html, re.IGNORECASE)
+                if match:
                     if self.verbose:
-                        print("Found page_end", page_end, file=sys.stderr)
-                    html = html[0 : match]
+                        print("Found page_end regexp", page_end,
+                              file=sys.stderr)
+                    html = html[0:match.start()]
 
         # Skip anything matching any of the skip_pats.
         # It may eventually be better to do this in the HTML parser.
