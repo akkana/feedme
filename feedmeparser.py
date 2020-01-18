@@ -30,12 +30,14 @@ has_ununicode=True
 # if there's anything involved that might have a nonascii character.
 # This doesn't work reliably either:
 # TypeError: unorderable types: int() < traceback() in the print line.
+# or, more recently,
+# '>=' not supported between instances of 'traceback' and 'int'
 def ptraceback():
     try:
         ex_type, ex, tb = sys.exc_info()
         print(str(traceback.format_exc(tb)), file=sys.stderr)
-    except:
-        print("******** Yikes! Exception trying to print traceback",
+    except Exception as e:
+        print("******** Yikes! Exception trying to print traceback", e,
               file=sys.stderr)
 
 # XXX
@@ -184,11 +186,12 @@ class FeedmeURLDownloader(object):
             contents = response.read()
         # XXX Need to guard against IncompleteRead -- but what class owns it??
         #except httplib.IncompleteRead, e:
-        #    print >>sys.stderr, "Ignoring IncompleteRead on", url
+        #    print("Ignoring IncompleteRead on", url, file=sys.stderr)
         except Exception as e:
             print("Unknown error from response.read()", url, file=sys.stderr)
 
-        # contents can be undefined here. If so, no point in doing anything else.
+        # contents can be undefined here.
+        # If so, no point in doing anything else.
         if not contents:
             print("Didn't read anything from response.read()", file=sys.stderr)
             response.close()
@@ -204,7 +207,14 @@ class FeedmeURLDownloader(object):
 
         # response.read() returns bytes. Convert to str as soon as possible
         # so the rest of the program can work with str.
-        return contents.decode(encoding=self.encoding)
+        # But this sometimes fails with:
+        # UnicodeDecodeError: 'utf-8' codec can't decode bytes in position nnn-nnn: invalid continuation byte
+        try:
+            return contents.decode(encoding=self.encoding)
+        except UnicodeDecodeError:
+            print("UnicodeDecodeError on", self.cur_url)
+            return contents.decode(encoding=self.encoding,
+                                   errors="backslashreplace")
 
 class FeedmeHTMLParser(FeedmeURLDownloader):
 
@@ -322,7 +332,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
             for skip in skip_pats:
                 if self.verbose:
                     print("Trying to skip '%s'" % skip, file=sys.stderr)
-                    #print >>sys.stderr, "in", html.encode('utf-8')
+                    #print("in", html.encode('utf-8'), file=sys.stderr)
                     #sys.stderr.flush()
                 # flags=DOTALL doesn't exist in re.sub until 2.7,
                 #html = re.sub(skip, '', html, flags=re.DOTALL)
@@ -338,8 +348,8 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                 # For some reason [.\n] doesn't work.
                 #html = re.sub(skip, '', html, flags=re.DOTALL)
 
-        # print >>sys.stderr, "After skipping skip_pats, html is:"
-        # print >>sys.stderr, html.encode(self.encoding, 'replace')
+        # print("After skipping skip_pats, html is:", file=sys.stderr)
+        # print(html.encode(self.encoding, 'replace'), file=sys.stderr)
 
         self.single_page_url = None
 
@@ -552,7 +562,7 @@ import lxml.html
 html = '<html><body onload="" color="white">\n<p>Hi  ! Ma&ntilde;ana!\n<a href="/my/path/to/link.html">my link</a>\n</body></html>\n'
 tree = lxml.html.fromstring(html)
 """
-        #print "Crawling:", tree.tag, "attrib", tree.attrib
+        #print("Crawling:", tree.tag, "attrib", tree.attrib)
         if type(tree.tag) is str:
             # lxml.html gives comments tag = <built-in function Comment>
             # This is not documented anywhere and there seems to be
@@ -560,7 +570,7 @@ tree = lxml.html.fromstring(html)
             # So we only handle tags that are type str.
             self.handle_starttag(tree.tag, tree.attrib)
             if tree.text:
-                #print tree.tag, "contains text", tree.text
+                #print(tree.tag, "contains text", tree.text)
                 self.handle_data(tree.text)
             for node in tree:
                 self.crawl_tree(node)
@@ -568,12 +578,12 @@ tree = lxml.html.fromstring(html)
         # print the tail even if it was a comment -- the tail is
         # part of the parent tag, not the current tag.
         if tree.tail:
-            #print tree.tag, "contains text", tree.tail
+            #print(tree.tag, "contains text", tree.tail)
             self.handle_data(tree.tail)
 
     def handle_starttag(self, tag, attrs):
         #if self.verbose:
-        #    print "start tag", tag, attrs
+        #    print("start tag", tag, attrs)
 
         # meta refreshes won't work when we're offline, but we
         # might want to display them to give the user the option.
@@ -616,7 +626,7 @@ tree = lxml.html.fromstring(html)
                 # meta refresh and any other meta tags.
 
         if self.skipping:
-            # print "Skipping start tag", tag, "inside a skipped section"
+            # print("Skipping start tag", tag, "inside a skipped section")
             return
 
         if tag == 'base' and 'href' in list(attrs.keys()):
@@ -636,25 +646,24 @@ tree = lxml.html.fromstring(html)
         # Some tags, we always skip
         if self.tag_skippable_section(tag):
             self.skipping = tag
-            # print >>sys.stderr, "Starting a skippable", tag, "section"
+            # print("Starting a skippable", tag, "section", file=sys.stderr)
             return
 
         if self.tag_skippable(tag):
-            # print >>sys.stderr, "skipping start", tag, "tag"
+            # print("skipping start", tag, "tag", file=sys.stderr)
             return
 
-        #print "type(tag) =", type(tag)
+        #print("type(tag) =", type(tag))
         self.outfile.write('<' + tag)
 
         if tag == 'a':
             if 'href' in list(attrs.keys()):
                 href = attrs['href']
-                #print >>sys.stderr, "a href", href
 
                 # See if this matches the single-page pattern,
                 # if we're not already following one:
                 if not self.single_page_url:
-                    #print "we're not in the single page already"
+                    #print("we're not in the single page already")
                     single_page_pats = get_config_multiline(self.config,
                                                             self.feedname,
                                                             'single_page_pats')
@@ -668,13 +677,10 @@ tree = lxml.html.fromstring(html)
                             # But continue fetching the regular pattern,
                             # since the single-page one may fail
 
-                #print "Rewriting href", href, "to", self.make_absolute(href)
+                #print("Rewriting href", href, "to", self.make_absolute(href))
                 attrs['href'] = self.make_absolute(href)
-            #print "a attrs now are", attrs
 
         elif tag == 'img':
-            print("img tag")
-            print("attrs", attrs)
             keys = list(attrs.keys())
             # Handle both src and srcset.
             if 'src' in keys:
@@ -834,7 +840,7 @@ tree = lxml.html.fromstring(html)
                         local_file.write(f.read())
                         local_file.close()
                     #else:
-                    #    print "Not downloading, already have", imgfilename
+                    #    print("Not downloading, already have", imgfilename)
 
                     # If we got this far, then we have a local image,
                     # so go ahead and rewrite the url:
@@ -891,16 +897,15 @@ tree = lxml.html.fromstring(html)
         self.outfile.write('>')
 
     def handle_endtag(self, tag):
-        #print "end tag", tag
         if tag == self.skipping:
             self.skipping = False
-            # print >>sys.stderr, "Ending a skippable", tag, "section"
+            # print("Ending a skippable", tag, "section", file=sys.stderr)
             return
         if self.skipping:
-            # print "Skipping end tag", tag, "inside a skipped section"
+            # print("Skipping end tag", tag, "inside a skipped section")
             return
         if self.tag_skippable(tag) or self.tag_skippable_section(tag):
-            # print >>sys.stderr, "Skipping end", tag
+            # print("Skipping end", tag, file=sys.stderr)
             return
 
         # Some tags don't have ends, and it can cause problems:
@@ -912,14 +917,12 @@ tree = lxml.html.fromstring(html)
         if tag == "body" or tag == 'html':
             return
 
-        # print >>sys.stderr, "Writing end tag", tag
         self.outfile.write('</' + tag + '>\n')
 
     def handle_data(self, data):
         # XXX lxml.etree.tostring() might be a cleaner way of printing
         # these nodes: http://lxml.de/tutorial.html
         if self.skipping:
-            #print >>sys.stderr, "Skipping data"
             return
 
         # If it's not just whitespace, make a note that we've written something.
@@ -937,7 +940,7 @@ tree = lxml.html.fromstring(html)
 
     # def handle_entityref(self, name):
     #     if self.skipping:
-    #         #print "Skipping entityref"
+    #         #print("Skipping entityref")
     #         return
     #     self.outfile.write('&' + name + ';')
 
@@ -1182,7 +1185,7 @@ class HTMLSimplifier:
             # So we only handle tags that are type str.
             self.handle_starttag(tree.tag, tree.attrib)
             if tree.text:
-                #print tree.tag, "contains text", tree.text
+                #print(tree.tag, "contains text", tree.text)
                 self.handle_data(tree.text)
             for node in tree:
                 self.crawl_tree(node)
@@ -1190,7 +1193,7 @@ class HTMLSimplifier:
         # print the tail even if it was a comment -- the tail is
         # part of the parent tag, not the current tag.
         if tree.tail:
-            #print tree.tag, "contains text", tree.tail
+            #print(tree.tag, "contains text", tree.tail)
             self.handle_data(tree.tail)
 
     def handle_starttag(self, tag, attrs):

@@ -769,6 +769,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
     except Exception as e:
         print("Couldn't parse feed: URL:", sitefeedurl, file=sys.stderr)
         print(str(e), file=sys.stderr)
+        # raise(e)
         feedmeparser.ptraceback()
         # print(traceback.format_exc())
         return
