@@ -34,10 +34,18 @@ has_ununicode=True
 # '>=' not supported between instances of 'traceback' and 'int'
 def ptraceback():
     try:
-        ex_type, ex, tb = sys.exc_info()
-        print(str(traceback.format_exc(tb)), file=sys.stderr)
+        # This tends to raise an exception,
+        #    traceback unorderable types: traceback() >= int()
+        # for no reason anyone seems to know:
+        # ex_type, ex, tb = sys.exc_info()
+        # print(str(traceback.format_exc(tb)), file=sys.stderr)
+        # so instead:
+
+        print("====== Stack trace was:", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        print("======", file=sys.stderr)
     except Exception as e:
-        print("******** Yikes! Exception trying to print traceback", e,
+        print("******** Yikes! Exception trying to print traceback:", e,
               file=sys.stderr)
 
 # XXX
@@ -294,11 +302,12 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         if author:
             self.outfile.write("By: %s\n<p>\n" % author)
 
-        # Throw out everything before the first page_start re pattern we see,
-        # and after the page_end patterns.
+        # Throw out everything before the first page_start re pattern seen,
+        # and after the first page_end pattern seen.
         page_starts = get_config_multiline(self.config, self.feedname,
                                            'page_start')
         page_ends = get_config_multiline(self.config, self.feedname, 'page_end')
+
         if len(page_starts) > 0:
             for page_start in page_starts:
                 if self.verbose:
@@ -317,12 +326,13 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                 if self.verbose:
                     print("looking for page_end", page_end, file=sys.stderr)
                 end_re = re.compile(page_end, flags=re.DOTALL)
-                match = start_re.search(html, re.IGNORECASE)
+                match = end_re.search(html, re.IGNORECASE)
                 if match:
                     if self.verbose:
                         print("Found page_end regexp", page_end,
                               file=sys.stderr)
                     html = html[0:match.start()]
+                    break
 
         # Skip anything matching any of the skip_pats.
         # It may eventually be better to do this in the HTML parser.
@@ -344,11 +354,8 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                     print(str(e), file=sys.stderr)
                     continue
                 html = regexp.sub('', html)
-                # Another way would be to use (.|\\n) in place of .
-                # For some reason [.\n] doesn't work.
-                #html = re.sub(skip, '', html, flags=re.DOTALL)
 
-        # print("After skipping skip_pats, html is:", file=sys.stderr)
+        # print("After all skip_pats, html is:", file=sys.stderr)
         # print(html.encode(self.encoding, 'replace'), file=sys.stderr)
 
         self.single_page_url = None
