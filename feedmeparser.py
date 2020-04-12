@@ -473,10 +473,9 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
            We already rewrote the img tags in the HTML file, but feedme
            may need us to rewrite img tags embedded in the RSS content.
         """
-        # And yes, BeautifulSoup would be more straightforward for this task.
-        # But we're already using lxml.html for all the rest of the parsing.
-
         try:
+            # And yes, BeautifulSoup would be more straightforward here.
+            # But we're already using lxml.html for the rest of the parsing.
             tree = lxml.html.fromstring(content)
             for e in tree.iter():
                 if e.tag == 'img':
@@ -487,6 +486,9 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                                 e.attrib['src'] = self.remapped_images[src]
                                 continue
                         except KeyError:
+                            print("KeyError remapping img src",
+                                  e.attrib['src'],
+                                  file=sys.stderr)
                             pass
                         if self.verbose:
                             print("Removing img", e.attrib['src'],
@@ -569,7 +571,6 @@ import lxml.html
 html = '<html><body onload="" color="white">\n<p>Hi  ! Ma&ntilde;ana!\n<a href="/my/path/to/link.html">my link</a>\n</body></html>\n'
 tree = lxml.html.fromstring(html)
 """
-        #print("Crawling:", tree.tag, "attrib", tree.attrib)
         if type(tree.tag) is str:
             # lxml.html gives comments tag = <built-in function Comment>
             # This is not documented anywhere and there seems to be
@@ -577,7 +578,6 @@ tree = lxml.html.fromstring(html)
             # So we only handle tags that are type str.
             self.handle_starttag(tree.tag, tree.attrib)
             if tree.text:
-                #print(tree.tag, "contains text", tree.text)
                 self.handle_data(tree.text)
             for node in tree:
                 self.crawl_tree(node)
@@ -585,7 +585,6 @@ tree = lxml.html.fromstring(html)
         # print the tail even if it was a comment -- the tail is
         # part of the parent tag, not the current tag.
         if tree.tail:
-            #print(tree.tag, "contains text", tree.tail)
             self.handle_data(tree.tail)
 
     def handle_starttag(self, tag, attrs):
@@ -613,7 +612,6 @@ tree = lxml.html.fromstring(html)
                         href = content[0].strip()
                     # XXX Next comparison might be better done with re,
                     # in case of spaces around the =.
-                    print("href is '" +  href + "'", file=sys.stderr)
                     if href.upper().startswith('URL='):
                         href = href[4:]
                     self.outfile.write('<a href="' + href + '">'
@@ -706,7 +704,7 @@ tree = lxml.html.fromstring(html)
                 except:
                     maximgwidth = 800
 
-                # ladailypost has this ridiculous setup
+                # ladailypost has a crazy setup
                 # where they set the src to something that isn't an image,
                 # then have data-lazy-src and/or data-lazy-srcset
                 # which presumably get loaded later with JavaScript.
@@ -812,7 +810,7 @@ tree = lxml.html.fromstring(html)
                 # Don't allow % in the whitelist -- it causes problems
                 # with recursively copying the files over http later.
                 base = ''.join([x for x in base if x.isalpha() or x.isdigit()
-                                or x in '-_.='])
+                                or x in '-_.'])
                 if not base : base = '_unknown.img'
                 imgfilename = os.path.join(self.newdir, base)
 
@@ -883,7 +881,7 @@ tree = lxml.html.fromstring(html)
                 attrs['src'] = alt_src
 
         # Now we've done any needed processing to the tag and its attrs.
-        # t's time to write them to the output file.
+        # It's time to write the start tag to the output file.
         for attr in list(attrs.keys()):
             # If the tag has style=, arguably we should just remove it entirely.
             # But certainly remove it if it has style="font-anything" --
@@ -1053,6 +1051,14 @@ tree = lxml.html.fromstring(html)
            skipped tag itself.
         """
         if tag == 'form':
+            return True
+
+        # The source tag is used to specify alternate forms of media.
+        # But the LA Daily Post uses it for images, and many browsers
+        # including Android WebView use it to override the img src attribute.
+        # So leaving in the source tag may cause images to be fetched
+        # from the net rather than from the locally fetched files.
+        if tag == 'source':
             return True
 
         # If we're skipping images, we could either omit them
