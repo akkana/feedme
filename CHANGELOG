@@ -1,11 +1,14 @@
-June 17, 2017:
+
+2017-06-17  Akkana Peck  <akkana@shallowsky.com>
+
     1.0b3:
     Rename all the skip_*_pat to end with "pats" for consistency:
     they all accept multiple values.
     Add skip_content_pats and skip_title_pats.
     Document all the skip_*_pats more clearly.
 
-April 17, 2017:
+2017-04-17  Akkana Peck  <akkana@shallowsky.com>
+
     1.0b2:
     Accept multiple configuration files (e.g. one .conf file per site).
     Write each story's URL in the footer.
@@ -14,19 +17,22 @@ April 17, 2017:
     Fix sites that use duplicate image names.
     Update the documentation.
 
-Dec 13, 2016:
+2016-12-13  Akkana Peck  <akkana@shallowsky.com>
+
     Write the cache in a custom, human readable format instead of pickle.
     Skip entries so old they've expired from cache.
     Accept application/atom+xml as well as application/rss for RSS pages.
 
-Nov 23, 2016:
+2016-11-23  Akkana Peck  <akkana@shallowsky.com>
+
     Fetch the RSS page with urllib2, not with feedparser,
     to guard against feedparser doing bogus charset remapping
     (May be just a bug on Debian Stretch's feedparser) and feedparser's
     inability to read from file:// URLs.
     Add allow_gzip = false option for sites where gzip is broken.
 
-Oct 7, 2016:
+2016-10-07  Akkana Peck  <akkana@shallowsky.com>
+
     On URL errors, include a link so the user can try again.
     Check publication date against last time we fetched the current feed.
     Include continue_on_timeout in the ConfigParser options.
@@ -35,35 +41,42 @@ Oct 7, 2016:
     Guard against problems due to recent Python strptime parser changes.
     Handle pickle errors better.
 
-Sep 25, 2015:
+2015-09-25  Akkana Peck  <akkana@shallowsky.com>
+
     1.0b1: Save a MANIFEST file with a list of all filenames written.
     Add a line to index.html on errors fetching stories.
     Allow for cookies in the request. Handle gzipped http.
 
-May 25, 2015:
+2015-05-25  Akkana Peck  <akkana@shallowsky.com>
+
     Set the User-Agent. Better handling of timeouts.
     Pay attention to base href when downloading images.
     Make images fit on screen (mostly) on phones.
 
-Dec 10, 2013:
+2013-12-10  Akkana Peck  <akkana@shallowsky.com>
+
     Add urlrss python CGI script, and make it easier to kick off
     feedme from CGI so it can be initiated remotely.
     Add LOG file.
 
-Jun 25, 2013:
+2013-06-25  Akkana Peck  <akkana@shallowsky.com>
+
     Add "when" so sites can be checked less often than daily.
     Handle file:// since feedparser doesn't. Add skip_links option.
     Handle meta refresh directives, and skip a lot of problematic tags.
     Handle cases where no content is downloaded.
 
-May 18, 2012:
+2012-05-18  Akkana Peck  <akkana@shallowsky.com>
+
     0.9: Parse with lxml.html, better URL rewriting and image downloading.
     Add author names to stories. Handle redirects. Omit iframes.
 
-December 23, 2011:
+2011-12-23  Akkana Peck  <akkana@shallowsky.com>
+
     0.8: Several reliability fixes, guards against bad file types, etc.
 
-January 30, 2011:
+2011-01-30  Akkana Peck  <akkana@shallowsky.com>
+
     0.7: Clean up old feed directories (new config param "save_days").
     Handle multi-line configs, e.g. for skip_patterns.
     Match skip, start and end patterns that span multiple lines in the source page.
@@ -71,32 +84,39 @@ January 30, 2011:
     Fix case where truncated title includes a start tag but not the corresponding end tag.
     New "formats" parameter to specify which format(s) to generate.
 
-December 22, 2010:
+2010-12-22  Akkana Peck  <akkana@shallowsky.com>
+
     0.7b1: handle epub format, or none (specified in config file); save each day's feed to its own dated directory.
 
-November 17, 2010:
+2010-11-17  Akkana Peck  <akkana@shallowsky.com>
+
     0.6: handle optional FB2 format; show author.
 
-August 2, 2010:
+2010-08-02  Akkana Peck  <akkana@shallowsky.com>
+
     0.5: Beef up the interrupt handling to fix places where it didn't work; reject non-text files (e.g. MP3s from podcasts).
 
-March 3, 2010:
-    0.4:
+2010-03-03  Akkana Peck  <akkana@shallowsky.com>
 
+    0.4:
         Rewrite URLs so unfollowed links show up as coming from the original site, not file://
         error/msg logging: show at end, not inline
         handle failures like not finding plucker
         make backup of cache file
 
+2009-12-09  Akkana Peck  <akkana@shallowsky.com>
 
-December 9, 2009:
     0.3: add commandline arguments, including -c to bypass caching. Handle failures to download articles.
 
-October 20, 2009:
+2009-10-20  Akkana Peck  <akkana@shallowsky.com>
+
     0.2: integrate ununicode.toascii; add extra content link at end of each index page entry.
 
-October 15, 2009:
+2009-10-15  Akkana Peck  <akkana@shallowsky.com>
+
     0.2pre1: smarter config parsing (~ and HOME), some support for ascii conversion, some extra links for added convenience.
 
-October 6, 2009:
+2009-10-06  Akkana Peck  <akkana@shallowsky.com>
+
     First release.
+
