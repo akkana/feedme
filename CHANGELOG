@@ -1,122 +1,198 @@
 
+2020-04-12  Akkana Peck  <akkana@shallowsky.com>
+
+	Skip <source> tags, in ongoing effort to cache images
+	locally and not use bandwidth later when the file is read.
+
+2019-11-30  Akkana Peck  <akkana@shallowsky.com>
+
+	 Add a test framework.
+	IMPORTANT NOTE: This required renaming feedme to feedme.py.
+
+2019-11-30  Akkana Peck  <akkana@shallowsky.com>
+
+	1.0:
+	Bump version to 1.0, finally!
+
+2019-09-22  Akkana Peck  <akkana@shallowsky.com>
+
+	Add a meta viewport line to every HTML file: iOS needs it.
+	Skip style tags that set fonts.
+
+2018-10-14  Akkana Peck  <akkana@shallowsky.com>
+
+	Skip stories with the same title as one we've seen before
+	(Washington Post repeats stories over and over).
+
+
+2018-09-28  Akkana Peck  <akkana@shallowsky.com>
+
+	New config option "alt_domains"
+	for allowing images from domains other than a site's main domain.
+
+2018-04-13  Akkana Peck  <akkana@shallowsky.com>
+
+	Feedviewer, a minimal Python feed viewing program,
+	in case there's ever a portable reader that can run Python.
+
+2018-03-30  Akkana Peck  <akkana@shallowsky.com>
+
+	Handle img srcset. Add a new config var max_srcset_size
+	specifying what size of image we should try to download
+	if there are multiple sizes.
+
+2018-03-13  Akkana Peck  <akkana@shallowsky.com>
+
+	Add a new config variable, "block_nonlocal_images",
+	to replace remote img src with a bogus local entry,
+	to avoid unwanted bandwidth.
+
+2018-03-10  Akkana Peck  <akkana@shallowsky.com>
+
+	Screen out stories that are repeated multiple times
+	in the same day's feed.
+
+2018-02-03  Akkana Peck  <akkana@shallowsky.com>
+
+	CSS: Restrict width of figure as well as img,
+	for sites like High Country News that wrap every img in a figure.
+
+2017-10-09  Akkana Peck  <akkana@shallowsky.com>
+
+	1.0b4:
+	Add two new config flags: simplify and rss_entry_size.
+	Both are for the LA Daily Post's new misbehavior of putting
+	the whole story into the RSS, along with broken formatting
+	that sometimes makes the whole story unreadable (font colors
+	and sizes).
+
+2017-07-26  Akkana Peck  <akkana@shallowsky.com>
+
+	Port to Python 3.
+	Rewrite images to local from RSS as well as HTML.
+
+2017-06-23  Akkana Peck  <akkana@shallowsky.com>
+
+	Try to eliminate audio/video links.
+
 2017-06-17  Akkana Peck  <akkana@shallowsky.com>
 
-    1.0b3:
-    Rename all the skip_*_pat to end with "pats" for consistency:
-    they all accept multiple values.
-    Add skip_content_pats and skip_title_pats.
-    Document all the skip_*_pats more clearly.
+	1.0b3:
+	Rename all the skip_*_pat to end with "pats" for consistency:
+	they all accept multiple values.
+	Add skip_content_pats and skip_title_pats.
+	Document all the skip_*_pats more clearly.
 
 2017-04-17  Akkana Peck  <akkana@shallowsky.com>
 
-    1.0b2:
-    Accept multiple configuration files (e.g. one .conf file per site).
-    Write each story's URL in the footer.
-    Write .html files first to MANIFEST, so they'll be
-    fetched first in case of dodgy networks.
-    Fix sites that use duplicate image names.
-    Update the documentation.
+	1.0b2:
+	Accept multiple configuration files (e.g. one .conf file per site).
+	Write each story's URL in the footer.
+	Write .html files first to MANIFEST, so they'll be
+	fetched first in case of dodgy networks.
+	Fix sites that use duplicate image names.
+	Update the documentation.
 
 2016-12-13  Akkana Peck  <akkana@shallowsky.com>
 
-    Write the cache in a custom, human readable format instead of pickle.
-    Skip entries so old they've expired from cache.
-    Accept application/atom+xml as well as application/rss for RSS pages.
+	Write the cache in a custom, human readable format instead of pickle.
+	Skip entries so old they've expired from cache.
+	Accept application/atom+xml as well as application/rss for RSS pages.
 
 2016-11-23  Akkana Peck  <akkana@shallowsky.com>
 
-    Fetch the RSS page with urllib2, not with feedparser,
-    to guard against feedparser doing bogus charset remapping
-    (May be just a bug on Debian Stretch's feedparser) and feedparser's
-    inability to read from file:// URLs.
-    Add allow_gzip = false option for sites where gzip is broken.
+	Fetch the RSS page with urllib2, not with feedparser,
+	to guard against feedparser doing bogus charset remapping
+	(May be just a bug on Debian Stretch's feedparser) and feedparser's
+	inability to read from file:// URLs.
+	Add allow_gzip = false option for sites where gzip is broken.
 
 2016-10-07  Akkana Peck  <akkana@shallowsky.com>
 
-    On URL errors, include a link so the user can try again.
-    Check publication date against last time we fetched the current feed.
-    Include continue_on_timeout in the ConfigParser options.
-    Add user_agent as a config option.
-    Don't run if there's a feedme process already running.
-    Guard against problems due to recent Python strptime parser changes.
-    Handle pickle errors better.
+	On URL errors, include a link so the user can try again.
+	Check publication date against last time we fetched the current feed.
+	Include continue_on_timeout in the ConfigParser options.
+	Add user_agent as a config option.
+	Don't run if there's a feedme process already running.
+	Guard against problems due to recent Python strptime parser changes.
+	Handle pickle errors better.
 
 2015-09-25  Akkana Peck  <akkana@shallowsky.com>
 
-    1.0b1: Save a MANIFEST file with a list of all filenames written.
-    Add a line to index.html on errors fetching stories.
-    Allow for cookies in the request. Handle gzipped http.
+	1.0b1: Save a MANIFEST file with a list of all filenames written.
+	Add a line to index.html on errors fetching stories.
+	Allow for cookies in the request. Handle gzipped http.
 
 2015-05-25  Akkana Peck  <akkana@shallowsky.com>
 
-    Set the User-Agent. Better handling of timeouts.
-    Pay attention to base href when downloading images.
-    Make images fit on screen (mostly) on phones.
+	Set the User-Agent. Better handling of timeouts.
+	Pay attention to base href when downloading images.
+	Make images fit on screen (mostly) on phones.
 
 2013-12-10  Akkana Peck  <akkana@shallowsky.com>
 
-    Add urlrss python CGI script, and make it easier to kick off
-    feedme from CGI so it can be initiated remotely.
-    Add LOG file.
+	Add urlrss python CGI script, and make it easier to kick off
+	feedme from CGI so it can be initiated remotely.
+	Add LOG file.
 
 2013-06-25  Akkana Peck  <akkana@shallowsky.com>
 
-    Add "when" so sites can be checked less often than daily.
-    Handle file:// since feedparser doesn't. Add skip_links option.
-    Handle meta refresh directives, and skip a lot of problematic tags.
-    Handle cases where no content is downloaded.
+	Add "when" so sites can be checked less often than daily.
+	Handle file:// since feedparser doesn't. Add skip_links option.
+	Handle meta refresh directives, and skip a lot of problematic tags.
+	Handle cases where no content is downloaded.
 
 2012-05-18  Akkana Peck  <akkana@shallowsky.com>
 
-    0.9: Parse with lxml.html, better URL rewriting and image downloading.
-    Add author names to stories. Handle redirects. Omit iframes.
+	0.9: Parse with lxml.html, better URL rewriting and image downloading.
+	Add author names to stories. Handle redirects. Omit iframes.
 
 2011-12-23  Akkana Peck  <akkana@shallowsky.com>
 
-    0.8: Several reliability fixes, guards against bad file types, etc.
+	0.8: Several reliability fixes, guards against bad file types, etc.
 
 2011-01-30  Akkana Peck  <akkana@shallowsky.com>
 
-    0.7: Clean up old feed directories (new config param "save_days").
-    Handle multi-line configs, e.g. for skip_patterns.
-    Match skip, start and end patterns that span multiple lines in the source page.
-    Add stylesheet to output files, for use with html readers or FeedViewer.
-    Fix case where truncated title includes a start tag but not the corresponding end tag.
-    New "formats" parameter to specify which format(s) to generate.
+	0.7: Clean up old feed directories (new config param "save_days").
+	Handle multi-line configs, e.g. for skip_patterns.
+	Match skip, start and end patterns that span multiple lines in the source page.
+	Add stylesheet to output files, for use with html readers or FeedViewer.
+	Fix case where truncated title includes a start tag but not the corresponding end tag.
+	New "formats" parameter to specify which format(s) to generate.
 
 2010-12-22  Akkana Peck  <akkana@shallowsky.com>
 
-    0.7b1: handle epub format, or none (specified in config file); save each day's feed to its own dated directory.
+	0.7b1: handle epub format, or none (specified in config file); save each day's feed to its own dated directory.
 
 2010-11-17  Akkana Peck  <akkana@shallowsky.com>
 
-    0.6: handle optional FB2 format; show author.
+	0.6: handle optional FB2 format; show author.
 
 2010-08-02  Akkana Peck  <akkana@shallowsky.com>
 
-    0.5: Beef up the interrupt handling to fix places where it didn't work; reject non-text files (e.g. MP3s from podcasts).
+	0.5: Beef up the interrupt handling to fix places where it didn't work; reject non-text files (e.g. MP3s from podcasts).
 
 2010-03-03  Akkana Peck  <akkana@shallowsky.com>
 
-    0.4:
-        Rewrite URLs so unfollowed links show up as coming from the original site, not file://
-        error/msg logging: show at end, not inline
-        handle failures like not finding plucker
-        make backup of cache file
+	0.4:
+	    Rewrite URLs so unfollowed links show up as coming from the original site, not file://
+	    error/msg logging: show at end, not inline
+	    handle failures like not finding plucker
+	    make backup of cache file
 
 2009-12-09  Akkana Peck  <akkana@shallowsky.com>
 
-    0.3: add commandline arguments, including -c to bypass caching. Handle failures to download articles.
+	0.3: add commandline arguments, including -c to bypass caching. Handle failures to download articles.
 
 2009-10-20  Akkana Peck  <akkana@shallowsky.com>
 
-    0.2: integrate ununicode.toascii; add extra content link at end of each index page entry.
+	0.2: integrate ununicode.toascii; add extra content link at end of each index page entry.
 
 2009-10-15  Akkana Peck  <akkana@shallowsky.com>
 
-    0.2pre1: smarter config parsing (~ and HOME), some support for ascii conversion, some extra links for added convenience.
+	0.2pre1: smarter config parsing (~ and HOME), some support for ascii conversion, some extra links for added convenience.
 
 2009-10-06  Akkana Peck  <akkana@shallowsky.com>
 
-    First release.
+	First release.
 
