@@ -208,10 +208,11 @@ and can be overridden for specific feeds:
     Normally feedme will ignore images from other domains (usually ads).
     But some sites link to images from all over; set this to true in that case.
 <dt>
-  block_nonlocal
+  block_nonlocal_images
 <dd>
     If we're not allowing nonlocal images, setting block_nonlocal to true
-    will rewrite the img src attribute of all nonlocal images.
+    will rewrite the img src attribute of all nonlocal images to
+    a bogus value.
     This will cause some "broken images" tags to show.
     Use it if you're on a fixed data plan and don't want to incur
     extra data charges downloading images while reading stories.

@@ -855,7 +855,8 @@ tree = lxml.html.fromstring(html)
                 # handle download errors
                 except urllib.error.HTTPError as e:
                     print("HTTP Error on image:", e.code,
-                          "on", src, file=sys.stderr)
+                          "on", src, ": setting img src to", alt_src,
+                          file=sys.stderr)
                     # Since we couldn't download, point instead to the
                     # absolute URL, so it will at least work with a
                     # live net connection.
@@ -871,8 +872,8 @@ tree = lxml.html.fromstring(html)
                     attrs['src'] = alt_src
             else:
                 # Looks like it's probably a nonlocal image.
-                print("For", src, req.host, "and", self.host,
-                      "are too different -- not fetching image",
+                print(req.host, "and", self.host,
+                      "are too different -- not fetching image", src,
                       file=sys.stderr)
                 # But that means we're left with a nonlocal image in the source.
                 # That could mean unwanted data use to fetch the image
