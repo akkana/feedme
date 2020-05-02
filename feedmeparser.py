@@ -835,7 +835,10 @@ tree = lxml.html.fromstring(html)
                     if not os.path.exists(imgfilename):
                         print("Fetching image", src, "to", imgfilename,
                               file=sys.stderr)
-                        f = urllib.request.urlopen(req)
+                        # urllib.request.urlopen is supposed to have
+                        # a default timeout, but if so, it must be
+                        # many minutes. Try this instead.
+                        f = urllib.request.urlopen(req, timeout=100)
                         # Lots of things can go wrong with downloading
                         # the image, such as exceptions.IOError from
                         # [Errno 36] File name too long
