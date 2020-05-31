@@ -269,8 +269,8 @@ else:
         archivefp.close()
 
     if urls:
-        print("Saved %s urls to %s and %s" % (len(urls),
-                                                            rssfile, urlarchive), file=sys.stderr)
+        print("Saved %s urls to %s and %s" % (len(urls), rssfile,
+                                              urlarchive), file=sys.stderr)
     # Done making the Xtra RSS file (if any).
 
 if cgi_mode:
