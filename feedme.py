@@ -65,12 +65,16 @@ Configuration options you might want to reset for specific feeds:
   nonlocal_images
     Normally feedme will ignore images from other domains (usually ads).
     But some sites link to images from all over; set this to true in that case.
+  page_start, page_end
+    regexps that define the part of a page that will be fetched.
   skip_images
     Don't save images. Default true.
   skip_links:
     For sites with levels=1 where you just want a single news feed and
     never want to click on anything (e.g. slashdot), this can eliminate
     distracting links that you might tap on accidentally while scrolling.
+  skip_pats
+    Throw out anything matching these patterns
   url
     The RSS URL for the site.
   when
