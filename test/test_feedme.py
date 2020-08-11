@@ -5,7 +5,7 @@ from __future__ import print_function
 import unittest
 from unittest.mock import Mock, patch
 import time
-import shutil
+from datetime import datetime
 import sys, os
 
 import feedmeparser
@@ -29,7 +29,7 @@ class FeedmeTests(unittest.TestCase):
 
     # executed after each test
     def tearDown(self):
-        shutil.rmtree('test/testfeeds')
+        # shutil.rmtree('test/testfeeds')
         pass
 
     #
@@ -40,7 +40,6 @@ class FeedmeTests(unittest.TestCase):
     @patch('feedmeparser.FeedmeURLDownloader.download_url',
            side_effect=mock_downloader)
     def test_file_exists(self, themock):
-        print("Testing something or other")
         config = feedmeparser.read_config_file("test/config")
         msglog = feedme.MsgLog()
 
@@ -55,6 +54,29 @@ class FeedmeTests(unittest.TestCase):
         testfilepath = os.path.join('test', 'samples', 'slashdot-test.html')
         with open(testfilepath) as testfp:
             with open(filepath) as fetchedfp:
-                testcontents = testfp.read()
+                # The generated HTML file will have the weekday set to today.
+                # The test file has a placeholder that needs to be replaced.
+                today = datetime.now().strftime("%a")
+                testcontents = testfp.read().replace('XXXDAYXXX', today)
+
                 fetchedcontents = fetchedfp.read()
                 self.assertEqual(testcontents, fetchedcontents)
+
+    def test_config_file_parsing(self):
+        """Try to guard against bad config files killing feedme,
+           like if someone omits an = sign.
+        """
+
+        configstr = """[Test Config]
+url blah
+page_start = <div class="menu-primary-container">
+page_end = <div id="comment-form-nascar">
+"""
+        # Now how do we test it? The real-world error I saw came from
+        # feedme.py line 1534, if feedurl == config.get(feedname, 'url')
+        # while cleaning up old feeds after a feed's URL.
+        # But that requires having a whole feedme session going,
+        # and config.get happens from various places.
+        # Best might be to override config.get so it doesn't raise exceptions.
+        # Related discussion:
+        # https://stackoverflow.com/questions/24832628/python-configparser-getting-and-setting-without-exceptions
