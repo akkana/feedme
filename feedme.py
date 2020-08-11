@@ -652,18 +652,80 @@ class FeedmeCache(object):
     def keys(self):
         return list(self.thedict.keys())
 
+def parse_name_from_conf_file(feedfile):
+    """Given the full pathname to a .conf file name,
+       return the site name from the initial [The Site Name] line.
+    """
+    with open(feedfile) as fp:
+        for line in fp:
+            m = re.match('^\b*\[(.*)\]\b*$', line)
+            if m:
+                return m.group(1)
+    return None
+
 #
 # Get a single feed
 #
 def get_feed(feedname, config, cache, last_time, msglog):
     """Fetch a single site's feed.
-       XXX Make feedname accept filename as well as absolute name
+       feedname can be the feed's config name ("Washington Post")
+       or the conf file name ("washingtonpost" or "washingtonpost.conf").
     """
+    verbose = (config.get("DEFAULT", 'verbose').lower() == 'true')
+
     # Mandatory arguments:
     try:
         sitefeedurl = config.get(feedname, 'url')
         feeddir = config.get(feedname, 'dir')
     except:
+        if verbose:
+            print(feedname, "isn't a site feed name", file=sys.stderr)
+        sitefeedurl = None
+
+    # If feedname isn't a name in the config files, maybe it's the name
+    # of a config file itself, e.g. if not "Foo News",
+    # then maybe foonews or foonews.conf.
+    if not sitefeedurl:
+        fakefeedname = None
+        if os.path.exists(feedname):
+            # XXX This clause will accept the full path to a .conf file as
+            # a commandline argument -- but that file will only be
+            # used for the feed name, not for the actual feed parameters
+            # or other config values, which probably isn't what the user
+            # expects. The config object has already been initialized
+            # by this time, and overwriting it is probably more work than
+            # is warranted given that I never actually expect to use
+            # config files from outside the configdir.
+            fakefeedname = parse_name_from_conf_file(feedname)
+            if fakefeedname:
+                msglog.warn("Warning: Using name '%s' from %s,"
+                            " but config parameters will actually be parsed "
+                            " from files in %s"
+                            % (fakefeedname, feedname,
+                               feedmeparser.default_confdir))
+        else:
+            feedfile = os.path.join(feedmeparser.default_confdir, feedname)
+            if os.path.exists(feedfile):
+                fakefeedname = parse_name_from_conf_file(feedfile)
+            if not sitefeedurl:
+                feedfile += ".conf"
+                if os.path.exists(feedfile):
+                    fakefeedname = parse_name_from_conf_file(feedfile)
+
+        if fakefeedname:
+            try:
+                sitefeedurl = config.get(fakefeedname, 'url')
+                feeddir = config.get(fakefeedname, 'dir')
+                feedname = fakefeedname
+            except:
+                if verbose:
+                    print(feedname, "isn't a site feed name either",
+                          file=sys.stderr)
+
+    if verbose:
+        print("Getting %s feed" % feedname, file=sys.stderr)
+
+    if not sitefeedurl:
         msglog.err("Can't find a config for: " + feedname)
         return
 
@@ -1494,7 +1556,7 @@ Copyright 2017 by Akkana Peck; share and enjoy under the GPL v2 or later."
                          default=False,
                          help="Print help on configuration files")
     options = parser.parse_args()
-    print("Parsed args. args:", options)
+    # print("Parsed args. args:", options)
 
     config = feedmeparser.read_config_file()
 
@@ -1568,7 +1630,6 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
     try:
         if options.feeds:
             for feed in options.feeds:
-                print('Getting feed for', feed)
                 print('Getting feed for', feed, file=sys.stderr)
                 get_feed(feed, config, cache, last_time, msglog)
         else:

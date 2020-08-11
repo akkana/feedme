@@ -98,8 +98,6 @@ class FeedmeURLDownloader(object):
            contents as a str. Allow for possible vagaries like cookies,
            redirection, compression etc.
         """
-        print("This is the real download_url",
-              url, referrer, user_agent, verbose)
         if verbose:
             print("download_url", url, "referrer=", referrer, \
                                 "user_agent", user_agent, file=sys.stderr)
@@ -1107,6 +1105,24 @@ def sub_tilde(name):
     return name
 
 #
+# Keep track of the config file directory
+#
+default_confdir = None
+def init_default_confdir():
+    global default_confdir
+    if 'XDG_CONFIG_HOME' in os.environ:
+        confighome = os.environ['XDG_CONFIG_HOME']
+    elif 'xdg.BaseDirectory' in sys.modules:
+        confighome = xdg.BaseDirectory.xdg_config_home
+    else:
+        confighome = os.path.join(os.environ['HOME'], '.config')
+
+    default_confdir = os.path.join(confighome, 'feedme')
+
+init_default_confdir()
+print("default_confdir:", default_confdir)
+
+#
 # Read the configuration file (don't act on it yet)
 #
 def read_config_file(confdir=None):
@@ -1114,14 +1130,7 @@ def read_config_file(confdir=None):
        returning a ConfigParser object'''
 
     if not confdir:
-        if 'XDG_CONFIG_HOME' in os.environ:
-            confighome = os.environ['XDG_CONFIG_HOME']
-        elif 'xdg.BaseDirectory' in sys.modules:
-            confighome = xdg.BaseDirectory.xdg_config_home
-        else:
-            confighome = os.path.join(os.environ['HOME'], '.config')
-
-        confdir = os.path.join(confighome, 'feedme')
+        confdir = default_confdir
 
     main_conf_file = 'feedme.conf'
     conffile = os.path.join(confdir, main_conf_file)
