@@ -657,6 +657,7 @@ class FeedmeCache(object):
 #
 def get_feed(feedname, config, cache, last_time, msglog):
     """Fetch a single site's feed.
+       XXX Make feedname accept filename as well as absolute name
     """
     # Mandatory arguments:
     try:
@@ -836,6 +837,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
     # We'll increment itemnum as soon as we start showing entries,
     # so start it negative so anchor links will start at zero.
     itemnum = -1
+    last_page_written = None
     for item in feed.entries:
         try:
             #
@@ -1044,8 +1046,12 @@ def get_feed(feedname, config, cache, last_time, msglog):
                     # Nobody seems to have RSS pointing to RSS.
                     fnam = str(pagenum) + ".html"
 
-                    # Add a link in the footer to the (we hope) next story:
-                    footer = '<center><a href=\"%d.html\">&gt;-%d-&gt;</a></center>' \
+                    # Add a nextitem link in the footer to the next story,
+                    # Shouldn't do this for the last story;
+                    # but there's no easy way to tell if this is the last story,
+                    # because we don't know until we try whether the next
+                    # story will actually be fetched or not.
+                    footer = '<center><a href="%d.html">&gt;-%d-&gt;</a></center>' \
                              % (itemnum+1, itemnum+1)
 
                     # Add the page's URL to the footer:
@@ -1057,6 +1063,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
                                      outdir, fnam,
                                      item_title, author, footer,
                                      user_agent=user_agent)
+                    last_page_written = fnam
 
                 except feedmeparser.NoContentError as e:
                     # fetch_url didn't manage to get the page or write a file.
@@ -1382,7 +1389,6 @@ Which (default = n): """)
                 print("Writing", indexfile, file=sys.stderr)
             with open(indexfile, "w") as index:
                 # No longer support "ascii" option. Write the encoded unicode.
-                print("*** writing indexstr, type", type(indexstr))
                 index.write(indexstr)
 
                 # Before the downloaded string, insert a final named anchor.
@@ -1437,6 +1443,24 @@ Which (default = n): """)
         if os.path.exists(outdir):
             print("Removing directory", outdir, file=sys.stderr)
             shutil.rmtree(outdir)
+
+    # Done looping over items in this feed.
+    # Try to rewrite the last page written to remove the next item links.
+    # next_item_pattern = '<a href=\"#[0-9]+\">&gt;-&gt;</a></i></center>\n<br>\n'
+    next_page_pattern = '^<center><a href="[0-9]+.html">&gt;-9-&gt;</a></center>$'
+    if last_page_written:
+        lastfile = os.path.join(outdir, last_page_written)
+        if os.path.exists(lastfile):
+            with open(lastfile) as lastfp:
+                lastcontents = lastfp.read()
+            with open(lastfile, 'w') as lastfp:
+                for line in lastcontents.split('\n'):
+                    if re.match(next_page_pattern, line):
+                        print("<center><i>(No more stories in %s)</i></center>"
+                              % feedname, file=lastfp)
+                    else:
+                        print(line, file=lastfp)
+
 
 #
 # Main -- read the config file and loop over sites.
