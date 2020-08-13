@@ -1064,7 +1064,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
 
                         # Else warn about it, but include it in the feed.
                         msglog.warn("%s is older (%s) than the last time we updated this feed (%s)" \
-                                    % (item.id, str(item.published),
+                                    % (item_id, str(item.published),
                                        time.strftime("%m-%d-%a-%y",
                                                 time.gmtime(last_fed_this))))
                     else:
@@ -1128,7 +1128,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
                     last_page_written = fnam
 
                 except feedmeparser.NoContentError as e:
-                    # fetch_url didn't manage to get the page or write a file.
+                    # fetch_url didn't get the page or didn't write a file.
                     # So don't increment pagenum or itemnum for the next story.
                     msglog.warn("Didn't find any content on " + item_link
                                 + ": " + str(e))
@@ -1509,19 +1509,29 @@ Which (default = n): """)
     # Done looping over items in this feed.
     # Try to rewrite the last page written to remove the next item links.
     # next_item_pattern = '<a href=\"#[0-9]+\">&gt;-&gt;</a></i></center>\n<br>\n'
-    next_page_pattern = '^<center><a href="[0-9]+.html">&gt;-9-&gt;</a></center>$'
+    next_page_pattern = \
+        '^<center><a href="[0-9]+.html">&gt;-[0-9]+-&gt;</a></center>$'
     if last_page_written:
         lastfile = os.path.join(outdir, last_page_written)
         if os.path.exists(lastfile):
             with open(lastfile) as lastfp:
                 lastcontents = lastfp.read()
-            with open(lastfile, 'w') as lastfp:
-                for line in lastcontents.split('\n'):
-                    if re.match(next_page_pattern, line):
-                        print("<center><i>(No more stories in %s)</i></center>"
+            try:
+                with open(lastfile, 'w') as lastfp:
+                    for line in lastcontents.split('\n'):
+                        if re.match(next_page_pattern, line):
+                            print("""
+<center><i>((&nbsp;End %s&nbsp;))</i></center>"""
                               % feedname, file=lastfp)
-                    else:
-                        print(line, file=lastfp)
+                        else:
+                            print(line, file=lastfp)
+            except Exception as e:
+                print("Couldn't open lastfile", lastfile, "for writing", e,
+                        file=sys.stderr)
+        elif verbose:
+            print("lastfile", lastfile, "doesn't exist", file=sys.stderr)
+    elif verbose:
+        print("No pages written", file=sys.stderr)
 
 
 #
