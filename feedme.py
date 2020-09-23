@@ -101,6 +101,8 @@ import email.utils as email_utils
 # Our module for parsing HTML inside feeds:
 import feedmeparser
 
+from bs4 import BeautifulSoup
+
 # We'll use XDG for the config and cache directories if it's available
 try:
     import xdg.BaseDirectory
@@ -1366,7 +1368,29 @@ Which (default = s): """)
             # Try to strip all that crap:
             entrysize = int(config.get(feedname, 'rss_entry_size'))
             if entrysize:
-                content = content[:entrysize] + " ..."
+                content = content[:entrysize]
+
+                # This sometimes messes up the rest of the feed,
+                # because it can include unclosed tags like <ul>.
+                # Fix this by parsing it as its own mini HTML page,
+                # then serializing, which closes all tags.
+                # It does, however, add a new dependency on BeautifulSoup.
+                soup = BeautifulSoup(content, "lxml")
+                # Try to append an ellipsis at the end of the last
+                # text element.
+                try:
+                    last_text = soup.find_all(string=True)[-1]
+                    ltstring = str(last_text)
+                    last_text.string.replace_with(ltstring + " ...")
+                    print("Added an ellipsis", file=sys.stderr)
+                    content = ''.join([str(c) for c in soup.body.children])
+                except Exception as e:
+                    # If it didn't work, just add the ellipsis after
+                    # the last element. It will probably show up on a
+                    # line by itself.
+                    print("Problem adding ellipsis:", e, file=sys.stderr)
+                    content = ''.join([str(c) for c in soup.body.children]) \
+                        +  " [...]"
 
             indexstr += content
 
