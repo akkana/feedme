@@ -3,7 +3,8 @@
 body {
   color: white !important;
   background: #000 !important;
-  font-size: 1.1em;
+  /* font-size: 1.35em; */
+  font-size: 14.5px;
 }
 
 a:link, a:hover, a:active { color: #ffff00 !important; }
@@ -37,3 +38,7 @@ img, figure { max-width: 98.5%; height: auto; !important; }
 div[class="modal"] {
     display: none !important;
 }
+
+/* Show inserted and deleted sections, for losalamosmeetings */
+ins { background: #079; }
+del { background: #b00; }
