@@ -1709,31 +1709,28 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
         # MANIFEST should end with .EOF. on a line by itself
         # to avoid race conditions where the fetcher thinks it's
         # read the manifest while the file is still being written.
-        # XXX Temporarily, disable it for Dave, so he doesn't
-        # get MANIFEST files cluttering up his directories.
-        if '/d/' not in datedir:
-            discardchars = len(datedir)
-            manifest = open(os.path.join(datedir, 'MANIFEST'), 'w')
-            htmlfiles = []
-            otherfiles = []
-            for root, dirs, files in os.walk(datedir):
-                shortroot = root[discardchars+1:]
-                if shortroot:
-                    htmlfiles.append(shortroot + '/')
-                for f in files:
-                    f = posixpath.join(shortroot, f)
-                    if f.endswith(".html"):
-                        htmlfiles.append(f)
-                    else:
-                        otherfiles.append(f)
+        discardchars = len(datedir)
+        manifest = open(os.path.join(datedir, 'MANIFEST'), 'w')
+        htmlfiles = []
+        otherfiles = []
+        for root, dirs, files in os.walk(datedir):
+            shortroot = root[discardchars+1:]
+            if shortroot:
+                htmlfiles.append(shortroot + '/')
+            for f in files:
+                f = posixpath.join(shortroot, f)
+                if f.endswith(".html"):
+                    htmlfiles.append(f)
+                else:
+                    otherfiles.append(f)
 
-            for f in htmlfiles:
-                print(f, file=manifest)
-            for f in otherfiles:
-                print(f, file=manifest)
+        for f in htmlfiles:
+            print(f, file=manifest)
+        for f in otherfiles:
+            print(f, file=manifest)
 
-            print(".EOF.", file=manifest)
-            manifest.close()
+        print(".EOF.", file=manifest)
+        manifest.close()
     except OSError as e:
         print("Couldn't move LOG or create MANIFEST:", file=sys.stderr)
         print(e)
