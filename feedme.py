@@ -516,17 +516,11 @@ class FeedmeCache(object):
 
         else:
             cache = FeedmeCache(cachefile)
-            # Make a backup of the cache file, in case something goes wrong:
+
+            # Make a backup of the cache file, in case something goes wrong.
             cache.back_up()
             cache.last_time = os.stat(cachefile).st_mtime
             cache.read_from_file()
-            # print "Cache now looks like:"
-            # print cache
-            # print "Cache now has keys:"
-            # print cache.keys()
-            # print "Cache dict now has keys:"
-            # print cache.thedict.keys()
-            # sys.exit(0)
 
         return cache
 
@@ -570,20 +564,29 @@ class FeedmeCache(object):
             self.thedict[key] = urls
 
     def back_up(self):
-        '''Back up the cache file'''
-        timeappend = time.strftime("%y%m%d%a", time.localtime())
-        base, ext = os.path.splitext(self.filename)
-        backupfilebase = "%s.%s%s" % (base, timeappend, ext)
-        num = 0
-        for num in range(10):
-            if num:
-                backupfile = "%s-%d" % (backupfilebase, num)
-            else:
-                backupfile = backupfilebase
-            if not os.path.exists(backupfile):
-                break
-        print("Backing up cache file to", backupfile)
-        shutil.copy2(self.filename, backupfile)
+        '''Back up the cache file to a file named for when
+           the last cache, self.filename, was last modified.
+        '''
+        try:
+            mtime = os.stat(self.filename).st_mtime
+            timeappend = time.strftime("%y-%m-%d-%a", time.localtime(mtime))
+
+            base, ext = os.path.splitext(self.filename)
+            backupfilebase = "%s-%s%s" % (base, timeappend, ext)
+            num = 0
+            for num in range(10):
+                if num:
+                    backupfile = "%s-%d" % (backupfilebase, num)
+                else:
+                    backupfile = backupfilebase
+                if not os.path.exists(backupfile):
+                    break
+            print("Backing up cache file to", backupfile)
+            shutil.copy2(self.filename, backupfile)
+        except Exception as e:
+            msglog.warn("WARNING: Couldn't back up cache file!")
+            print(str(e), file=sys.stderr)
+            feedmeparser.ptraceback()
 
     def save_to_file(self):
         '''Serialize the cache to a version-1 new style cache file.
@@ -1316,11 +1319,14 @@ Which (default = s): """)
             # If it's the last entry, we'll change it to "[end]" later.
             indexstr += next_item_string % (itemnum+1)
 
-            # Add either the content or the summary:
-            if 'summary_detail' in item:
-                content = str(item.summary_detail.value) + "\n"
-            elif 'content' in item:
+            # Add either the content or the summary.
+            # Prefer content since it might have links.
+            if 'content' in item:
                 content = str(item.content[0].value) + "\n"
+            elif 'summary_detail' in item:
+                content = str(item.summary_detail.value) + "\n"
+            elif 'summary' in item:
+                content = str(item.summary.value) + "\n"
             else:
                 content = "[No content]"
 
