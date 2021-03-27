@@ -445,8 +445,8 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                 # <?xml version="1.0" encoding="utf-8"?>
                 # So if we've hit the error, try to remove it:
                 print("Stupid lxml encoding error on:", file=sys.stderr)
-                print(uhtml[:512].encode('utf-8',
-                                                       'xmlcharrefreplace'), end=' ', file=sys.stderr)
+                print(uhtml[:512].encode('utf-8', 'xmlcharrefreplace'),
+                      end=' ', file=sys.stderr)
                 print('...')
 
                 # Some sample strings that screw up lxml and must be removed:
@@ -474,6 +474,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         try:
             # And yes, BeautifulSoup would be more straightforward here.
             # But we're already using lxml.html for the rest of the parsing.
+            # XXX TODO rewrite in BeautifulSoup.
             tree = lxml.html.fromstring(content)
             for e in tree.iter():
                 if e.tag == 'img':
@@ -1067,7 +1068,7 @@ tree = lxml.html.fromstring(html)
         # entirely, or leave them in with their src= unchanged
         # so that a network-connected viewer can still fetch them.
         # For now, let's opt to remove them.
-        if tag == 'img' and \
+        if (tag == 'img' or tag == 'svg') and \
                 self.config.getboolean(self.feedname, 'skip_images'):
             return True
 

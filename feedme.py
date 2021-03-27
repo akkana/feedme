@@ -101,6 +101,10 @@ import email.utils as email_utils
 # Our module for parsing HTML inside feeds:
 import feedmeparser
 
+# Allow links in top page content
+feedparser._HTMLSanitizer.acceptable_elements.add('a')
+feedparser._HTMLSanitizer.acceptable_elements.add('img')
+
 from bs4 import BeautifulSoup
 
 # We'll use XDG for the config and cache directories if it's available
