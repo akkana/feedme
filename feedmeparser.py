@@ -1168,6 +1168,7 @@ def read_config_file(confdir=None):
                            'alt_domains' : '',
 
                            'nocache' : 'false',
+                           'allow_repeats': 'false',
                            'logfile' : '',
                            'save_days' : '7',
                            'skip_images' : 'true',
