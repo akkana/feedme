@@ -782,6 +782,9 @@ def get_feed(feedname, config, cache, last_time, msglog):
     # When did we last run this feed?
     # This code is probably brittle so wrap it in try/except.
     last_fed_this = last_time_this_feed(outdir)
+    if verbose:
+        print("Last fetched %s on %s" % (feedname, str(last_fed_this)),
+              file=sys.stderr)
 
     if cache == None:
         nocache = True
@@ -1033,6 +1036,8 @@ def get_feed(feedname, config, cache, last_time, msglog):
                 if not nocache and not config.getboolean(feedname,
                                                          'allow_repeats'):
                     # We want it in the cache, whether it's new or not:
+                    if verbose:
+                        print("Will cache as %s" % item_id, file=sys.stderr)
                     newfeedcache.append(item_id)
                     if item_id in feedcache:
                         # We've seen this ID before. HOWEVER, it may still
@@ -1077,6 +1082,10 @@ def get_feed(feedname, config, cache, last_time, msglog):
                 # See if it's newer or older. If it's older,
                 # we've probably seen it already; give a warning.
                 if pub_date and last_fed_this:
+                    if verbose:
+                        print("Comparing pub_date %s to last_fed_this %s"
+                              % (str(pub_date), str(last_fed_this)),
+                              file=sys.stderr)
                     if pub_date < last_fed_this and (verbose or not nocache):
                         # If an entry is older than the maximum age
                         # for the cache, skip it with a warning.
@@ -1099,7 +1108,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
                                time.strftime("%m-%d-%a-%y",
                                              time.gmtime(last_fed_this))))
                 elif verbose and not pub_date:
-                    print(item_id, ": No pub_date", file=sys.stderr)
+                    print(item_id, ": No pub_date!", file=sys.stderr)
 
             itemnum += 1
             if verbose:
@@ -1525,6 +1534,10 @@ Which (default = n): """)
         # Update the cache for this site:
         if not nocache:
             cache[sitefeedurl] = newfeedcache
+            if verbose:
+                print("Will update %s cache with:" % sitefeedurl,
+                      file=sys.stderr)
+                print(str(newfeedcache), file=sys.stderr)
 
         ####################################################
         # Generate the output files

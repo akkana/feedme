@@ -762,8 +762,13 @@ tree = lxml.html.fromstring(html)
                 return
 
             # urllib2 can't parse out the host part without first
-            # creating a Request object:
-            req = urllib.request.Request(src)
+            # creating a Request object.
+            # Quote it to guard against URLs with nonascii characters,
+            # which will make urllib.request.urlopen bomb out with
+            # UnicodeEncodeError: 'ascii' codec can't encode character.
+            # If this proves problematical, try the more complicated
+            # solution at https://stackoverflow.com/a/40654295
+            req = urllib.request.Request(urllib.parse.quote(src, safe=':/'))
             req.add_header('User-Agent', self.user_agent)
 
             # Should we only fetch images that come from the HTML's host?
