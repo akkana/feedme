@@ -1032,33 +1032,6 @@ def get_feed(feedname, config, cache, last_time, msglog):
             titles.append(item.title)
 
             if not pagenum:
-                # Haven't seen it yet this run. But is it in the cache already?
-                if not nocache and not config.getboolean(feedname,
-                                                         'allow_repeats'):
-                    # We want it in the cache, whether it's new or not:
-                    if verbose:
-                        print("Will cache as %s" % item_id, file=sys.stderr)
-                    newfeedcache.append(item_id)
-                    if item_id in feedcache:
-                        # We've seen this ID before. HOWEVER, it may still
-                        # be new: a site might have a static URL for the
-                        # monthly photo contest that gets updated once
-                        # a month with all-new content.
-                        # So check the pub date.
-                        # XXX Unfortunately cache entries don't include
-                        # a date, so for now, allow repeat URLs if their
-                        # content was updated since the last feedme run.
-                        # This will unfortunately miss sites that
-                        # aren't checked every day.
-                        if verbose:
-                            print(item_id, "already cached -- skipping",
-                                  file=sys.stderr)
-                        continue
-
-                    elif verbose:
-                        print("'%s' is not in the cache -- fetching" % item_id,
-                              file=sys.stderr)
-
                 # Get the published date.
                 # item.pubDate is a unicode string, supposed to be in format
                 # Thu, 11 Aug 2016 14:46:50 GMT (or +0000)
@@ -1071,6 +1044,42 @@ def get_feed(feedname, config, cache, last_time, msglog):
                     pub_date = time.mktime(email_utils.parsedate(item.published))
                 except:
                     pub_date = None
+
+                # Haven't seen it yet this run. But is it in the cache already?
+                if not nocache:
+                    # We want it in the cache, whether it's new or not:
+                    if verbose:
+                        print("Will cache as %s" % item_id, file=sys.stderr)
+                    newfeedcache.append(item_id)
+                    if item_id in feedcache:
+                        # We've seen this ID before. HOWEVER, it may still
+                        # be new: a site might have a static URL for the
+                        # monthly photo contest that gets updated once
+                        # a month with all-new content.
+                        if not config.getboolean(feedname, 'allow_repeats'):
+                            if verbose:
+                                print(item_id, "already cached -- skipping",
+                                      file=sys.stderr)
+                            continue
+
+                        # Repeats are allowed. So check the pub date.
+                        # XXX Unfortunately cache entries don't include
+                        # a date, so for now, allow repeat URLs if their
+                        # content was updated since the last feedme run.
+                        # This will unfortunately miss sites that
+                        # aren't checked every day.
+                        if verbose:
+                            print("Seen this before, but repeats are allowed")
+                            print("Last time this feed", last_fed_this)
+                            print("pub_date", pub_date)
+                            if pub_date <= last_fed_this:
+                                print("No new changes, skipping")
+                                continue
+                            print("It's changed recently, re-fetching")
+
+                    elif verbose:
+                        print("'%s' is not in the cache -- fetching" % item_id,
+                              file=sys.stderr)
 
                 # We're probably including this item. Add it to suburls.
                 suburls.append(item_id)
