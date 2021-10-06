@@ -234,10 +234,13 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         self.verbose = False
 
     def fetch_url(self, url, newdir, newname, title=None, author=None,
+                  html=None,
                   footer='', referrer=None, user_agent=None):
         """Read a URL from the web. Parse it, rewriting any links,
            downloading any images and making any other changes needed
            according to the config file and current feed name.
+           If the optional argument html contains a string,
+           skip the downloading and use the html provided.
            Write the modified HTML output to $newdir/$newname,
            and download any images into $newdir.
            Raises NoContentError if it can't get the page or skipped it.
@@ -269,9 +272,15 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
             print("Became:   ", url, file=sys.stderr)
 
         self.encoding = self.config.get(self.feedname, 'encoding')
+        if not self.encoding:
+            self.encoding = "utf-8"
 
-        html = self.download_url(url, referrer, user_agent,
-                                 verbose=self.verbose)
+        if not html:
+            html = self.download_url(url, referrer, user_agent,
+                                     verbose=self.verbose)
+            print("type of downloaded html:", type(html))
+        elif self.verbose:
+            print("HTML provided, not fetching a URL", file=sys.stderr)
 
         # Does it contain any of skip_content_pats anywhere? If so, bail.
         skip_content_pats = get_config_multiline(self.config, self.feedname,
@@ -681,7 +690,7 @@ tree = lxml.html.fromstring(html)
                             # But continue fetching the regular pattern,
                             # since the single-page one may fail
 
-                #print("Rewriting href", href, "to", self.make_absolute(href))
+                # print("Rewriting href", href, "to", self.make_absolute(href))
                 attrs['href'] = self.make_absolute(href)
 
         elif tag == 'img':
@@ -1171,6 +1180,9 @@ def read_config_file(confdir=None):
 
                            # acceptable alternate sources for images:
                            'alt_domains' : '',
+
+                           # module for special URL downloading:
+                           'page_helper' : '',
 
                            'nocache' : 'false',
                            'allow_repeats': 'false',

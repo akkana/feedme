@@ -107,11 +107,16 @@ feedparser._HTMLSanitizer.acceptable_elements.add('img')
 
 from bs4 import BeautifulSoup
 
-# We'll use XDG for the config and cache directories if it's available
+# Use XDG for the config and cache directories if it's available
 try:
     import xdg.BaseDirectory
 except:
     pass
+
+# For importing helper modules
+import importlib
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                             "helpers"))
 
 #
 # Clean up old feed directories
@@ -908,6 +913,28 @@ def get_feed(feedname, config, cache, last_time, msglog):
     next_item_string =  '<br>\n<center><i><a href=\"#%d\">&gt;-&gt;</a></i></center>\n<br>\n'
     next_item_pattern = '<br>\n<center><i><a href=\"#[0-9]+\">&gt;-&gt;</a></i></center>\n<br>\n'
 
+    # Get the page_helper for this feed, if any.
+    # The helpers subdir has already been added to os.path,
+    # at the end, so if the user has an earlier version
+    # it will override the built-in
+    page_helper = config.get(feedname, 'page_helper')
+    if page_helper:
+        try:
+            if verbose:
+                print("Trying to import", page_helper)
+            helpermod = importlib.import_module(page_helper)
+            if verbose:
+                print("Initializing", page_helper, file=sys.stderr)
+            helpermod.initialize()
+        except Exception as e:
+            print("Couldn't import module '%s'" % page_helper,
+                  file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
+            return
+
+    else:
+        helpermod = None
+
     # We'll increment itemnum as soon as we start showing entries,
     # so start it negative so anchor links will start at zero.
     itemnum = -1
@@ -1165,9 +1192,21 @@ def get_feed(feedname, config, cache, last_time, msglog):
                     footer += '\n<br>\n<a href="%s">%s</a>' % (item_link,
                                                                item_link)
 
+                    if helpermod:
+                        try:
+                            htmlstr = helpermod.fetch_article(item_link)
+                        except Exception as e:
+                            print("Helper couldn't fetch", item_link,
+                                  file=sys.stderr)
+                            traceback.print_exc(file=sys.stderr)
+                            continue
+                    else:
+                        htmlstr = None
+
                     parser.fetch_url(item_link,
                                      outdir, fnam,
-                                     item_title, author, footer,
+                                     title=item_title, author=author,
+                                     footer=footer, html=htmlstr,
                                      user_agent=user_agent)
                     last_page_written = fnam
 
@@ -1181,7 +1220,6 @@ def get_feed(feedname, config, cache, last_time, msglog):
                     # a subfunction that knows about this function's
                     # local variables?
                     itemnum -= 1
-                    #pagenum -= 1
                     suburls.remove(item_id)
 
                     # Include a note in the indexstr
