@@ -118,6 +118,15 @@ import importlib
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)),
                              "helpers"))
 
+def expanduser(name):
+    """Do what os.path.expanduser does, but also allow $HOME in paths"""
+    # config.get alas doesn't substitute $HOME or ~
+    if name[0:2] == "~/":
+        name = os.path.join(os.environ['HOME'], name[2:])
+    elif name[0:6] == "$HOME/":
+        name = os.path.join(os.environ['HOME'], name[6:])
+    return name
+
 #
 # Clean up old feed directories
 #
@@ -125,7 +134,7 @@ def clean_up(config):
     try:
         days = int(config.get('DEFAULT', 'save_days'))
         feeddir = config.get('DEFAULT', 'dir')
-        feeddir = feedmeparser.sub_tilde(feeddir)
+        feeddir = expanduser(feeddir)
         cachedir = FeedmeCache.get_cache_dir()
     except:
         print("Error trying to get save_days and feed dir; can't clean up", file=sys.stderr)
@@ -187,7 +196,7 @@ def make_plucker_file(indexfile, feedname, levels, ascii):
     cleanfilename = day + "_" + feedname.replace(" ", "_")
 
     # Make sure the plucker directory exists:
-    pluckerdir = os.path.join(feedmeparser.sub_tilde("~/.plucker"), "feedme")
+    pluckerdir = os.path.join(expanduser("~/.plucker"), "feedme")
     if not os.path.exists(pluckerdir):
         os.makedirs(pluckerdir)
 
@@ -224,7 +233,7 @@ def make_calibre_file(indexfile, feedname, extension, levels, ascii,
 
     appargs = [ "ebook-convert",
                 indexfile,
-                #os.path.join(feedmeparser.sub_tilde("~/feeds"),
+                #os.path.join(expanduser("~/feeds"),
                 #             cleanfilename + extension),
                 # directory should be configurable too, probably
                 os.path.join(outdir, cleanfilename + extension),
@@ -504,7 +513,7 @@ class FeedmeCache(object):
         elif 'xdg.BaseDirectory' in sys.modules:
             cachehome = xdg.BaseDirectory.xdg_cache_home
         else:
-            cachehome = feedmeparser.sub_tilde('~/.cache')
+            cachehome = expanduser('~/.cache')
 
         return os.path.join(cachehome, 'feedme')
 
@@ -744,7 +753,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
     verbose = (config.get(feedname, 'verbose').lower() == 'true')
     levels = int(config.get(feedname, 'levels'))
 
-    feeddir = feedmeparser.sub_tilde(feeddir)
+    feeddir = expanduser(feeddir)
     todaystr = time.strftime("%m-%d-%a")
     feeddir = os.path.join(feeddir, todaystr)
 
@@ -1759,7 +1768,7 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
 
         last_time = cache.last_time
 
-    feeddir = feedmeparser.sub_tilde(config.get('DEFAULT', 'dir'))
+    feeddir = expanduser(config.get('DEFAULT', 'dir'))
     if not os.path.exists(feeddir):
         os.makedirs(feeddir)
     logfilename = os.path.join(feeddir, 'LOG')

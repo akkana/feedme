@@ -1110,15 +1110,6 @@ tree = lxml.html.fromstring(html)
 
         return False
 
-def sub_tilde(name):
-    """Do what os.path.expanduser does, but also allow $HOME in paths"""
-    # config.get alas doesn't substitute $HOME or ~
-    if name[0:2] == "~/":
-        name = os.path.join(os.environ['HOME'], name[2:])
-    elif name[0:6] == "$HOME/":
-        name = os.path.join(os.environ['HOME'], name[6:])
-    return name
-
 #
 # Keep track of the config file directory
 #

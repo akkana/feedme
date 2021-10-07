@@ -7,7 +7,7 @@ import time
 import shutil
 import os, sys
 
-import feedmeparser
+from feedme import expanduser
 
 
 def fetch_feed(target_dir, helper_arg):
@@ -18,7 +18,7 @@ def fetch_feed(target_dir, helper_arg):
        Returns a list of the files copied.
     """
 
-    helper_arg = feedmeparser.sub_tilde(helper_arg)
+    helper_arg = expanduser(helper_arg)
 
     if os.path.exists(os.path.join(helper_arg, "index.html")):
         return copy_files(helper_arg, target_dir)
