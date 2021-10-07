@@ -14,19 +14,34 @@ machine other than the one that's normally assembling your feeds.
 For instance, you may not want to run a desktop browser (and all
 the X machinery it needs) on your web server.
 
-Enter feedme helpers. A ```page_helper``` can fetch single pages
+Enter feedme helpers. There are two types of helpers: ```page_helpers```
+and ```feed_helpers```.
+
+
+## Passing Arguments to Helpers
+
+Both types of helpers can take one string argument, set in the site
+file: ```helper_arg```
+
+This will be passed to the helper's ```initialize(helper_arg)``` function.
+If the helper needs multiple arguments, encode it in the helper_arg string.
+
+By convention, a $d in the arg string will be expanded to the current
+day's string as used in the feeds directory, e.g. 10-07-Wed.
+
+For page helpers, you can also use the *url* in the site file to
+pass information. url must be set to something anyway, even if it's
+not used: feedme uses the presence of url to determine if a site file
+is valid.
+
+
+## Page Helpers:
+
+A ```page_helper``` can fetch single pages
 one at a time. The HTML will be passed back to feedme, which can
 then do its normal operations and store the result in the feeds directory.
-
-Eventually it may also be possible to have a ```feed_helper``` which
-gathers a whole feed on its own with no help from feedme. For
-instance, a site that has no RSS would need a feed_helper,
-since feedme can only get the list of stories from RSS.
-With a feed_helper you would have to manage last-seen dates
-on your own.
-
-
-## Writing a Page Helper:
+This assumes that the site has a usable RSS feed, and help is only
+needed for fetching the individual articles.
 
 Let's say you want to feed the New York Times. You're a subscriber,
 and you have a Firefox profile with the appropriate cookies.
@@ -44,8 +59,8 @@ somewhere in your PYTHONPATH.
 nyt_selenium.py must define the following functions:
 
 ```
-initialize()
-    # can be a no-op
+initialize(helper_arg)
+    # can be a no-op if no persistent state is needed
 
 fetch_article(url)
     # Returns the desired html as a string (not bytes).
@@ -55,12 +70,36 @@ fetch_article(url)
 ```
 
 
-## Minimal Helper:
+## Feed Helpers
 
-In some cases you may need a minimal helper that doesn't fetch
-anything at all, but simply copies files or accepts files that
-have already been copied into the day's feed directory.
-For instance, you'd need this if you need to run selenium on a machine
-other than the main feedme server.
+A ```feed_helper``` fetches a whole feed at once.
+For instance, a site that has no RSS would need a feed helper,
+since feedme can only get the list of stories from RSS.
+With a feed helper you would have to manage last-seen dates
+on your own.
 
-TODO write minimal helper
+For instance, to use the copyfeed helper, add a line like
+
+```
+feed_helper = copyfeed
+helper_arg = ~/feeds/$d/New_York_Times/
+```
+
+You'll probably need to specify an absolute path (in place of ~/)
+if you call feedme from a web server, since it isn't running as your user.
+Tilde expansion is done (or not) inside the helper, since helper_args
+may not always be filenames.
+
+To write a feed helper, you must implement one call:
+
+```
+fetch_feed(target_dir, helper_arg)
+```
+
+The ```target_dir``` is the target feed directory,
+e.g. ```.../feeds/10-06-Wed/``` into which the final files should be written.
+The helper is responsible for creating that directory,
+if it's successful in getting feed files.
+
+All files in the target directory will be added to the day's ```MANIFEST```.
+

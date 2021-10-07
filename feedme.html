@@ -307,7 +307,10 @@ skip_link_pats = skip_link_pat = http://www.site.com/articles/video/
 <h3>Helper Modules</h3>
 <p>
 For sites that can't be simply downloaded, you can define a helper
-Python module.
+Python module. There are <i>page_helpers</i> that can fetch URLs
+-- for instance, if a site requires JavaScript, you can use a
+package like Selenium to fetch it --
+and <i>feed_helpers</i> that can get a feed that doesn't have RSS.
 See <i>helpers/README.md</i> for details.
 
 <h3>Output Formats</h3>

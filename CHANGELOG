@@ -1,3 +1,16 @@
+2021-10-07  Akkana Peck  <akkana@shallowsky.com>
+	Implement page and feed helpers, including a page helper
+	that uses selenium for the New York Times.
+
+2021-06007  Akkana Peck  <akkana@shallowsky.com>
+	New site variable, allow_repeats.
+
+2020-08-11  Akkana Peck  <akkana@shallowsky.com>
+	Commandline args: accept filename, with or without .conf,
+	instead of requiring the full quoted feed name.
+
+2020-04-25  Akkana Peck  <akkana@shallowsky.com>
+	Improve nonlocal image blocking, rename pref to block_nonlocal_images.
 
 2020-04-12  Akkana Peck  <akkana@shallowsky.com>
 

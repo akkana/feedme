@@ -691,9 +691,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
     try:
         sitefeedurl = config.get(feedname, 'url')
         feeddir = config.get(feedname, 'dir')
-    except:
-        if verbose:
-            print(feedname, "isn't a site feed name", file=sys.stderr)
+    except Exception as e:
         sitefeedurl = None
 
     # If feedname isn't a name in the config files, maybe it's the name
@@ -721,7 +719,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
             feedfile = os.path.join(feedmeparser.default_confdir, feedname)
             if os.path.exists(feedfile):
                 fakefeedname = parse_name_from_conf_file(feedfile)
-            if not sitefeedurl:
+            if not sitefeedurl and not feedfile.endswith(".conf"):
                 feedfile += ".conf"
                 if os.path.exists(feedfile):
                     fakefeedname = parse_name_from_conf_file(feedfile)
@@ -747,7 +745,8 @@ def get_feed(feedname, config, cache, last_time, msglog):
     levels = int(config.get(feedname, 'levels'))
 
     feeddir = feedmeparser.sub_tilde(feeddir)
-    feeddir = os.path.join(feeddir, time.strftime("%m-%d-%a"))
+    todaystr = time.strftime("%m-%d-%a")
+    feeddir = os.path.join(feeddir, todaystr)
 
     formats = config.get(feedname, 'formats').split(',')
     encoding = config.get(feedname, 'encoding')
@@ -783,6 +782,67 @@ def get_feed(feedname, config, cache, last_time, msglog):
     if verbose:
         print("feedfile:", feedfile, file=sys.stderr)
         print("outdir:", outdir, file=sys.stderr)
+
+    # Get any helpers for this feed, if any.
+    # A feed_helper takes precedence over a page_helper.
+    # The helpers subdir has already been added to os.path,
+    # at the end, so if the user has an earlier version
+    # it will override a built-in of the same name.
+    try:
+        feed_helper = config.get(feedname, 'feed_helper')
+    except:
+        feed_helper = None
+        try:
+            page_helper = config.get(feedname, 'page_helper')
+        except:
+            page_helper = None
+
+    if feed_helper or page_helper:
+        helper_arg = config.get(feedname, 'helper_arg')
+        if '$d' in helper_arg:
+            helper_arg = helper_arg.replace("$d", todaystr)
+
+        if feed_helper:
+            if verbose:
+                print("Trying to import", feed_helper)
+            try:
+                helpermod = importlib.import_module(feed_helper)
+            except Exception as e:
+                traceback.print_exc(file=sys.stderr)
+                print("Couldn't import module '%s'" % feed_helper,
+                      file=sys.stderr)
+
+            try:
+                helpermod.fetch_feed(outdir, helper_arg)
+
+                if verbose:
+                    print("Fetched feed with %s(%s) to %s"
+                          % (feed_helper, helper_arg, outdir))
+            except Exception as e:
+                traceback.print_exc(file=sys.stderr)
+                print("Couldn't run helper module '%s'" % feed_helper,
+                      file=sys.stderr)
+
+            # Whether the copy helper was successful or not,
+            # it's time to return.
+            return
+
+        else:    # must be a page_helper
+            if verbose:
+                print("Trying to import", page_helper)
+            try:
+                helpermod = importlib.import_module(page_helper)
+                if verbose:
+                    print("Initializing", page_helper, file=sys.stderr)
+                helpermod.initialize(helper_arg)
+            except Exception as e:
+                print("Couldn't import module '%s'" % page_helper,
+                      file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
+                return
+
+    else:
+        helpermod = None
 
     # When did we last run this feed?
     # This code is probably brittle so wrap it in try/except.
@@ -912,28 +972,6 @@ def get_feed(feedname, config, cache, last_time, msglog):
     # regexp that can match it.
     next_item_string =  '<br>\n<center><i><a href=\"#%d\">&gt;-&gt;</a></i></center>\n<br>\n'
     next_item_pattern = '<br>\n<center><i><a href=\"#[0-9]+\">&gt;-&gt;</a></i></center>\n<br>\n'
-
-    # Get the page_helper for this feed, if any.
-    # The helpers subdir has already been added to os.path,
-    # at the end, so if the user has an earlier version
-    # it will override the built-in
-    page_helper = config.get(feedname, 'page_helper')
-    if page_helper:
-        try:
-            if verbose:
-                print("Trying to import", page_helper)
-            helpermod = importlib.import_module(page_helper)
-            if verbose:
-                print("Initializing", page_helper, file=sys.stderr)
-            helpermod.initialize()
-        except Exception as e:
-            print("Couldn't import module '%s'" % page_helper,
-                  file=sys.stderr)
-            traceback.print_exc(file=sys.stderr)
-            return
-
-    else:
-        helpermod = None
 
     # We'll increment itemnum as soon as we start showing entries,
     # so start it negative so anchor links will start at zero.
@@ -1581,10 +1619,10 @@ Which (default = n): """)
         # Update the cache for this site:
         if not nocache:
             cache[sitefeedurl] = newfeedcache
-            if verbose:
-                print("Will update %s cache with:" % sitefeedurl,
-                      file=sys.stderr)
-                print(str(newfeedcache), file=sys.stderr)
+            # if verbose:
+            #     print("Will update %s cache with:" % sitefeedurl,
+            #           file=sys.stderr)
+            #     print(str(newfeedcache), file=sys.stderr)
 
         ####################################################
         # Generate the output files
@@ -1748,6 +1786,7 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
             print(feedurl, "is obsolete, will delete from cache", file=sys.stderr)
             del cache[feedurl]
 
+    # Actually get the feeds.
     try:
         if options.feeds:
             for feed in options.feeds:
@@ -1763,7 +1802,7 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
                 except KeyboardInterrupt:
                     print("Interrupt! Skipping feed", feedname, file=sys.stderr)
                     handle_keyboard_interrupt("Type q to quit, anything else to skip to next feed: ")
-                    # We don't actually have to check the return value;
+                    # No actual need to check the return value:
                     # handle_keyboard_interrupt will quit if the user types q.
 
 

@@ -24,7 +24,7 @@ sbrowser = None
 adpat = re.compile("story-ad-[0-9]*-wrapper")
 
 
-def initialize():
+def initialize(helper_arg):
     """Initialize selenium, returning the web driver object."""
 
     global sbrowser

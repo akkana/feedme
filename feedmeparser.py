@@ -1138,7 +1138,7 @@ init_default_confdir()
 print("default_confdir:", default_confdir)
 
 #
-# Read the configuration file (don't act on it yet)
+# Read the configuration files
 #
 def read_config_file(confdir=None):
     '''Read the config file from XDG_CONFIG_HOME/feedme/*.conf,
@@ -1153,7 +1153,8 @@ def read_config_file(confdir=None):
         print("Error: no config file in", conffile, file=sys.stderr)
         sys.exit(1)
 
-    config = ConfigParser({'verbose' : 'false',
+    config = ConfigParser({'url' : '',
+                           'verbose' : 'false',
                            'levels' : '2',
                            'encoding' : '',  # blank means try several
                            'page_start' : '',
@@ -1183,6 +1184,8 @@ def read_config_file(confdir=None):
 
                            # module for special URL downloading:
                            'page_helper' : '',
+                           # Single string argument passed to the helper.
+                           'helper_arg' : '',
 
                            'nocache' : 'false',
                            'allow_repeats': 'false',
