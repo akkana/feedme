@@ -1,3 +1,4 @@
+
 # FeedMe Helpers
 
 Some sites make fetching feeds too complicated to handle through
@@ -17,6 +18,11 @@ the X machinery it needs) on your web server.
 Enter feedme helpers. There are two types of helpers: ```page_helpers```
 and ```feed_helpers```.
 
+Helpers will be imported as Python modules, so they must either
+be in the *helpers/* directory wherever feedme is installed, or
+somewhere in your PYTHONPATH. They also must conform to Python
+module naming rules, e.g. nyt_selenium.py, not nyt-selenium.py.
+
 
 ## Passing Arguments to Helpers
 
@@ -26,13 +32,23 @@ file: ```helper_arg```
 This will be passed to the helper's ```initialize(helper_arg)``` function.
 If the helper needs multiple arguments, encode it in the helper_arg string.
 
-By convention, a $d in the arg string will be expanded to the current
-day's string as used in the feeds directory, e.g. 10-07-Wed.
+A $d in the arg string will be expanded to the current
+day's string as used in the feeds directory, e.g. 10-07-Wed,
+before being passed to the helper.
+If you need a literal $d, use \$d.
 
 For page helpers, you can also use the *url* in the site file to
 pass information. url must be set to something anyway, even if it's
 not used: feedme uses the presence of url to determine if a site file
 is valid.
+
+When specifying directories, you'll probably need to specify an
+absolute path (in place of ~/) if you call feedme from a web server,
+since it isn't running as your user. Tilde expansion is done (or not)
+inside the helper, since helper_args may not always be filenames.
+Any expansion such as tilde (expanduser) expansion is left to
+the helper modules, since feedme doesn't know how the helper_arg
+will be used by the helper.
 
 
 ## Page Helpers:
@@ -52,9 +68,7 @@ In your site file, add a line like
 page_helper = nyt_selenium
 ```
 
-This tells feedme to import a file nyt_selenium.py, which must either
-be in the *helpers/* directory wherever feedme is installed, or
-somewhere in your PYTHONPATH.
+That tells feedme to import the helper module nyt_selenium.py.
 
 nyt_selenium.py must define the following functions:
 
@@ -85,10 +99,8 @@ feed_helper = copyfeed
 helper_arg = ~/feeds/$d/New_York_Times/
 ```
 
-You'll probably need to specify an absolute path (in place of ~/)
-if you call feedme from a web server, since it isn't running as your user.
-Tilde expansion is done (or not) inside the helper, since helper_args
-may not always be filenames.
+But see the comment above under *Passing Arguments to Helpers*
+regarding ~.
 
 To write a feed helper, you must implement one call:
 
@@ -102,4 +114,3 @@ The helper is responsible for creating that directory,
 if it's successful in getting feed files.
 
 All files in the target directory will be added to the day's ```MANIFEST```.
-

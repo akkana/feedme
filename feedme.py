@@ -808,7 +808,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
 
     if feed_helper or page_helper:
         helper_arg = config.get(feedname, 'helper_arg')
-        if '$d' in helper_arg:
+        if '$d' in helper_arg and r'\$d' not in helper_arg:
             helper_arg = helper_arg.replace("$d", todaystr)
 
         if feed_helper:

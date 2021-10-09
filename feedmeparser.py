@@ -98,6 +98,8 @@ class FeedmeURLDownloader(object):
            contents as a str. Allow for possible vagaries like cookies,
            redirection, compression etc.
         """
+        if not user_agent:
+            user_agent = VersionString
         if verbose:
             print("download_url", url, "referrer=", referrer, \
                                 "user_agent", user_agent, file=sys.stderr)
@@ -110,8 +112,6 @@ class FeedmeURLDownloader(object):
                 print("Adding referrer", referrer, file=sys.stderr)
             request.add_header('Referer', referrer)
 
-        if not user_agent:
-            user_agent = VersionString
         request.add_header('User-Agent', user_agent)
         if verbose:
             print("Using User-Agent of", user_agent, file=sys.stderr)
