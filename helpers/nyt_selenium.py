@@ -2,6 +2,8 @@
 
 # A FeedMe helper that can fetch articles from the NYTimes
 # using a logged-in subscriber profile and selenium.
+# As written, it will use the first profile in ~/.mozilla/firefox
+# that has "selenium" in the name.
 
 import os, sys
 
