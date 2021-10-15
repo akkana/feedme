@@ -366,7 +366,7 @@ used for the converted files; for example, plucker files are created in
 <i>~/.plucker/feeds</i>.
 This is never cleaned out by feedme, so you'll have to prune it yourself.
 When I used plucker as my feed
-reader, I had an alias that ran <code>rm ~/.plucker/feedme/*</code> 
+reader, I had an alias that ran <code>rm ~/.plucker/feedme/*</code>
 to remove the  previous day's plucks just before I ran feedme.
 
 <p>
@@ -376,13 +376,19 @@ Thanks to Carla Schroder for the name suggestion!
 
 <h2>Reading Your Feeds</h2>
 <p>
-Currently, I read the feeds I fetch with Feedme with an Android program
-I wrote,
-<a href="/software/FeedViewer/">FeedViewer</a>.
-I'm the first to confess that it's not very well documented, though,
-and in particular there's no documentation on how to set things up
-so that FeedMe can generate files that FeedFetcher can generate
-automatically. If you're trying to use this and can't figure it out,
+By default, FeedMe fetches feeds to simplified HTML files on your
+local filesystem. You can read them there with a browser or any other app
+you prefer; or you can save to a format like EPUB to read on an ebook
+reader.
+<p>
+Currently, I run FeedMe daily on a web server;
+then I use an Android program I wrote,
+<a href="/software/FeedViewer/">FeedViewer</a>,
+to download the day's feeds to my phone and read them there.
+<p>
+I'm the first to confess that FeedViewer isn't very well documented, though,
+especially the process of downloading from a server.
+If you're trying to use FeedViewer and can't figure it out,
 let me know, otherwise I may never get around to documenting it.
 
 <hr>
