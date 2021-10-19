@@ -258,6 +258,15 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         if type(author) is not str:
             author = str(author)
 
+        # If no base href has been set yet, set it here based on
+        # the first URL fetched from RSS.
+        if not self.base_href:
+            urlparts = urllib.parse.urlparse(url)
+            urlparts = urlparts._replace(path='/')
+            self.base_href = urllib.parse.urlunparse(urlparts)
+            print("On first fetched URL, set base_href to",
+                  self.base_href, file=sys.stderr)
+
         # A flag to indicate when we're skipping everything --
         # e.g. inside <script> tags.
         self.skipping = None
@@ -952,7 +961,7 @@ tree = lxml.html.fromstring(html)
             self.wrote_data = True
 
         if type(data) is str:
-            # XXXXXX This is getting:
+            # XXX This is getting:
             # UnicodeEncodeError: 'ascii' codec can't encode character '\u2019' in position 193: ordinal not in range(128)
             # How do we protect against that?
             # Is there any reliable way to write str to a file in python3?
@@ -1010,8 +1019,24 @@ tree = lxml.html.fromstring(html)
         if self.base_href:
             return urllib.parse.urljoin(self.base_href, url)
 
+        # Map paths without a schema or host to the full URL.
+        # Set it here from from the site RSS UR, though that isn't
+        # always right, e.g. https://rss.example.com.
+        # XXX We should always have a base_href here since it should
+        # have been set the first time through fetch_url,
+        # so this clause should never trigger. But just in case,
+        # leave this clause here for a while.
         if url[0] == '/':
-            return urllib.parse.urljoin(self.prefix, url)
+            if not self.base_href:
+                print("******** Yikes, got to make_absolute with no base_url",
+                      file=sys.stderr)
+                url = self.config.get(self.feedname, 'url')
+                urlparts = urllib.parse.urlparse(url)
+                urlparts = urlparts._replace(path='/')
+                self.base_href = urllib.parse.urlunparse(urlparts)
+                print("Set base_href to", self.base_href, file=sys.stderr)
+
+            return urllib.parse.urljoin(self.base_href, url)
 
         # It's relative, so append it to the current url minus cur filename:
         return os.path.join(os.path.dirname(self.cururl), url)
