@@ -2,8 +2,11 @@
 
 # A FeedMe helper that can fetch articles from the NYTimes
 # using a logged-in subscriber profile and selenium.
-# As written, it will use the first profile in ~/.mozilla/firefox
+# As currently written, it will use the first profile in ~/.mozilla/firefox
 # that has "selenium" in the name.
+#
+# If geckodriver isn't in your path, pass the path to it
+# as the helper_arg.
 
 import os, sys
 
@@ -36,9 +39,21 @@ def initialize(helper_arg):
     # Deprecated, but no one seems to know the new way:
     options = Options()
     options.headless = True
-    print("Creating headless browser...")
+    print("Creating headless browser...", file=sys.stderr)
+    kwargs = {
+        "firefox_profile": foxprofiledir,
+        "options":         options,
+    }
+
+    if helper_arg and (helper_arg.startswith('/')
+                       or helper_arg.startswith('~')):
+        executable_path = os.path.expanduser(helper_arg)
+    else:
+        executable_path = "geckodriver"
+
     sbrowser = webdriver.Firefox(firefox_profile=foxprofiledir,
-                                options=options)
+                                 executable_path=executable_path,
+                                 options=options)
 
 
 def fetch_article(url):
