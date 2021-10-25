@@ -8,14 +8,19 @@
 # If geckodriver isn't in your path, pass the path to it
 # as the helper_arg.
 
-import os, sys
+# XXX Need to set log_path, otherwise it uses . even if unwritable.
 
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
-from selenium.common import exceptions as selenium_exceptions
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+# from selenium.common import exceptions as selenium_exceptions
 
 from bs4 import BeautifulSoup
+
+import os, sys
+
 import re
+import time
 
 import traceback
 
@@ -29,7 +34,7 @@ sbrowser = None
 adpat = re.compile("story-ad-[0-9]*-wrapper")
 
 
-def initialize(helper_arg):
+def initialize(helper_arg=None):
     """Initialize selenium, returning the web driver object."""
 
     global sbrowser
@@ -39,21 +44,37 @@ def initialize(helper_arg):
     # Deprecated, but no one seems to know the new way:
     options = Options()
     options.headless = True
-    print("Creating headless browser...", file=sys.stderr)
-    kwargs = {
-        "firefox_profile": foxprofiledir,
-        "options":         options,
-    }
 
+    # Don't wait for full page load, but return as soon as the
+    # page would normally be usable.
+    caps = DesiredCapabilities().FIREFOX
+    caps["pageLoadStrategy"] = "eager"  #  interactive
+    # Other options are "normal" (full page load) or "none" (?)
+
+    print("Creating headless browser...", file=sys.stderr)
+
+    # With the default of "geckodriver", selenium will search $PATH.
+    executable_path = "geckodriver"
     if helper_arg and (helper_arg.startswith('/')
                        or helper_arg.startswith('~')):
-        executable_path = os.path.expanduser(helper_arg)
-    else:
-        executable_path = "geckodriver"
+        arg_path = os.path.expanduser(helper_arg)
+
+        # Did this point to the actual geckodriver executable?
+        # If so, pass it as executable_path.
+        if arg_path.endswith("geckodriver") and os.path.exists(arg_path) \
+           and os.path.isfile(arg_path):
+            executable_path - arg_path
+        elif os.isdir(arg_path) and \
+             os.path.isfile(os.path.join(arg_path, "geckodriver")):
+            # It's a directory. Add it to the beginning of $PATH.
+            os.environ["PATH"] = "%s:%s" % (arg_path, os.environ["PATH"])
 
     sbrowser = webdriver.Firefox(firefox_profile=foxprofiledir,
                                  executable_path=executable_path,
                                  options=options)
+
+    # Some people say this is how to set the timeout, others say it fails.
+    # sbrowser.set_page_load_timeout(30)
 
 
 def fetch_article(url):
@@ -62,7 +83,13 @@ def fetch_article(url):
        Filter it down using BeautifulSoup so feedme doesn't have to.
     """
 
+    # While debugging: keep track of how long each article takes.
+    t0 = time.time()
+
     sbrowser.get(url)
+
+    print("%.1f seconds for %s" % (time.time() - t0, url), file=sys.stderr)
+
     fullhtml = sbrowser.page_source
 
     if not fullhtml:
@@ -120,6 +147,47 @@ def find_firefox_profile_dir():
 
 
 if __name__ == '__main__':
-    sbrowser = None
-    sbrowser = init_selenium()
-    read_rss(sbrowser, savedir=os.path.expanduser("~/feeds/nyt"))
+    import feedparser
+    import sys
+
+    initialize()
+
+    if len(sys.argv) > 1:
+        RSS_URL = sys.argv[1]
+    else:
+        RSS_URL = 'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml'
+
+    feed = feedparser.parse(RSS_URL)
+
+    # feedparser has no error return! One way is to check len(feed.feed).
+    if len(feed.feed) == 0:
+        print("Couldn't fetch RSS from", RSS_URL, file=sys.stderr)
+        sys.exit(1)
+
+    for item in feed.entries:
+        if 'links' not in item:
+            print("Item with no links! Continuing")
+            continue
+
+        lasttime = time.time()
+
+        # href = [str(link['href']) for link in item.links
+        #         if 'rel' in link and 'href' in link
+        #         and link['rel'] == 'alternate']
+
+        item_link = str(item.link)
+        sys.stdout.flush()
+        print("\n==========================================")
+        print("Link:", item_link)
+        print(item.summary)
+
+        fullhtml = fetch_article(item_link)
+        if not fullhtml:
+            print("Couldn't fetch", item_link)
+            continue
+
+        print("full html had", len(fullhtml), "characters")
+
+        thistime = time.time()
+        print("Took", thistime - lasttime, "seconds")
+        lasttime = thistime
