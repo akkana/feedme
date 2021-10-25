@@ -64,7 +64,7 @@ def initialize(helper_arg=None):
         if arg_path.endswith("geckodriver") and os.path.exists(arg_path) \
            and os.path.isfile(arg_path):
             executable_path - arg_path
-        elif os.isdir(arg_path) and \
+        elif os.path.isdir(arg_path) and \
              os.path.isfile(os.path.join(arg_path, "geckodriver")):
             # It's a directory. Add it to the beginning of $PATH.
             os.environ["PATH"] = "%s:%s" % (arg_path, os.environ["PATH"])

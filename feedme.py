@@ -543,8 +543,7 @@ class FeedmeCache(object):
         return cache
 
     #
-    # Old-style cache files are cPickle based.
-    # New style are human readable and look like this:
+    # New style cache files are human readable and look like this:
     # FeedMe v. 1
     # siteurl|time|url url, url ...
     # One line per site.
@@ -559,12 +558,9 @@ class FeedmeCache(object):
             contents = fp.read()
 
         if not contents.startswith("FeedMe v."):
+            print("Sorry, old-style pickle-based cache files are "
+                  "no longer supported.\nStarting over without cache.")
             # It's an old style, pickle-based file.
-            import pickle
-            d = pickle.load(open(self.filename))
-            self.thedict = d
-            print("**** Warning: old-style pickle-based cache file",
-                  file=sys.stderr)
             return
 
         # Must be a new-style file.
