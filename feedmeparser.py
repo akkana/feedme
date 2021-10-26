@@ -1106,7 +1106,7 @@ tree = lxml.html.fromstring(html)
         # entirely, or leave them in with their src= unchanged
         # so that a network-connected viewer can still fetch them.
         # For now, let's opt to remove them.
-        if (tag == 'img' or tag == 'svg') and \
+        if (tag == 'img' or tag == 'svg' or tag == 'video') and \
                 self.config.getboolean(self.feedname, 'skip_images'):
             return True
 
