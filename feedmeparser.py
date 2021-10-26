@@ -287,7 +287,6 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         if not html:
             html = self.download_url(url, referrer, user_agent,
                                      verbose=self.verbose)
-            print("type of downloaded html:", type(html))
         elif self.verbose:
             print("HTML provided, not fetching a URL", file=sys.stderr)
 

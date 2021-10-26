@@ -21,6 +21,7 @@ import os, sys
 
 import re
 import time
+import tempfile
 
 import traceback
 
@@ -34,7 +35,7 @@ sbrowser = None
 adpat = re.compile("story-ad-[0-9]*-wrapper")
 
 
-def initialize(helper_arg=None):
+def initialize(helper_args=None):
     """Initialize selenium, returning the web driver object."""
 
     global sbrowser
@@ -53,24 +54,45 @@ def initialize(helper_arg=None):
 
     print("Creating headless browser...", file=sys.stderr)
 
+    # Unpack the helper_args. Currently support executable_path
+    # (which has already been $d expanded, but not ~ expanded)
+    # and log_file.
     # With the default of "geckodriver", selenium will search $PATH.
     executable_path = "geckodriver"
-    if helper_arg and (helper_arg.startswith('/')
-                       or helper_arg.startswith('~')):
-        arg_path = os.path.expanduser(helper_arg)
+    log_file = None
+    if helper_args:
+        if "executable_path" in helper_args:
+            executable_path = os.path.expanduser(helper_args["executable_path"])
+        if "log_file" in helper_args:
+            log_file = os.path.expanduser(helper_args["log_file"])
 
+    if not log_file:
+        log_file = tempfile.mkstemp(prefix="nyt_geckodriver", suffix=".log")
+
+    if executable_path.startswith('/'):
         # Did this point to the actual geckodriver executable?
         # If so, pass it as executable_path.
-        if arg_path.endswith("geckodriver") and os.path.exists(arg_path) \
-           and os.path.isfile(arg_path):
-            executable_path - arg_path
-        elif os.path.isdir(arg_path) and \
-             os.path.isfile(os.path.join(arg_path, "geckodriver")):
+        if executable_path.endswith("geckodriver") \
+           and os.path.exists(executable_path) \
+           and os.path.isfile(executable_path):
+            executable_path - executable_path
+        elif os.path.isdir(executable_path) and \
+             os.path.isfile(os.path.join(executable_path, "geckodriver")):
             # It's a directory. Add it to the beginning of $PATH.
-            os.environ["PATH"] = "%s:%s" % (arg_path, os.environ["PATH"])
+            os.environ["PATH"] = "%s:%s" % (executable_path,
+                                            os.environ["PATH"])
+        # XXX No way to support adding two paths if firefox and
+        # geckodriver are in two different places.
+        # Should allow dir1:dir2, but then we'd have to check all
+        # of them to see if geckodriver exists.
+
+    if verbose:
+        print("nyt_selenium: executable_path '%s', log_file '%s'"
+              % (executable_path, log_file), file=sys.stderr)
 
     sbrowser = webdriver.Firefox(firefox_profile=foxprofiledir,
                                  executable_path=executable_path,
+                                 service_log_path=log_file,
                                  options=options)
 
     # Some people say this is how to set the timeout, others say it fails.

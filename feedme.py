@@ -803,9 +803,32 @@ def get_feed(feedname, config, cache, last_time, msglog):
             page_helper = None
 
     if feed_helper or page_helper:
-        helper_arg = config.get(feedname, 'helper_arg')
-        if '$d' in helper_arg and r'\$d' not in helper_arg:
-            helper_arg = helper_arg.replace("$d", todaystr)
+        # Read all helper args, which start with "helper_",
+        # $D will map to today's datedir.
+        # No tilde expansion will be done.
+        # Turn them into a dictionary, e.g.
+        #     helper_executable_path = ~/firefox-esr
+        #     helper_log = $d/nyt_selenium.log
+        # -> {
+        #      "executable_path": "~/firefox-esr",
+        #      "log": "/home/username/feeds/10-25-Mon/nyt_selenium.log"
+        #    }
+        confoptions = config.options(feedname)
+        helper_args = {}
+        for opt in confoptions:
+            if opt.startswith("helper_"):
+                key = opt[7:]
+                if key:
+                    helper_args[key] = config.get(feedname, opt)
+                    if '$d' in helper_args[key] and \
+                       r'\$d' not in helper_args[key]:
+                        helper_args[key] = helper_args[key].replace("$d",
+                                                                    feeddir)
+                else:
+                    print("Skipping bad key '%s' in %s config file"
+                          % (opt, feedname), file-sys.stderr)
+        if verbose:
+            print(feedname, "helper args:", helper_args, file=sys.stderr)
 
         if feed_helper:
             if verbose:
@@ -818,11 +841,11 @@ def get_feed(feedname, config, cache, last_time, msglog):
                       file=sys.stderr)
 
             try:
-                helpermod.fetch_feed(outdir, helper_arg)
+                helpermod.fetch_feed(outdir, helper_args)
 
                 if verbose:
                     print("Fetched feed with %s(%s) to %s"
-                          % (feed_helper, helper_arg, outdir))
+                          % (feed_helper, helper_args, outdir))
             except Exception as e:
                 traceback.print_exc(file=sys.stderr)
                 print("Couldn't run helper module '%s'" % feed_helper,
@@ -839,7 +862,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
                 helpermod = importlib.import_module(page_helper)
                 if verbose:
                     print("Initializing", page_helper, file=sys.stderr)
-                helpermod.initialize(helper_arg)
+                helpermod.initialize(helper_args)
             except Exception as e:
                 print("Couldn't import module '%s'" % page_helper,
                       file=sys.stderr)

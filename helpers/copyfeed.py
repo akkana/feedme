@@ -10,7 +10,7 @@ import os, sys
 from feedme import expanduser
 
 
-def fetch_feed(target_dir, helper_arg):
+def fetch_feed(target_dir, helper_args):
     """Copy a full feed, including index.html and all stories and images,
        to the target directory. Return a list of files copied
        (relative to the target directory, not full paths).
@@ -18,12 +18,13 @@ def fetch_feed(target_dir, helper_arg):
        Returns a list of the files copied.
     """
 
-    helper_arg = expanduser(helper_arg)
+    if "srcdir" in helper_args:
+        srcdir = expanduser(helper_args["srcdir"])
 
-    if os.path.exists(os.path.join(helper_arg, "index.html")):
-        return copy_files(helper_arg, target_dir)
+    if os.path.exists(os.path.join(srcdir, "index.html")):
+        return copy_files(srcdir, target_dir)
 
-    print("Couldn't find a feed for today under", helper_arg, file=sys.stderr)
+    print("Couldn't find a feed for today under", srcdir, file=sys.stderr)
     return None
 
 
