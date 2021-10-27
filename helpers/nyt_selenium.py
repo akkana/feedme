@@ -63,8 +63,19 @@ def initialize(helper_args=None):
     if helper_args:
         if "executable_path" in helper_args:
             executable_path = os.path.expanduser(helper_args["executable_path"])
+
         if "log_file" in helper_args:
             log_file = os.path.expanduser(helper_args["log_file"])
+            # $d or $f in log_file could fail because the feeds/datedir
+            # hasn't yet been created. So create it if needed.
+            logdir = os.path.dirname(log_file)
+            if not os.path.exists(logdir):
+                os.makedirs(logdir)
+                print("Created", logdir, "for log file", file=sys.stderr)
+            if not os.path.exists(logdir):
+                print("Couldn't create %s: storing log in /tmp" % logdir,
+                      file=sys.stderr)
+                log_file = None
 
     if not log_file:
         log_file = tempfile.mkstemp(prefix="nyt_geckodriver", suffix=".log")
@@ -75,13 +86,16 @@ def initialize(helper_args=None):
         if executable_path.endswith("geckodriver") \
            and os.path.exists(executable_path) \
            and os.path.isfile(executable_path):
-            executable_path - executable_path
+            executable_path = executable_path
         elif os.path.isdir(executable_path) and \
              os.path.isfile(os.path.join(executable_path, "geckodriver")):
             # It's a directory. Add it to the beginning of $PATH.
             os.environ["PATH"] = "%s:%s" % (executable_path,
                                             os.environ["PATH"])
-        # XXX No way to support adding two paths if firefox and
+            # Reset the executable path we'll pass in to webdriver.Firefox
+            # back to the default, since it only needs to search PATH
+            executable_path = "geckodriver"
+        # XXX No way (yet) to support adding two paths if firefox and
         # geckodriver are in two different places.
         # Should allow dir1:dir2, but then we'd have to check all
         # of them to see if geckodriver exists.

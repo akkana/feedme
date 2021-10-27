@@ -26,16 +26,21 @@ module naming rules, e.g. nyt_selenium.py, not nyt-selenium.py.
 
 ## Passing Arguments to Helpers
 
-Both types of helpers can take one string argument, set in the site
-file: ```helper_arg```
+Both types of helpers can take arguments. Any argument beginning with
+`helper_` in the site file will be passed to the helper.
+For instance, *nyt_selenium* takes two arguments:
 
-This will be passed to the helper's ```initialize(helper_arg)``` function.
-If the helper needs multiple arguments, encode it in the helper_arg string.
+```
+helper_executable_path = ~/firefox-esr
+helper_log_file = $d/NYT_selenium.log
+```
 
-A $d in the arg string will be expanded to the current
-day's string as used in the feeds directory, e.g. 10-07-Wed,
+A $d in the arg string will be expanded to the current day's
+feeds directory, e.g. `~/feeds/10-07-Wed`,
 before being passed to the helper.
-If you need a literal $d, use \$d.
+$f will be expanded to the feed name inside $d, e.g.
+`~/feeds/10-07-Wed/NY_Times/`.
+If you need a literal $d or $f, use a backslash escape, `\$d`.
 
 For page helpers, you can also use the *url* in the site file to
 pass information. url must be set to something anyway, even if it's
@@ -48,7 +53,8 @@ since it isn't running as your user. Tilde expansion is done (or not)
 inside the helper, since helper_args may not always be filenames.
 Any expansion such as tilde (expanduser) expansion is left to
 the helper modules, since feedme doesn't know how the helper_arg
-will be used by the helper.
+will be used by the helper. $d and $f expansion are done in feedme
+before passing them to the helper.
 
 
 ## Page Helpers:

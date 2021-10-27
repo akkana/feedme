@@ -133,8 +133,7 @@ def expanduser(name):
 def clean_up(config):
     try:
         days = int(config.get('DEFAULT', 'save_days'))
-        feeddir = config.get('DEFAULT', 'dir')
-        feeddir = expanduser(feeddir)
+        feedsdir = expanduser(config.get('DEFAULT', 'dir'))
         cachedir = FeedmeCache.get_cache_dir()
     except:
         print("Error trying to get save_days and feed dir; can't clean up", file=sys.stderr)
@@ -168,7 +167,7 @@ def clean_up(config):
                 print("Couldn't unlink", f, str(e))
 
     print("Cleaning up files older than %d days from feed and cache dirs" % days)
-    clean_up_dir(feeddir, True)
+    clean_up_dir(feedsdir, True)
     clean_up_dir(cachedir, False)
 
 ##################################################################
@@ -695,7 +694,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
     # Mandatory arguments:
     try:
         sitefeedurl = config.get(feedname, 'url')
-        feeddir = config.get(feedname, 'dir')
+        feedsdir = config.get(feedname, 'dir')
     except Exception as e:
         sitefeedurl = None
 
@@ -732,7 +731,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
         if fakefeedname:
             try:
                 sitefeedurl = config.get(fakefeedname, 'url')
-                feeddir = config.get(fakefeedname, 'dir')
+                feedsdir = config.get(fakefeedname, 'dir')
                 feedname = fakefeedname
             except:
                 if verbose:
@@ -749,9 +748,9 @@ def get_feed(feedname, config, cache, last_time, msglog):
     verbose = (config.get(feedname, 'verbose').lower() == 'true')
     levels = int(config.get(feedname, 'levels'))
 
-    feeddir = expanduser(feeddir)
+    feedsdir = expanduser(feedsdir)
     todaystr = time.strftime("%m-%d-%a")
-    feeddir = os.path.join(feeddir, todaystr)
+    feedsdir = os.path.join(feedsdir, todaystr)
 
     formats = config.get(feedname, 'formats').split(',')
     encoding = config.get(feedname, 'encoding')
@@ -780,12 +779,12 @@ def get_feed(feedname, config, cache, last_time, msglog):
 
     print("\n============\nfeedname:", feedname, file=sys.stderr)
     # Use underscores rather than spaces in the filename.
-    feedfile = feedname.replace(" ", "_")
+    feednamedir = feedname.replace(" ", "_")
     # Also, make sure there are no colons (illegal in filenames):
-    feedfile = feedfile.replace(":", "")
-    outdir = os.path.join(feeddir,  feedfile)
+    feednamedir = feednamedir.replace(":", "")
+    outdir = os.path.join(feedsdir,  feednamedir)
     if verbose:
-        print("feedfile:", feedfile, file=sys.stderr)
+        print("feednamedir:", feednamedir, file=sys.stderr)
         print("outdir:", outdir, file=sys.stderr)
 
     # Get any helpers for this feed, if any.
@@ -820,10 +819,14 @@ def get_feed(feedname, config, cache, last_time, msglog):
                 key = opt[7:]
                 if key:
                     helper_args[key] = config.get(feedname, opt)
+                    if '$f' in helper_args[key] and \
+                       r'\$f' not in helper_args[key]:
+                        helper_args[key] = helper_args[key].replace("$f",
+                                                                    outdir)
                     if '$d' in helper_args[key] and \
                        r'\$d' not in helper_args[key]:
                         helper_args[key] = helper_args[key].replace("$d",
-                                                                    feeddir)
+                                                                    feedsdir)
                 else:
                     print("Skipping bad key '%s' in %s config file"
                           % (opt, feedname), file-sys.stderr)
