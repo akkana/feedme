@@ -8,12 +8,16 @@
 # If geckodriver isn't in your path, pass the path to it
 # as the helper_arg.
 
-# XXX Need to set log_path, otherwise it uses . even if unwritable.
+# XXX Ctrl-C seems to kill the selenium webdriver,
+# so all subsequent fetches will fail. Is there a solution?
+# Sometimes it hangs forever and ctrl-C is the only solution.
 
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 # from selenium.common import exceptions as selenium_exceptions
+from urllib3.exceptions import MaxRetryError, NewConnectionError
+from selenium.common.exceptions import TimeoutException
 
 from bs4 import BeautifulSoup
 
@@ -30,6 +34,17 @@ verbose = True
 
 # The selenium browser driver will be set by initialize()
 sbrowser = None
+
+# On the NYT, once anything times out, all subsequent stories will also
+# time out, and none of the ways that supposedly control selenium
+# timeouts actually work, so they'll all wait for several minutes.
+# Returning None or an empty string will keep the URL out of the
+# cache, which isn't good because it means the same URL will keep
+# being tried and timing out every day forever.
+# Instead, for NYT timeouts, let's return an HTML snippet
+# indicating a timeout, so feedme will mark it as cached
+# and won't keep retrying.
+got_timeout = False
 
 
 adpat = re.compile("story-ad-[0-9]*-wrapper")
@@ -109,24 +124,87 @@ def initialize(helper_args=None):
                                  service_log_path=log_file,
                                  options=options)
 
-    # Some people say this is how to set the timeout, others say it fails.
-    # sbrowser.set_page_load_timeout(30)
+    # Attempt to limit the timeout.
+    # None of these reliably limits the timeout, however:
+    # sometimes selenium will wait minutes for each story
+    # and I haven't found any way around that.
+    sbrowser.set_page_load_timeout(25)
+    sbrowser.implicitly_wait(20);
+    sbrowser.set_script_timeout(20);
+
+
+def timeout_boilerplate(url, errstr):
+    """Return an HTML page explaining a timeout error.
+    """
+    global got_timeout
+
+    got_timeout = True
+
+    return """<html>
+<head><title>Timeout on %s</title></head>
+<body>
+<h1>Timeout on %s</h1>
+<pre>
+%s
+</pre>
+</body>
+</html>
+""" % (url, url, errstr)
 
 
 def fetch_article(url):
     """Fetch the given article using the already initialized
        selenium browser driver.
        Filter it down using BeautifulSoup so feedme doesn't have to.
+       Return html source as a string, or None.
     """
+
+    # Was there a timeout earlier? Then everything subsequent will fail,
+    # so don't even bother trying to get it.
+    if got_timeout:
+        return timeout_boilerplate(url, "Giving up after earlier timeout")
 
     # While debugging: keep track of how long each article takes.
     t0 = time.time()
 
-    sbrowser.get(url)
+    try:
+        sbrowser.get(url)
+    except TimeoutException as e:
+        # Supposedly this sometimes helps in recovering from timeouts.
+        # But in practice, nothing helps: once anything times out,
+        # every subsequent story also times out.
+        # sbrowser.back()
+        print("EEK! TimeoutException", e, file=sys.stderr)
+        return timeout_boilerplate(url, "TimeoutException")
+    except (ConnectionRefusedError, MaxRetryError, NewConnectionError) as e:
+        # MaxRetryError and NewConnectionError come from urllib3.exceptions
+        # ConnectionRefusedError is a Python builtin.
+        print("EEK! Connection error", e, file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        return timeout_boilerplate(url, str(e))
+    except Exception as e:
+        errstr = "Unexpected exception in webdriver.get: " + str(e)
+        print(errstr, file=sys.stderr)
+        return timeout_boilerplate(url, errstr)
 
-    print("%.1f seconds for %s" % (time.time() - t0, url), file=sys.stderr)
+    # Hitting ^C will mess up the webdriver and cause all subsequent
+    # stories to fail. Not particularly recommended, but sometimes
+    # there's no alternative.
+    except KeyboardInterrupt:
+        # sbrowser.back()
+        return timeout_boilerplate(url, "Keyboard Interrupt")
 
-    fullhtml = sbrowser.page_source
+    t1 = time.time()
+    print("%.1f seconds for %s" % (t1 - t0, url), file=sys.stderr)
+
+    try:
+        fullhtml = sbrowser.page_source
+    except Exception as e:
+        errstr = "Fetched page but couldn't get html: " + str(e)
+        print(errstr, file=sys.stderr)
+        return timeout_boilerplate(url, errstr)
+    print("%.1f seconds to get page_source" % (time.time() - t1),
+          file=sys.stderr)
 
     if not fullhtml:
         print("nyt_selenium: couldn't fetch", url)

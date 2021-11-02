@@ -287,8 +287,6 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         if not html:
             html = self.download_url(url, referrer, user_agent,
                                      verbose=self.verbose)
-        elif self.verbose:
-            print("HTML provided, not fetching a URL", file=sys.stderr)
 
         # Does it contain any of skip_content_pats anywhere? If so, bail.
         skip_content_pats = get_config_multiline(self.config, self.feedname,

@@ -1269,6 +1269,11 @@ def get_feed(feedname, config, cache, last_time, msglog):
                                   file=sys.stderr)
                             traceback.print_exc(file=sys.stderr)
                             continue
+                        if not htmlstr:
+                            if verbose:
+                                print("fetch failed on", item_link,
+                                      file=sys.stderr)
+                            continue
                     else:
                         htmlstr = None
 
