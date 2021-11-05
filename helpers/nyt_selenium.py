@@ -44,7 +44,10 @@ sbrowser = None
 # Instead, for NYT timeouts, let's return an HTML snippet
 # indicating a timeout, so feedme will mark it as cached
 # and won't keep retrying.
-got_timeout = False
+num_timeouts = 0
+
+# How many timeouts will be tolerated before giving up?
+MAX_TIMEOUTS = 3
 
 
 adpat = re.compile("story-ad-[0-9]*-wrapper")
@@ -134,22 +137,22 @@ def initialize(helper_args=None):
 
 
 def timeout_boilerplate(url, errstr):
-    """Return an HTML page explaining a timeout error.
+    """If there have been too many timeouts, return an HTML page saying so.
     """
-    global got_timeout
-
-    got_timeout = True
-
     return """<html>
 <head><title>Timeout on %s</title></head>
 <body>
-<h1>Timeout on %s</h1>
+<h1>Timeout</h1>
+
 <pre>
 %s
 </pre>
+
+<p>
+URL was: <a href="%s">%s</a>
 </body>
 </html>
-""" % (url, url, errstr)
+""" % (errstr, url, url)
 
 
 def fetch_article(url):
@@ -158,11 +161,12 @@ def fetch_article(url):
        Filter it down using BeautifulSoup so feedme doesn't have to.
        Return html source as a string, or None.
     """
+    global num_timeouts
 
     # Was there a timeout earlier? Then everything subsequent will fail,
     # so don't even bother trying to get it.
-    if got_timeout:
-        return timeout_boilerplate(url, "Giving up after earlier timeout")
+    if num_timeouts >= MAX_TIMEOUTS:
+        return timeout_boilerplate(url, "Gave up after earlier timeout")
 
     # While debugging: keep track of how long each article takes.
     t0 = time.time()
@@ -170,6 +174,7 @@ def fetch_article(url):
     try:
         sbrowser.get(url)
     except TimeoutException as e:
+        num_timeouts += 1
         # Supposedly this sometimes helps in recovering from timeouts.
         # But in practice, nothing helps: once anything times out,
         # every subsequent story also times out.
@@ -179,10 +184,12 @@ def fetch_article(url):
     except (ConnectionRefusedError, MaxRetryError, NewConnectionError) as e:
         # MaxRetryError and NewConnectionError come from urllib3.exceptions
         # ConnectionRefusedError is a Python builtin.
+        num_timeouts += 1
         print("EEK! Connection error", e, file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
         return timeout_boilerplate(url, str(e))
     except Exception as e:
+        num_timeouts += 1
         errstr = "Unexpected exception in webdriver.get: " + str(e)
         print(errstr, file=sys.stderr)
         return timeout_boilerplate(url, errstr)
@@ -192,6 +199,7 @@ def fetch_article(url):
     # there's no alternative.
     except KeyboardInterrupt:
         # sbrowser.back()
+        num_timeouts += 1
         return timeout_boilerplate(url, "Keyboard Interrupt")
 
     t1 = time.time()
@@ -200,6 +208,7 @@ def fetch_article(url):
     try:
         fullhtml = sbrowser.page_source
     except Exception as e:
+        num_timeouts += 1
         errstr = "Fetched page but couldn't get html: " + str(e)
         print(errstr, file=sys.stderr)
         return timeout_boilerplate(url, errstr)
