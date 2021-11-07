@@ -92,6 +92,7 @@ class FeedmeURLDownloader(object):
         self.feedname = feedname
         self.user_agent = VersionString
         self.encoding = None
+        self.cookiejar = None
 
     def download_url(self, url, referrer=None, user_agent=None, verbose=False):
         """Download a URL (likely http or RSS) from the web and return its
@@ -116,10 +117,24 @@ class FeedmeURLDownloader(object):
         if verbose:
             print("Using User-Agent of", user_agent, file=sys.stderr)
 
-        # Allow for cookies in the request: some sites, notably nytimes.com,
-        # degrade to an infinite redirect loop if cookies aren't enabled.
-        cj = CookieJar()
-        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+        if not self.cookiejar:
+            # Create the cookiejar once per site; it will be reused
+            # for all site stories fetched, but it won't be saved
+            # for subsequent days.
+            cookiefile = self.config.get(self.feedname, "cookiefile",
+                                         fallback=None)
+            if cookiefile:
+                cookiefile = os.path.expanduser(cookiefile)
+                # If a cookiefile was specified, use those cookies.
+                self.cookiejar = get_firefox_cookie_jar(cookiefile)
+            else:
+                # Allow for cookies in the request even if no cookiejar was
+                # specified. Some sites, notably nytimes.com, degrade to
+                # an infinite redirect loop if cookies aren't enabled.
+                self.cookiejar = CookieJar()
+
+        opener = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor(self.cookiejar))
         response = opener.open(request, timeout=100)
         # Lots of ways this can fail.
         # e.g. ValueError, "unknown url type"
@@ -221,6 +236,7 @@ class FeedmeURLDownloader(object):
             print("UnicodeDecodeError on", self.cur_url)
             return contents.decode(encoding=self.encoding,
                                    errors="backslashreplace")
+
 
 class FeedmeHTMLParser(FeedmeURLDownloader):
 
@@ -1272,6 +1288,50 @@ class HTMLSimplifier:
             self.outstr += data
         else:
             print("Data isn't str! type =", type(data), file=sys.stderr)
+
+
+def get_firefox_cookie_jar(filename):
+    """
+    Create a CookieJar based on a Firefox cookies.sqlite.
+    """
+
+    import sqlite3
+    from io import StringIO
+    from http.cookiejar import MozillaCookieJar
+
+    #
+    # https://stackoverflow.com/a/33078599
+    #  Author: Noah Fontes nfontes AT cynigram DOT com
+    #  License: MIT
+    #  Original:
+    #    http://blog.mithis.net/archives/python/90-firefox3-cookies-in-python
+    #  Ported to Python 3 by Dotan Cohen
+
+    con = sqlite3.connect(filename)
+    cur = con.cursor()
+    cur.execute("SELECT host, path, isSecure, expiry, name, value "
+                "FROM moz_cookies")
+
+    ftstr = ["FALSE","TRUE"]
+
+    s = StringIO()
+    s.write("""\
+# Netscape HTTP Cookie File
+# http://www.netscape.com/newsref/std/cookie_spec.html
+# This is a generated file!  Do not edit.
+""")
+
+    for item in cur.fetchall():
+        s.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (
+            item[0], ftstr[item[0].startswith('.')], item[1],
+            ftstr[item[2]], item[3], item[4], item[5]))
+
+    s.seek(0)
+    cookie_jar = MozillaCookieJar()
+    cookie_jar._really_load(s, '', True, True)
+
+    return cookie_jar
+
 
 if __name__ == '__main__':
     config = read_config_file()

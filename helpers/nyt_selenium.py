@@ -14,8 +14,7 @@
 
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-# from selenium.common import exceptions as selenium_exceptions
+
 from urllib3.exceptions import MaxRetryError, NewConnectionError
 from selenium.common.exceptions import TimeoutException
 
@@ -64,11 +63,10 @@ def initialize(helper_args=None):
     options = Options()
     options.headless = True
 
-    # Don't wait for full page load, but return as soon as the
-    # page would normally be usable.
-    caps = DesiredCapabilities().FIREFOX
-    caps["pageLoadStrategy"] = "eager"  #  interactive
-    # Other options are "normal" (full page load) or "none" (?)
+    # "eager": Don't wait for full page load including images etc.,
+    # but return as soon as the page would normally be usable.
+    # "none": return as soon as the base page has been loaded.
+    options.page_load_strategy = "none"
 
     print("Creating headless browser...", file=sys.stderr)
 
@@ -248,6 +246,9 @@ def fetch_article(url):
         img.decompose()
     # NYT has huge SVG images that use the "svg" tag
     for img in article.find_all("svg"):
+        img.decompose()
+    # Plus inline videos that we definitely don't want to download:
+    for img in article.find_all("video"):
         img.decompose()
 
     # Done with processing.
