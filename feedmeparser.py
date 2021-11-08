@@ -121,13 +121,21 @@ class FeedmeURLDownloader(object):
             # Create the cookiejar once per site; it will be reused
             # for all site stories fetched, but it won't be saved
             # for subsequent days.
+            self.cookiejar = None
             cookiefile = self.config.get(self.feedname, "cookiefile",
                                          fallback=None)
             if cookiefile:
-                cookiefile = os.path.expanduser(cookiefile)
-                # If a cookiefile was specified, use those cookies.
-                self.cookiejar = get_firefox_cookie_jar(cookiefile)
-            else:
+                try:
+                    cookiefile = os.path.expanduser(cookiefile)
+                    # If a cookiefile was specified, use those cookies.
+                    self.cookiejar = get_firefox_cookie_jar(cookiefile)
+                except Exception as e:
+                    print("Couldn't get cookies from", cookiefile,
+                          file=sys.stderr)
+                    ptraceback()
+                    self.cookiejar = None
+
+            if not self.cookiejar:
                 # Allow for cookies in the request even if no cookiejar was
                 # specified. Some sites, notably nytimes.com, degrade to
                 # an infinite redirect loop if cookies aren't enabled.
