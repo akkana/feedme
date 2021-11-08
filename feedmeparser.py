@@ -22,6 +22,9 @@ try:
 except:
     pass
 
+
+VersionString = "FeedMe 1.1b1"
+
 has_ununicode=True
 
 # Python3 seems to have no straightforward way to just print a
@@ -41,12 +44,13 @@ def ptraceback():
         # print(str(traceback.format_exc(tb)), file=sys.stderr)
         # so instead:
 
-        print("====== Stack trace was:", file=sys.stderr)
+        print("\n====== Stack trace was:", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
-        print("======", file=sys.stderr)
+        print("====== end stack trace\n", file=sys.stderr)
     except Exception as e:
         print("******** Yikes! Exception trying to print traceback:", e,
               file=sys.stderr)
+
 
 # XXX
 # This doesn't work any more, in the Python 3 world, because everything
@@ -72,7 +76,6 @@ def ptraceback():
 #     else:
 #         return s
 
-VersionString = "FeedMe 1.1b1"
 
 def get_config_multiline(config, feedname, configname):
     configlines = config.get(feedname, configname)
@@ -82,10 +85,31 @@ def get_config_multiline(config, feedname, configname):
         configlines = []
     return configlines
 
+
 class NoContentError(Exception):
     pass
 
+
+class CookieError(Exception):
+     def __init__(self, message, longmessage):
+         """message is a one-line summary.
+            longmessage is the traceback.fmt_exc stack trace.
+         """
+         self.message = message
+         self.longmessage = longmessage
+         # It would be nice to be able to pass the stack trace
+         # in a way that could be examined (e.g. print only the
+         # last message), but traceback.extract_stack() doesn't
+         # survive being passed through another exception handler;
+         # it would probably require making a deep copy of it.
+         # For now, just pass traceback.fmt_exc().
+
+
 class FeedmeURLDownloader(object):
+    """An object that can download stories while retaining
+       information about a feed, such as feed name, user_agent,
+       encoding, cookie file and other config values.
+    """
 
     def __init__(self, config, feedname):
         self.config = config
@@ -130,10 +154,10 @@ class FeedmeURLDownloader(object):
                     # If a cookiefile was specified, use those cookies.
                     self.cookiejar = get_firefox_cookie_jar(cookiefile)
                 except Exception as e:
-                    print("Couldn't get cookies from", cookiefile,
-                          file=sys.stderr)
-                    ptraceback()
-                    self.cookiejar = None
+                    errmsg = "Couldn't get cookies from file %s" % cookiefile
+                    print(errmsg, file=sys.stderr)
+                    raise CookieError(errmsg,
+                                      traceback.format_exc()) from None
 
             if not self.cookiejar:
                 # Allow for cookies in the request even if no cookiejar was

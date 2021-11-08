@@ -98,7 +98,7 @@ import posixpath
 # sheesh, this is apparently the recommended way to parse RFC 2822 dates:
 import email.utils as email_utils
 
-# Our module for parsing HTML inside feeds:
+# FeedMe's module for parsing HTML inside feeds:
 import feedmeparser
 
 # Allow links in top page content
@@ -941,6 +941,16 @@ def get_feed(feedname, config, cache, last_time, msglog):
         print("HTTP error parsing URL:", sitefeedurl, file=sys.stderr)
         print(str(e), file=sys.stderr)
         return
+
+    except feedmeparser.CookieError as e:
+        msglog.err("No cookies, skipping site")
+        print("Error was:", e.message)
+        print("Problem with cookie file was:")
+        for l in e.longmessage.splitlines():
+            print("   ", l)
+        print()
+        return
+
     except Exception as e:
         print("Couldn't parse feed: URL:", sitefeedurl, file=sys.stderr)
         print(str(e), file=sys.stderr)
@@ -1305,6 +1315,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
                 # If we get a timeout on a story,
                 # we should assume the whole site has gone down,
                 # and skip over the rest of the site.
+                # XXX Though maybe we shouldn't give up til N timeouts.
                 # In Python 2.6, instead of raising socket.timeout
                 # a timeout will raise urllib2.URLerror with
                 # e.reason set to socket.timeout.
