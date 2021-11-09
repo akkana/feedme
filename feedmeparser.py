@@ -823,6 +823,9 @@ tree = lxml.html.fromstring(html)
             src = self.make_absolute(src)
             if not src:
                 return
+            if src.startswith("data:"):
+                # With a data: url we already have all we need
+                return
 
             # urllib2 can't parse out the host part without first
             # creating a Request object.
@@ -897,6 +900,11 @@ tree = lxml.html.fromstring(html)
                 #         howmany += 1
                 # But we don't need this clause if we use the whole image path,
                 # not just the basename.
+
+                # Check again for a data: URL, in case it came in
+                # from one of the src substitutions.
+                if src.startswith("data:"):
+                    return
 
                 try:
                     if not os.path.exists(imgfilename):
