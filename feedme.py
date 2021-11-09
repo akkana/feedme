@@ -944,11 +944,8 @@ def get_feed(feedname, config, cache, last_time, msglog):
 
     except feedmeparser.CookieError as e:
         msglog.err("No cookies, skipping site")
-        print("Error was:", e.message)
-        print("Problem with cookie file was:")
-        for l in e.longmessage.splitlines():
-            print("   ", l)
-        print()
+        msglog.err("Error was: %s" % e.message)
+        msglog.err("Cookiefile details: %s\n" % e.longmessage)
         return
 
     except Exception as e:
