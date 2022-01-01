@@ -1330,6 +1330,15 @@ class HTMLSimplifier:
             print("Data isn't str! type =", type(data), file=sys.stderr)
 
 
+#
+# Adapted from:
+# https://stackoverflow.com/a/33078599
+#  Author: Noah Fontes nfontes AT cynigram DOT com
+#  License: MIT
+#  Original:
+#    http://blog.mithis.net/archives/python/90-firefox3-cookies-in-python
+#  Ported to Python 3 by Dotan Cohen
+#
 def get_firefox_cookie_jar(filename):
     """
     Create a CookieJar based on a Firefox cookies.sqlite.
@@ -1339,20 +1348,12 @@ def get_firefox_cookie_jar(filename):
     from io import StringIO
     from http.cookiejar import MozillaCookieJar
 
-    #
-    # https://stackoverflow.com/a/33078599
-    #  Author: Noah Fontes nfontes AT cynigram DOT com
-    #  License: MIT
-    #  Original:
-    #    http://blog.mithis.net/archives/python/90-firefox3-cookies-in-python
-    #  Ported to Python 3 by Dotan Cohen
-
     con = sqlite3.connect(filename)
     cur = con.cursor()
     cur.execute("SELECT host, path, isSecure, expiry, name, value "
                 "FROM moz_cookies")
 
-    ftstr = ["FALSE","TRUE"]
+    ftstr = ["FALSE", "TRUE"]
 
     s = StringIO()
     s.write("""\

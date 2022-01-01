@@ -101,9 +101,16 @@ import email.utils as email_utils
 # FeedMe's module for parsing HTML inside feeds:
 import feedmeparser
 
-# Allow links in top page content
-feedparser._HTMLSanitizer.acceptable_elements.add('a')
-feedparser._HTMLSanitizer.acceptable_elements.add('img')
+# Allow links in top page content.
+# Feedparser 6.0 has dropped _HTMLSanitizer.acceptable_elements,
+# but the documentation says that now it allows a and img by default.
+# https://pythonhosted.org/feedparser/html-sanitization.html
+try:
+    feedparser._HTMLSanitizer.acceptable_elements.add('a')
+    feedparser._HTMLSanitizer.acceptable_elements.add('img')
+except AttributeError:
+    print("Don't know how to whitelist elements in feedparser",
+          feedparser.__version__, file=sys.stderr)
 
 from bs4 import BeautifulSoup
 
