@@ -167,7 +167,7 @@ class FeedmeURLDownloader(object):
 
         opener = urllib.request.build_opener(
             urllib.request.HTTPCookieProcessor(self.cookiejar))
-        response = opener.open(request, timeout=100)
+        response = opener.open(request, timeout=20)
         # Lots of ways this can fail.
         # e.g. ValueError, "unknown url type"
         # or BadStatusLine: ''
@@ -913,7 +913,8 @@ tree = lxml.html.fromstring(html)
                         # urllib.request.urlopen is supposed to have
                         # a default timeout, but if so, it must be
                         # many minutes. Try this instead.
-                        f = urllib.request.urlopen(req, timeout=100)
+                        # Timeout is in seconds.
+                        f = urllib.request.urlopen(req, timeout=8)
                         # Lots of things can go wrong with downloading
                         # the image, such as exceptions.IOError from
                         # [Errno 36] File name too long
