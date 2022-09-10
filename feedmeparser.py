@@ -720,9 +720,6 @@ tree = lxml.html.fromstring(html)
             # print("skipping start", tag, "tag", file=sys.stderr)
             return
 
-        #print("type(tag) =", type(tag))
-        self.outfile.write('<' + tag)
-
         if tag == 'a':
             if 'href' in list(attrs.keys()):
                 href = attrs['href']
@@ -747,221 +744,238 @@ tree = lxml.html.fromstring(html)
                 # print("Rewriting href", href, "to", self.make_absolute(href))
                 attrs['href'] = self.make_absolute(href)
 
-        elif tag == 'img':
-            keys = list(attrs.keys())
-            # Handle both src and srcset.
-            if 'src' in keys:
-                src = attrs['src']
+        # Images have so many cases where the image can't be shown.
+        if tag != 'img':
+            self.write_tag_and_attrs(tag, attrs)
+            return
+
+        # If we get here, it's an image, which needs a lot of extra logic.
+        keys = list(attrs.keys())
+        # Handle both src and srcset.
+        # Los Alamos Daily Post has bogus src="data:..." URLs that don't
+        # display anything, and the real src is in data-src. Go figure.
+        if 'data-src' in keys:
+            src = attrs['data-src']
+        elif 'src' in keys:
+            src = attrs['src']
+        else:
+            src = None
+        if 'srcset' in keys or 'data-lazy-srcset' in keys:
+            # The intent here:
+            # If there's a srcset, pick the largest one that's still
+            # under max_srcset_size, and set src to that.
+            # That's what we'll try to download.
+            # Then remove the srcset attribute.
+            try:
+                maximgwidth = int(self.config.get(self.feedname,
+                                                  'max_srcset_size'))
+            except:
+                maximgwidth = 800
+
+            # ladailypost has a crazy setup
+            # where they set the src to something that isn't an image,
+            # then have data-lazy-src and/or data-lazy-srcset
+            # which presumably get loaded later with JavaScript.
+            if 'data-lazy-srcset' in attrs:
+                srcset = self.parse_srcset(attrs['data-lazy-srcset'])
+                print("parsed lazy srcset, srcset is", srcset)
+            elif 'srcset' in attrs:
+                srcset = self.parse_srcset(attrs['srcset'])
             else:
-                src = None
-            if 'srcset' in keys or 'data-lazy-srcset' in keys:
-                # The intent here:
-                # If there's a srcset, pick the largest one that's still
-                # under max_srcset_size, and set src to that.
-                # That's what we'll try to download.
-                # Then remove the srcset attribute.
+                srcset = None
+
+            if srcset:
                 try:
-                    maximgwidth = int(self.config.get(self.feedname,
-                                                      'max_srcset_size'))
-                except:
-                    maximgwidth = 800
-
-                # ladailypost has a crazy setup
-                # where they set the src to something that isn't an image,
-                # then have data-lazy-src and/or data-lazy-srcset
-                # which presumably get loaded later with JavaScript.
-                if 'data-lazy-srcset' in attrs:
-                    srcset = self.parse_srcset(attrs['data-lazy-srcset'])
-                    print("parsed lazy srcset, srcset is", srcset)
-                elif 'srcset' in attrs:
-                    srcset = self.parse_srcset(attrs['srcset'])
-                else:
-                    srcset = None
-
-                if srcset:
-                    try:
-                        curimg = None
-                        curwidth = 0
-                        for pair in srcset:
-                            w = pair[1].strip().lower()
-                            if not w.endswith('w'):
-                                # It probably ends in x and is a resolution-based
-                                # descriptor. We don't handle those yet,
-                                # but just in case we don't see any width-based
-                                # ones, let's save the image.
-                                if not curimg:
-                                    curimg = pair[0].strip()
-                                print("srcset non-width descriptor '%s" % w,
-                                      file=sys.stderr)
-                                continue
-                            w = int(w[:-1])
-                            if w > curwidth and w <= maximgwidth:
-                                curwidth = w
+                    curimg = None
+                    curwidth = 0
+                    for pair in srcset:
+                        w = pair[1].strip().lower()
+                        if not w.endswith('w'):
+                            # It probably ends in x and is a resolution-based
+                            # descriptor. We don't handle those yet,
+                            # but just in case we don't see any width-based
+                            # ones, let's save the image.
+                            if not curimg:
                                 curimg = pair[0].strip()
-                                print("Using '%s' at width %d" % (curimg, curwidth),
-                                      file=sys.stderr)
-                        if curimg:
-                            src = curimg
-                    except:
-                        # Wired sometimes has srcset with just a single url
-                        # that's the same as the src=. In that case it
-                        # wouldn't do us any good anyway.
-                        # And there are all sorts of nutty and random things
-                        # sites do with srcset.
-                        print("Error parsing srcset: %s" % attrs['srcset'],
-                              file=sys.stderr)
-                        pass
-
-            if not src:
-                # Don't do anything to this image, it has no src or srcset
-                return
-
-            if 'srcset' in keys:
-                del attrs['srcset']
-
-            # Make relative URLs absolute
-            src = self.make_absolute(src)
-            if not src:
-                return
-            if src.startswith("data:"):
-                # With a data: url we already have all we need
-                return
-
-            # urllib2 can't parse out the host part without first
-            # creating a Request object.
-            # Quote it to guard against URLs with nonascii characters,
-            # which will make urllib.request.urlopen bomb out with
-            # UnicodeEncodeError: 'ascii' codec can't encode character.
-            # If this proves problematical, try the more complicated
-            # solution at https://stackoverflow.com/a/40654295
-            req = urllib.request.Request(urllib.parse.quote(src, safe=':/'))
-            req.add_header('User-Agent', self.user_agent)
-
-            # Should we only fetch images that come from the HTML's host?
-            try:
-                nonlocal_images = self.config.getboolean(self.feedname,
-                                                         'nonlocal_images')
-            except:
-                nonlocal_images = False
-
-            # Should we rewrite images that come from elsewhere,
-            # to avoid unwanted data use?
-            try:
-                block_nonlocal = self.config.getboolean(self.feedname,
-                                                        'block_nonlocal_images')
-            except:
-                block_nonlocal = False
-
-            # If we can't or won't download an image, what should
-            # we replace it with?
-            if block_nonlocal:
-                print("Using bogus image source for nonlocal images",
-                      file=sys.stderr)
-                alt_src = 'file:///nonexistant'
-                # XXX Would be nice, in this case, to put a link around
-                # the image so the user could tap on it if they wanted
-                # to see it, at least if it isn't already inside a link.
-                # That would be easy in BeautifulSoup but it's hard
-                # with this start/end tag model.
-            else:
-                alt_src = src
-
-            alt_domains = get_config_multiline(self.config, self.feedname,
-                                               'alt_domains')
-            if nonlocal_images or self.similar_host(req.host, self.host,
-                                                    alt_domains):
-                # base = os.path.basename(src)
-                # For now, don't take the basename; we want to know
-                # if images are unique, and the basename alone
-                # can't tell us that.
-                base = src.replace('/', '_')
-                # Clean up the filename, since it might have illegal chars.
-                # Only allow alphanumerics or others in a short whitelist.
-                # Don't allow % in the whitelist -- it causes problems
-                # with recursively copying the files over http later.
-                base = ''.join([x for x in base if x.isalpha() or x.isdigit()
-                                or x in '-_.'])
-                if not base : base = '_unknown.img'
-                imgfilename = os.path.join(self.newdir, base)
-
-                # Some sites, like High Country News, use the same image
-                # name for everything (e.g. they'll have
-                # storyname-0418-jpg/image, storyname-0418-jpg/image etc.)
-                # so we can't assume that just because the basename is unique,
-                # the image must be.
-                # if os.path.exists(imgfilename) and \
-                #    src not in self.remapped_images:
-                #     howmany = 2
-                #     while True:
-                #         newimgfile = "%d-%s" % (howmany, imgfilename)
-                #         if not os.path.exists(newimgfile):
-                #             imgfilename = newimgfile
-                #             break
-                #         howmany += 1
-                # But we don't need this clause if we use the whole image path,
-                # not just the basename.
-
-                # Check again for a data: URL, in case it came in
-                # from one of the src substitutions.
-                if src.startswith("data:"):
-                    return
-
-                try:
-                    if not os.path.exists(imgfilename):
-                        print("Fetching image", src, "to", imgfilename,
-                              file=sys.stderr)
-                        # urllib.request.urlopen is supposed to have
-                        # a default timeout, but if so, it must be
-                        # many minutes. Try this instead.
-                        # Timeout is in seconds.
-                        f = urllib.request.urlopen(req, timeout=8)
-                        # Lots of things can go wrong with downloading
-                        # the image, such as exceptions.IOError from
-                        # [Errno 36] File name too long
-                        # XXX Might want to wrap this in its own try.
-                        local_file = open(imgfilename, "wb")
-                        # Write to our local file
-                        local_file.write(f.read())
-                        local_file.close()
-                    #else:
-                    #    print("Not downloading, already have", imgfilename)
-
-                    # If we got this far, then we have a local image,
-                    # so go ahead and rewrite the url:
-                    self.remapped_images[src] = base
-                    attrs['src'] = base
-
-                # handle download errors
-                except urllib.error.HTTPError as e:
-                    print("HTTP Error on image:", e.code,
-                          "on", src, ": setting img src to", alt_src,
+                            print("srcset non-width descriptor '%s" % w,
+                                  file=sys.stderr)
+                            continue
+                        w = int(w[:-1])
+                        if w > curwidth and w <= maximgwidth:
+                            curwidth = w
+                            curimg = pair[0].strip()
+                            print("Using '%s' at width %d" % (curimg, curwidth),
+                                  file=sys.stderr)
+                    if curimg:
+                        src = curimg
+                except:
+                    # Wired sometimes has srcset with just a single url
+                    # that's the same as the src=. In that case it
+                    # wouldn't do us any good anyway.
+                    # And there are all sorts of nutty and random things
+                    # sites do with srcset.
+                    print("Error parsing srcset: %s" % attrs['srcset'],
                           file=sys.stderr)
-                    # Since we couldn't download, point instead to the
-                    # absolute URL, so it will at least work with a
-                    # live net connection.
-                    attrs['src'] = alt_src
-                except urllib.error.URLError as e:
-                    print("URL Error on image:", e.reason,
-                          "on", src, file=sys.stderr)
-                    attrs['src'] = alt_src
-                except Exception as e:
-                    print("Error downloading image:", str(e), \
-                        "on", src, file=sys.stderr)
-                    ptraceback()
-                    attrs['src'] = alt_src
-            else:
-                # Looks like it's probably a nonlocal image.
-                print(req.host, "and", self.host,
-                      "are too different -- not fetching image", src,
-                      file=sys.stderr)
-                # But that means we're left with a nonlocal image in the source.
-                # That could mean unwanted data use to fetch the image
-                # when viewing the file. So remove the image tag and
-                # replace it with a link.
-                attrs['src'] = alt_src
+                    pass
 
-        # Now we've done any needed processing to the tag and its attrs.
+        if not src:
+            # Don't do anything to this image, it has no src or srcset.
+            return
+
+        if 'srcset' in keys:
+            del attrs['srcset']
+
+        # Make relative URLs absolute
+        src = self.make_absolute(src)
+        if not src:
+            return
+        if src.startswith("data:"):
+            # With a data: url we already have all we need
+            self.write_tag_and_attrs(tag, attrs)
+            return
+
+        # urllib2 can't parse out the host part without first
+        # creating a Request object.
+        # Quote it to guard against URLs with nonascii characters,
+        # which will make urllib.request.urlopen bomb out with
+        # UnicodeEncodeError: 'ascii' codec can't encode character.
+        # If this proves problematical, try the more complicated
+        # solution at https://stackoverflow.com/a/40654295
+        req = urllib.request.Request(urllib.parse.quote(src, safe=':/'))
+        req.add_header('User-Agent', self.user_agent)
+
+        # Should we only fetch images that come from the HTML's host?
+        try:
+            nonlocal_images = self.config.getboolean(self.feedname,
+                                                     'nonlocal_images')
+        except:
+            nonlocal_images = False
+
+        # Should we rewrite images that come from elsewhere,
+        # to avoid unwanted data use?
+        try:
+            block_nonlocal = self.config.getboolean(self.feedname,
+                                                    'block_nonlocal_images')
+        except:
+            block_nonlocal = False
+
+        # If we can't or won't download an image, what should
+        # we replace it with?
+        if block_nonlocal:
+            print("Using bogus image source for nonlocal images",
+                  file=sys.stderr)
+            alt_src = 'file:///nonexistant'
+            # XXX Would be nice, in this case, to put a link around
+            # the image so the user could tap on it if they wanted
+            # to see it, at least if it isn't already inside a link.
+            # That would be easy in BeautifulSoup but it's hard
+            # with this start/end tag model.
+        else:
+            alt_src = src
+
+        alt_domains = get_config_multiline(self.config, self.feedname,
+                                           'alt_domains')
+        if nonlocal_images or self.similar_host(req.host, self.host,
+                                                alt_domains):
+            # base = os.path.basename(src)
+            # For now, don't take the basename; we want to know
+            # if images are unique, and the basename alone
+            # can't tell us that.
+            base = src.replace('/', '_')
+            # Clean up the filename, since it might have illegal chars.
+            # Only allow alphanumerics or others in a short whitelist.
+            # Don't allow % in the whitelist -- it causes problems
+            # with recursively copying the files over http later.
+            base = ''.join([x for x in base if x.isalpha() or x.isdigit()
+                            or x in '-_.'])
+            if not base : base = '_unknown.img'
+            imgfilename = os.path.join(self.newdir, base)
+
+            # Some sites, like High Country News, use the same image
+            # name for everything (e.g. they'll have
+            # storyname-0418-jpg/image, storyname-0418-jpg/image etc.)
+            # so we can't assume that just because the basename is unique,
+            # the image must be.
+            # if os.path.exists(imgfilename) and \
+            #    src not in self.remapped_images:
+            #     howmany = 2
+            #     while True:
+            #         newimgfile = "%d-%s" % (howmany, imgfilename)
+            #         if not os.path.exists(newimgfile):
+            #             imgfilename = newimgfile
+            #             break
+            #         howmany += 1
+            # But we don't need this clause if we use the whole image path,
+            # not just the basename.
+
+            # Check again for a data: URL, in case it came in
+            # from one of the src substitutions.
+            # If so, output it and return.
+            if src.startswith("data:"):
+                self.write_tag_and_attrs(tag, attrs)
+                return
+
+            try:
+                if not os.path.exists(imgfilename):
+                    print("Fetching image", src, "to", imgfilename,
+                          file=sys.stderr)
+                    # urllib.request.urlopen is supposed to have
+                    # a default timeout, but if so, it must be
+                    # many minutes. Try this instead.
+                    # Timeout is in seconds.
+                    f = urllib.request.urlopen(req, timeout=8)
+                    # Lots of things can go wrong with downloading
+                    # the image, such as exceptions.IOError from
+                    # [Errno 36] File name too long
+                    # XXX Might want to wrap this in its own try.
+                    local_file = open(imgfilename, "wb")
+                    # Write to our local file
+                    local_file.write(f.read())
+                    local_file.close()
+                #else:
+                #    print("Not downloading, already have", imgfilename)
+
+                # If we got this far, then we have a local image,
+                # so go ahead and rewrite the url:
+                self.remapped_images[src] = base
+                attrs['src'] = base
+
+            # handle download errors
+            except urllib.error.HTTPError as e:
+                print("HTTP Error on image:", e.code,
+                      "on", src, ": setting img src to", alt_src,
+                      file=sys.stderr)
+                # Since we couldn't download, point instead to the
+                # absolute URL, so it will at least work with a
+                # live net connection.
+                attrs['src'] = alt_src
+            except urllib.error.URLError as e:
+                print("URL Error on image:", e.reason,
+                      "on", src, file=sys.stderr)
+                attrs['src'] = alt_src
+            except Exception as e:
+                print("Error downloading image:", str(e), \
+                    "on", src, file=sys.stderr)
+                ptraceback()
+                attrs['src'] = alt_src
+        else:
+            # Looks like it's probably a nonlocal image.
+            print(req.host, "and", self.host,
+                  "are too different -- not fetching image", src,
+                  file=sys.stderr)
+            # But that means we're left with a nonlocal image in the source.
+            # That could mean unwanted data use to fetch the image
+            # when viewing the file. So remove the image tag and
+            # replace it with a link.
+            attrs['src'] = alt_src
+
+        # Now we've done any needed processing to the img tag and its attrs.
         # It's time to write the start tag to the output file.
+        self.write_tag_and_attrs(tag, attrs)
+
+    def write_tag_and_attrs(self, tag, attrs):
+        self.outfile.write('<' + tag)
+
         for attr in list(attrs.keys()):
             # If the tag has style=, arguably we should just remove it entirely.
             # But certainly remove it if it has style="font-anything" --
