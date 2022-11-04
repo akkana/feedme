@@ -704,11 +704,15 @@ tree = lxml.html.fromstring(html)
         if 'style' in list(attrs.keys()):
             style = attrs['style']
             if re.search('display: *none', style):
-                return    # Yes, discard the whole style tag
-            if re.search('color:', style):
-                return
-            if re.search('background', style):
-                return
+                return    # If it's display: none, skip this tag
+            # If the style is used to set color or background,
+            # keep the tag (it might be there for other reasons)
+            # but delete the whole style attribute.
+            # XXX Would be nice to make this smarter and delete only
+            # color or background.
+            if 'color:' in style or 'background:' in style:
+                print("tag", tag, ": deleting style '%s'" % attrs['style'])
+                del attrs['style']
 
         # Some tags, we always skip
         if self.tag_skippable_section(tag):
