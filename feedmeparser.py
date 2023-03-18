@@ -764,6 +764,7 @@ tree = lxml.html.fromstring(html)
             src = attrs['src']
         else:
             src = None
+
         if 'srcset' in keys or 'data-lazy-srcset' in keys:
             # The intent here:
             # If there's a srcset, pick the largest one that's still
@@ -845,7 +846,10 @@ tree = lxml.html.fromstring(html)
         # UnicodeEncodeError: 'ascii' codec can't encode character.
         # If this proves problematical, try the more complicated
         # solution at https://stackoverflow.com/a/40654295
-        req = urllib.request.Request(urllib.parse.quote(src, safe=':/'))
+        # req = urllib.request.Request(urllib.parse.quote(src, safe=':/'))
+        # lareporter has a new Wordpress plugin that puts images on i0.wp.com
+        # with a bunch more characters that now need not to be quoted:
+        req = urllib.request.Request(urllib.parse.quote(src, safe=':/?=&%'))
         req.add_header('User-Agent', self.user_agent)
 
         # Should we only fetch images that come from the HTML's host?
