@@ -1,9 +1,31 @@
+2023-11-05  Akkana Peck  <akkana@shallowsky.com>
+	Show images in index page as well as sub-pages, if RSS has images.
+
+2022-09-09  Akkana Peck  <akkana@shallowsky.com>
+	Various tweaks to handle images from Wordpress plugins
+	that don't use img src.
+
 2021-10-07  Akkana Peck  <akkana@shallowsky.com>
 	Implement page and feed helpers, including a page helper
 	that uses selenium for the New York Times.
 
-2021-06007  Akkana Peck  <akkana@shallowsky.com>
+2021-06-07  Akkana Peck  <akkana@shallowsky.com>
 	New site variable, allow_repeats.
+
+2021-11-11  Akkana Peck  <akkana@shallowsky.com>
+	Allow specifying a firefox cookie file, for authenticated sites.
+	Add a NY Times site file using the cookie file.
+
+2021-10-26  Akkana Peck  <akkana@shallowsky.com>
+	Allow helper files, and add an example that fetches NY Times
+	using Selenium.
+
+2021-03-27  Akkana Peck  <akkana@shallowsky.com>
+	Allow links in RSS content.
+
+2020-08-11  Akkana Peck  <akkana@shallowsky.com>
+	Ensure legal HTML after truncating RSS entries.
+	Add new dependency on BeautifulSoup.
 
 2020-08-11  Akkana Peck  <akkana@shallowsky.com>
 	Commandline args: accept filename, with or without .conf,

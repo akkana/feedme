@@ -19,6 +19,7 @@
 
 from __future__ import print_function
 
+
 ConfigHelp = """Configuration options:
 
 Configuration options most useful in a DEFAULT section,
@@ -101,6 +102,12 @@ import email.utils as email_utils
 # FeedMe's module for parsing HTML inside feeds:
 import feedmeparser
 
+# Rewriting image URLs to local ones
+import imagecache
+
+# utilities, mostly config-file related:
+import utils
+
 # Allow links in top page content.
 # Feedparser 6.0 has dropped _HTMLSanitizer.acceptable_elements,
 # but the documentation says that now it allows a and img by default.
@@ -125,9 +132,11 @@ import importlib
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)),
                              "helpers"))
 
+verbose = False
+
 def expanduser(name):
     """Do what os.path.expanduser does, but also allow $HOME in paths"""
-    # config.get alas doesn't substitute $HOME or ~
+    # utils.g_config.get alas doesn't substitute $HOME or ~
     if name[0:2] == "~/":
         name = os.path.join(os.environ['HOME'], name[2:])
     elif name[0:6] == "$HOME/":
@@ -137,10 +146,10 @@ def expanduser(name):
 #
 # Clean up old feed directories
 #
-def clean_up(config):
+def clean_up():
     try:
-        days = int(config.get('DEFAULT', 'save_days'))
-        feedsdir = expanduser(config.get('DEFAULT', 'dir'))
+        days = int(utils.g_config.get('DEFAULT', 'save_days'))
+        feedsdir = expanduser(utils.g_config.get('DEFAULT', 'dir'))
         cachedir = FeedmeCache.get_cache_dir()
     except:
         print("Error trying to get save_days and feed dir; can't clean up", file=sys.stderr)
@@ -183,7 +192,7 @@ def clean_up(config):
 #
 
 def run_conversion_cmd(appargs):
-    if True or verbose:
+    if verbose:
         cmd = " ".join(appargs)
         print("Running:", cmd, file=sys.stderr)
         sys.stdout.flush()
@@ -233,7 +242,7 @@ def make_calibre_file(indexfile, feedname, extension, levels, ascii,
     # Prepend daynum to the filename because fbreader can only sort by filename
     #daynum = time.strftime("%w")
     cleanfilename = day + "_" + feedname.replace(" ", "_")
-    outdir = os.path.join(config.get('DEFAULT', 'dir'), extension[1:])
+    outdir = os.path.join(utils.g_config.get('DEFAULT', 'dir'), extension[1:])
     if not os.access(outdir, os.W_OK):
         os.makedirs(outdir)
 
@@ -246,7 +255,7 @@ def make_calibre_file(indexfile, feedname, extension, levels, ascii,
                 "--authors", author ]
     for flag in flags:
         appargs.append(flag)
-    if True or verbose:
+    if verbose:
         cmd = " ".join(appargs)
         print("Running:", cmd, file=sys.stderr)
         sys.stdout.flush()
@@ -333,7 +342,7 @@ http://www.redmountainsw.com/wordpress/archives/python-subclassing-file-types
             self.fd1.write(s)
             self.fd2.write(s)
             # This just raises another error, probably for the same reason:
-            # feedmeparser.ptraceback()
+            # utils.ptraceback()
 
     def flush(self):
         self.fd1.flush()
@@ -606,7 +615,7 @@ class FeedmeCache(object):
         except Exception as e:
             msglog.warn("WARNING: Couldn't back up cache file!")
             print(str(e), file=sys.stderr)
-            feedmeparser.ptraceback()
+            utils.ptraceback()
 
     def save_to_file(self):
         '''Serialize the cache to a version-1 new style cache file.
@@ -691,17 +700,19 @@ def parse_name_from_conf_file(feedfile):
 #
 # Get a single feed
 #
-def get_feed(feedname, config, cache, last_time, msglog):
+def get_feed(feedname, cache, last_time, msglog):
     """Fetch a single site's feed.
        feedname can be the feed's config name ("Washington Post")
        or the conf file name ("washingtonpost" or "washingtonpost.conf").
     """
-    verbose = (config.get("DEFAULT", 'verbose').lower() == 'true')
+    global verbose
+
+    verbose = (utils.g_config.get("DEFAULT", 'verbose').lower() == 'true')
 
     # Mandatory arguments:
     try:
-        sitefeedurl = config.get(feedname, 'url')
-        feedsdir = config.get(feedname, 'dir')
+        sitefeedurl = utils.g_config.get(feedname, 'url')
+        feedsdir = utils.g_config.get(feedname, 'dir')
     except Exception as e:
         sitefeedurl = None
 
@@ -725,9 +736,9 @@ def get_feed(feedname, config, cache, last_time, msglog):
                             " but config parameters will actually be parsed "
                             " from files in %s"
                             % (fakefeedname, feedname,
-                               feedmeparser.default_confdir))
+                               utils.g_default_confdir))
         else:
-            feedfile = os.path.join(feedmeparser.default_confdir, feedname)
+            feedfile = os.path.join(utils.g_default_confdir, feedname)
             if os.path.exists(feedfile):
                 fakefeedname = parse_name_from_conf_file(feedfile)
             if not sitefeedurl and not feedfile.endswith(".conf"):
@@ -737,8 +748,8 @@ def get_feed(feedname, config, cache, last_time, msglog):
 
         if fakefeedname:
             try:
-                sitefeedurl = config.get(fakefeedname, 'url')
-                feedsdir = config.get(fakefeedname, 'dir')
+                sitefeedurl = utils.g_config.get(fakefeedname, 'url')
+                feedsdir = utils.g_config.get(fakefeedname, 'dir')
                 feedname = fakefeedname
             except:
                 if verbose:
@@ -752,37 +763,35 @@ def get_feed(feedname, config, cache, last_time, msglog):
         msglog.err("Can't find a config for: " + feedname)
         return
 
-    verbose = (config.get(feedname, 'verbose').lower() == 'true')
-    levels = int(config.get(feedname, 'levels'))
+    verbose = (utils.g_config.get(feedname, 'verbose').lower() == 'true')
+    levels = int(utils.g_config.get(feedname, 'levels'))
 
     feedsdir = expanduser(feedsdir)
     todaystr = time.strftime("%m-%d-%a")
     feedsdir = os.path.join(feedsdir, todaystr)
 
-    formats = config.get(feedname, 'formats').split(',')
-    encoding = config.get(feedname, 'encoding')
-    ascii = config.getboolean(feedname, 'ascii')
-    skip_links = config.getboolean(feedname, 'skip_links')
-    skip_link_pats = feedmeparser.get_config_multiline(config, feedname,
-                                                      'skip_link_pats')
-    skip_title_pats = feedmeparser.get_config_multiline(config, feedname,
-                                                        'skip_title_pats')
+    formats = utils.g_config.get(feedname, 'formats').split(',')
+    encoding = utils.g_config.get(feedname, 'encoding')
+    ascii = utils.g_config.getboolean(feedname, 'ascii')
+    skip_links = utils.g_config.getboolean(feedname, 'skip_links')
+    skip_link_pats = utils.g_config.get_multiline(feedname, 'skip_link_pats')
+    skip_title_pats = utils.g_config.get_multiline(feedname, 'skip_title_pats')
 
-    user_agent = config.get(feedname, 'user_agent')
+    user_agent = utils.g_config.get(feedname, 'user_agent')
 
     # Is this a feed we should only check occasionally?
     """Does this feed specify only gathering at certain times?
        If so, has such a time passed since the last time the
        cache file was written?
     """
-    when = config.get(feedname, "when")
+    when = utils.g_config.get(feedname, "when")
     if when and when != '' and last_time:
         if not falls_between(when, last_time, time.localtime()):
             print("Skipping", feedname, "-- not", when, file=sys.stderr)
             return
         print("Yes, it's time to feed:", when, file=sys.stderr)
 
-    #encoding = config.get(feedname, 'encoding')
+    #encoding = utils.g_config.get(feedname, 'encoding')
 
     print("\n============\nfeedname:", feedname, file=sys.stderr)
     # Use underscores rather than spaces in the filename.
@@ -800,11 +809,11 @@ def get_feed(feedname, config, cache, last_time, msglog):
     # at the end, so if the user has an earlier version
     # it will override a built-in of the same name.
     try:
-        feed_helper = config.get(feedname, 'feed_helper')
+        feed_helper = utils.g_config.get(feedname, 'feed_helper')
     except:
         feed_helper = None
         try:
-            page_helper = config.get(feedname, 'page_helper')
+            page_helper = utils.g_config.get(feedname, 'page_helper')
         except:
             page_helper = None
 
@@ -819,13 +828,13 @@ def get_feed(feedname, config, cache, last_time, msglog):
         #      "executable_path": "~/firefox-esr",
         #      "log": "/home/username/feeds/10-25-Mon/nyt_selenium.log"
         #    }
-        confoptions = config.options(feedname)
+        confoptions = utils.g_config.options(feedname)
         helper_args = {}
         for opt in confoptions:
             if opt.startswith("helper_"):
                 key = opt[7:]
                 if key:
-                    helper_args[key] = config.get(feedname, opt)
+                    helper_args[key] = utils.g_config.get(feedname, opt)
                     if '$f' in helper_args[key] and \
                        r'\$f' not in helper_args[key]:
                         helper_args[key] = helper_args[key].replace("$f",
@@ -892,12 +901,12 @@ def get_feed(feedname, config, cache, last_time, msglog):
     if cache == None:
         nocache = True
     else:
-        nocache = (config.get(feedname, 'nocache') == 'true')
+        nocache = (utils.g_config.get(feedname, 'nocache') == 'true')
     if verbose and nocache:
         msglog.msg(feedname + ": Ignoring cache")
 
     downloaded_string ="\n<hr><i>(Downloaded by " + \
-        feedmeparser.VersionString + ")</i>\n"
+        utils.VersionString + ")</i>\n"
 
     # feedparser doesn't understand file:// URLs, so translate those
     # to a local file:
@@ -937,7 +946,8 @@ def get_feed(feedname, config, cache, last_time, msglog):
         if sitefeedurl.startswith("file://"):
             feed = feedparser.parse(sitefeedurl)
         else:
-            downloader = feedmeparser.FeedmeURLDownloader(config, feedname)
+            downloader = feedmeparser.FeedmeURLDownloader(feedname,
+                                                          verbose=verbose)
             rss_str = downloader.download_url(sitefeedurl)
             feed = feedparser.parse(rss_str)
             rss_str = None
@@ -959,7 +969,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
         print("Couldn't parse feed: URL:", sitefeedurl, file=sys.stderr)
         print(str(e), file=sys.stderr)
         # raise(e)
-        feedmeparser.ptraceback()
+        utils.ptraceback()
         # print(traceback.format_exc())
         return
 
@@ -1166,7 +1176,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
                         # be new: a site might have a static URL for the
                         # monthly photo contest that gets updated once
                         # a month with all-new content.
-                        if not config.getboolean(feedname, 'allow_repeats'):
+                        if not utils.g_config.getboolean(feedname, 'allow_repeats'):
                             if verbose:
                                 print(item_id, "already cached -- skipping",
                                       file=sys.stderr)
@@ -1208,7 +1218,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
                     if pub_date < last_fed_this and (verbose or not nocache):
                         # If an entry is older than the maximum age
                         # for the cache, skip it with a warning.
-                        days = int(config.get('DEFAULT', 'save_days'))
+                        days = int(utils.g_config.get('DEFAULT', 'save_days'))
                         too_old = time.time() - days * 60 * 60 * 24
                         if pub_date <= too_old and not nocache:
                             msglog.warn("%s is so old (%s) it's expired from the cache -- skipping" \
@@ -1250,7 +1260,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
             # A parser is mostly needed for levels > 1, but even with
             # levels=1 we'll use it at the end for rewriting images
             # in the index string.
-            parser = feedmeparser.FeedmeHTMLParser(config, feedname)
+            parser = feedmeparser.FeedmeHTMLParser(feedname)
 
             #
             # If it's a normal multi-level site,
@@ -1327,7 +1337,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
                     errmsg = "Socket.timeout error on title " + item_title
                     errmsg += "\nBreaking -- hopefully we'll write index.html"
                     msglog.err(errmsg)
-                    if config.get(feedname, 'continue_on_timeout') == 'true':
+                    if utils.g_config.get(feedname, 'continue_on_timeout') == 'true':
                         continue
                     break
 
@@ -1340,7 +1350,7 @@ def get_feed(feedname, config, cache, last_time, msglog):
                         errmsg += "Breaking -- hopefully we'll write index.html"
                         msglog.err(errmsg)
                         indexstr += "<p>" + errmsg
-                        if config.get(feedname,
+                        if utils.g_config.get(feedname,
                                       'continue_on_timeout') == 'true':
                             continue
                         break
@@ -1465,7 +1475,7 @@ Which (default = s): """)
             # Make sure the link is at least some minimum width.
             # This is for viewers that have special areas defined on the
             # screen, e.g. areas for paging up/down or adjusting brightness.
-            minwidth = config.getint(feedname, 'min_width')
+            minwidth = utils.g_config.getint(feedname, 'min_width')
             if len(item_title) < minwidth:
                 item_title += '. ' * (minwidth - len(item_title)) + '__'
 
@@ -1493,29 +1503,30 @@ Which (default = s): """)
                 content = str(item.summary_detail.value) + "\n"
             elif 'summary' in item:
                 content = str(item.summary.value) + "\n"
+            elif 'description' in item:
+                content = str(item.description.value) + "\n"
             else:
                 content = "[No content]"
 
             # Sites that put too much formatting crap in the RSS:
-            if config.getboolean(feedname, 'simplify_rss'):
+            if utils.g_config.getboolean(feedname, 'simplify_rss'):
                 simp = feedmeparser.HTMLSimplifier()
                 content = simp.simplify(content) + " ... "
 
             # There's an increasing trend to load up RSS pages with images.
-            # Try to remove them, as well as any links that contain
-            # only an image.
+            # Try to remove them if skip_images is true,
+            # as well as any links that contain only an image.
             # XXX Eventually, try to actually display them.
             # The trick is reconciling their paths with paths from
             # individual stories so we don't get multiple copies.
-            if config.getboolean(feedname, 'skip_images'):
+            if utils.g_config.getboolean(feedname, 'skip_images'):
                 content = re.sub('<a [^>]*href=.*> *<img .*?></a>', '', content)
                 content = re.sub('<img .*?>', '', content)
-            # But if we're not skipping images, then we need to rewrite
-            # image URLs to the local URLs we would have created in
-            # feedmeparser.parse().
-            else:
-                if content.strip():
-                    content = parser.rewrite_images(content)
+
+            # If fetching images, download/rewrite images in the RSS too.
+            elif content.strip():
+                content = imagecache.rewrite_images(content, sitefeedurl,
+                                                    outdir, feedname)
 
             # Try to get rid of embedded links if skip_links is true:
             if skip_links:
@@ -1527,9 +1538,8 @@ Which (default = s): """)
             # Skip any text specified in index_skip_content_pats.
             # Some sites (*cough* Pro Publica *cough*) do weird things
             # like putting huge <style> sections in the RSS.
-            index_skip_pats = feedmeparser.get_config_multiline(config,
-                                                      feedname,
-                                                      'index_skip_content_pats')
+            index_skip_pats = utils.g_config.get_multiline(feedname,
+                                                   'index_skip_content_pats')
             for pat in index_skip_pats:
                 content = re.sub(pat, '', content)
                 author = re.sub(pat, '', author)
@@ -1537,8 +1547,9 @@ Which (default = s): """)
             # LA Daily Post has lately started putting the entire story
             # in the description, along with a lot of formatting crap
             # that tends to make the text unreadable (color or font size).
-            # Try to strip all that crap:
-            entrysize = int(config.get(feedname, 'rss_entry_size'))
+            # If entrysize is specified, strip all the crap and
+            # limit total length.
+            entrysize = int(utils.g_config.get(feedname, 'rss_entry_size'))
             if entrysize:
                 content = content[:entrysize]
 
@@ -1554,7 +1565,6 @@ Which (default = s): """)
                     last_text = soup.find_all(string=True)[-1]
                     ltstring = str(last_text)
                     last_text.string.replace_with(ltstring + " ...")
-                    print("Added an ellipsis", file=sys.stderr)
                     content = ''.join([str(c) for c in soup.body.children])
                 except Exception as e:
                     # If it didn't work, just add the ellipsis after
@@ -1639,7 +1649,7 @@ Which (default = n): """)
         # we'll include it; otherwise we'll omit it.
         # (Test case: Popular Science, which includes large images
         # in its RSS even if the stories had a small inline image.)
-        indexstr = parser.rewrite_images(indexstr)
+        # indexstr = imagecache.rewrite_images(indexstr)
 
         try:
             indexfile = os.path.join(outdir, "index.html")
@@ -1734,16 +1744,13 @@ Which (default = n): """)
         print("No pages written", file=sys.stderr)
 
 
-#
-# Main -- read the config file and loop over sites.
-#
-if __name__ == '__main__':
+def main():
     import argparse
 
     usage = """
 If no site is specified, feedme will update all the feeds in
 ~/.config/feedme.conf."""
-    LongVersion = feedmeparser.VersionString + ": an RSS feed reader.\n\
+    LongVersion = utils.VersionString + ": an RSS feed reader.\n\
 Copyright 2017 by Akkana Peck; share and enjoy under the GPL v2 or later."
 
     parser = argparse.ArgumentParser(prog="feedme", description=usage)
@@ -1768,11 +1775,11 @@ Copyright 2017 by Akkana Peck; share and enjoy under the GPL v2 or later."
     options = parser.parse_args()
     # print("Parsed args. args:", options)
 
-    config = feedmeparser.read_config_file()
+    utils.read_config_file()
 
     msglog = MsgLog()
 
-    sections = config.sections()
+    sections = utils.g_config.sections()
 
     if options.config_help:
         print(LongVersion)
@@ -1781,7 +1788,7 @@ Copyright 2017 by Akkana Peck; share and enjoy under the GPL v2 or later."
 
     if options.show_sites:
         for feedname in sections:
-            print("%-25s %s" % (feedname, config.get(feedname, 'url')))
+            print("%-25s %s" % (feedname, utils.g_config.get(feedname, 'url')))
         sys.exit(0)
 
     if options.nocache:
@@ -1810,7 +1817,7 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
 
         last_time = cache.last_time
 
-    feeddir = expanduser(config.get('DEFAULT', 'dir'))
+    feeddir = expanduser(utils.g_config.get('DEFAULT', 'dir'))
     if not os.path.exists(feeddir):
         os.makedirs(feeddir)
     logfilename = os.path.join(feeddir, 'LOG')
@@ -1827,7 +1834,7 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
         for feedurl in cache:
             found = False
             for feedname in sections:
-                if feedurl == config.get(feedname, 'url'):
+                if feedurl == utils.g_config.get(feedname, 'url'):
                     found = True
                     break
             if not found:
@@ -1842,14 +1849,14 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
         if options.feeds:
             for feed in options.feeds:
                 print('Getting feed for', feed, file=sys.stderr)
-                get_feed(feed, config, cache, last_time, msglog)
+                get_feed(feed, cache, last_time, msglog)
         else:
             for feedname in sections:
                 # This can hang if feedparser hangs parsing the initial RSS.
                 # So give the user a chance to ^C out of one feed
                 # without stopping the whole run:
                 try:
-                    get_feed(feedname, config, cache, last_time, msglog)
+                    get_feed(feedname, cache, last_time, msglog)
                 except KeyboardInterrupt:
                     print("Interrupt! Skipping feed", feedname, file=sys.stderr)
                     handle_keyboard_interrupt("Type q to quit, anything else to skip to next feed: ")
@@ -1913,7 +1920,7 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
         print(e)
 
     # Clean up old directories:
-    clean_up(config)
+    clean_up()
 
     # Dump any errors we encountered.
     msgs = msglog.get_msgs()
@@ -1924,3 +1931,10 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
     if msgs:
         print("\n====== Errors =====", file=sys.stderr)
         print(msgs, file=sys.stderr)
+
+
+#
+# Main -- read the config file and loop over sites.
+#
+if __name__ == '__main__':
+    main()

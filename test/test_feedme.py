@@ -6,10 +6,14 @@ import unittest
 from unittest.mock import Mock, patch
 import time
 from datetime import datetime
+import tempfile
+import subprocess
+import time
 import sys, os
 
 import feedmeparser
 import feedme
+import utils
 
 sys.path.insert(0, '..')
 
@@ -21,7 +25,43 @@ def mock_downloader(url, referrer=None, user_agent=None, verbose=False):
             return fp.read()
 
 
-class FeedmeTests(unittest.TestCase):
+class TestCaseWithSave(unittest.TestCase):
+    def assertLongStringEqual(self, expected, actual):
+        if expected == actual:
+            return
+
+        # They're not equal. Save each one to a file.
+        tmpdir = tempfile.mkdtemp()
+        # Can't use tmpfile.TemporaryDirectory, it deletes the directory on exit
+        # which means there's no chance of copying the new actual output
+        # into expected, if that's desired.
+
+        expname = os.path.join(tmpdir, "expected")
+        with open(expname, "w") as fp:
+            fp.write(expected)
+        actname = os.path.join(tmpdir, "actual")
+        with open(actname, "w") as fp:
+            fp.write(actual)
+
+        for diffprog in ("tkdiff", "meld"):
+            try:
+                subprocess.Popen([diffprog, expname, actname])
+                break
+            except FileNotFoundError:
+                continue
+
+        # Both of these options work, but in both cases the printed stack trace
+        # points to this line in TestCaseWithSave.assertLongStringEqual.
+        # I'd like to find a way to get it to ignore the line inside
+        # assertLongStringEqual and just give the failed line from the
+        # test function, just like other UnitTest assertions do.
+        # raise AssertionError("Long strings not equal. Saved to %s and %s"
+        #                      % (expname, actname))
+        self.fail("Long strings not equal. Saved to %s and %s"
+                  % (expname, actname))
+
+
+class FeedmeTests(TestCaseWithSave):
 
     # executed prior to each test
     def setUp(self):
@@ -40,10 +80,10 @@ class FeedmeTests(unittest.TestCase):
     @patch('feedmeparser.FeedmeURLDownloader.download_url',
            side_effect=mock_downloader)
     def test_file_exists(self, themock):
-        config = feedmeparser.read_config_file("test/config")
+        config = utils.read_config_file("test/config")
         msglog = feedme.MsgLog()
 
-        feedme.get_feed('Slashdot', config, None, None, msglog)
+        feedme.get_feed('Slashdot', None, None, msglog)
 
         dirpath = os.path.join('test', 'testfeeds', time.strftime("%m-%d-%a"))
         self.assertTrue(os.path.exists(dirpath))
@@ -60,7 +100,7 @@ class FeedmeTests(unittest.TestCase):
                 testcontents = testfp.read().replace('XXXDAYXXX', today)
 
                 fetchedcontents = fetchedfp.read()
-                self.assertEqual(testcontents, fetchedcontents)
+                self.assertLongStringEqual(testcontents, fetchedcontents)
 
     def test_config_file_parsing(self):
         """Try to guard against bad config files killing feedme,

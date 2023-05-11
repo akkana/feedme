@@ -9,47 +9,20 @@ from __future__ import print_function
 import os, sys
 import urllib.request, urllib.error, urllib.parse
 import re
-from configparser import ConfigParser
 import lxml.html
 from http.cookiejar import CookieJar
 import io
 import gzip
-import traceback
 
-# We'll use XDG for the config and cache directories if it's available
+import utils
+
+import imagecache
+
+# Use XDG for the config and cache directories if it's available
 try:
     import xdg.BaseDirectory
 except:
     pass
-
-
-VersionString = "FeedMe 1.1b1"
-
-has_ununicode=True
-
-# Python3 seems to have no straightforward way to just print a
-# simple traceback without going into several levels of recursive
-# "During handling of the above exception, another exception occurred"
-# if there's anything involved that might have a nonascii character.
-# This doesn't work reliably either:
-# TypeError: unorderable types: int() < traceback() in the print line.
-# or, more recently,
-# '>=' not supported between instances of 'traceback' and 'int'
-def ptraceback():
-    try:
-        # This tends to raise an exception,
-        #    traceback unorderable types: traceback() >= int()
-        # for no reason anyone seems to know:
-        # ex_type, ex, tb = sys.exc_info()
-        # print(str(traceback.format_exc(tb)), file=sys.stderr)
-        # so instead:
-
-        print("\n====== Stack trace was:", file=sys.stderr)
-        traceback.print_exc(file=sys.stderr)
-        print("====== end stack trace\n", file=sys.stderr)
-    except Exception as e:
-        print("******** Yikes! Exception trying to print traceback:", e,
-              file=sys.stderr)
 
 
 # XXX
@@ -57,7 +30,9 @@ def ptraceback():
 # is already encoded into a unicode string before we can get here.
 # If I ever need to go back and support ununicode or re-coding,
 # I'll have to revisit this.
-
+#
+# has_ununicode = False
+#
 # try:
 #     import ununicode
 # except ImportError as e:
@@ -75,15 +50,6 @@ def ptraceback():
 #         return s.encode('utf-8', 'backslashreplace')
 #     else:
 #         return s
-
-
-def get_config_multiline(config, feedname, configname):
-    configlines = config.get(feedname, configname)
-    if configlines != '':
-        configlines = configlines.split('\n')
-    else:
-        configlines = []
-    return configlines
 
 
 class NoContentError(Exception):
@@ -111,21 +77,21 @@ class FeedmeURLDownloader(object):
        encoding, cookie file and other config values.
     """
 
-    def __init__(self, config, feedname):
-        self.config = config
+    def __init__(self, feedname, verbose=False):
         self.feedname = feedname
-        self.user_agent = VersionString
+        self.user_agent = utils.VersionString
         self.encoding = None
         self.cookiejar = None
+        self.verbose = verbose
 
-    def download_url(self, url, referrer=None, user_agent=None, verbose=False):
+    def download_url(self, url, referrer=None, user_agent=None):
         """Download a URL (likely http or RSS) from the web and return its
            contents as a str. Allow for possible vagaries like cookies,
            redirection, compression etc.
         """
         if not user_agent:
-            user_agent = VersionString
-        if verbose:
+            user_agent = utils.VersionString
+        if self.verbose:
             print("download_url", url, "referrer=", referrer, \
                                 "user_agent", user_agent, file=sys.stderr)
 
@@ -133,12 +99,12 @@ class FeedmeURLDownloader(object):
 
         # If we're after the single-page URL, we may need a referrer
         if referrer:
-            if verbose:
+            if self.verbose:
                 print("Adding referrer", referrer, file=sys.stderr)
             request.add_header('Referer', referrer)
 
         request.add_header('User-Agent', user_agent)
-        if verbose:
+        if self.verbose:
             print("Using User-Agent of", user_agent, file=sys.stderr)
 
         if not self.cookiejar:
@@ -146,8 +112,8 @@ class FeedmeURLDownloader(object):
             # for all site stories fetched, but it won't be saved
             # for subsequent days.
             self.cookiejar = None
-            cookiefile = self.config.get(self.feedname, "cookiefile",
-                                         fallback=None)
+            cookiefile = utils.g_config.get(self.feedname, "cookiefile",
+                                    fallback=None)
             if cookiefile:
                 try:
                     cookiefile = os.path.expanduser(cookiefile)
@@ -186,8 +152,9 @@ class FeedmeURLDownloader(object):
            and not ctype.startswith("application/xml") \
            and not ctype.startswith("application/x-rss+xml") \
            and not ctype.startswith("application/atom+xml"):
-            print(url, "isn't text -- content-type was", \
-                ctype, ". Skipping.", file=sys.stderr)
+            if self.verbose:
+                print(url, "isn't text -- content-type was", \
+                      ctype, ". Skipping.", file=sys.stderr)
             response.close()
             raise RuntimeError("Contents not text (%s)! %s" % (ctype, url))
 
@@ -203,7 +170,7 @@ class FeedmeURLDownloader(object):
         # urllib2 doesn't handle that automatically: we have to ask for it.
         # But some other sites, like the LA Monitor, return bad content
         # if you ask for gzip.
-        if self.config.getboolean(self.feedname, 'allow_gzip'):
+        if utils.g_config.getboolean(self.feedname, 'allow_gzip'):
             request.add_header('Accept-encoding', 'gzip')
 
         # feed() is going to need to know the host, to rewrite urls.
@@ -215,17 +182,22 @@ class FeedmeURLDownloader(object):
         # urllib2 unfortunately doesn't read unicode,
         # so try to figure out the current encoding:
         if not self.encoding:
-            if verbose:
-                print("download_url: self.encoding not set, getting it from headers", file=sys.stderr)
+            if self.verbose:
+                print("download_url: self.encoding not set, "
+                      "getting it from headers", file=sys.stderr)
             self.encoding = response.headers.get_content_charset()
             enctype = response.headers['content-type'].split('charset=')
+            # If there are multiple values, the encoding should be the last one
             if len(enctype) > 1:
                 self.encoding = enctype[-1]
             else:
-                if verbose:
-                    print("Defaulting to utf-8", file=sys.stderr)
+                if self.verbose:
+                    print("No enctype; defaulting to utf-8", file=sys.stderr)
                 self.encoding = 'utf-8'
-        if verbose:
+            # theoatmeal sets this to  'ISO-8859-1; filename=feed.xml'
+            if ';' in self.encoding:
+                self.encoding = self.encoding.split(';')[0]
+        if self.verbose:
             print("final encoding is", self.encoding, file=sys.stderr)
 
         # Is the URL gzipped? If so, we'll need to uncompress it.
@@ -246,7 +218,9 @@ class FeedmeURLDownloader(object):
         # contents can be undefined here.
         # If so, no point in doing anything else.
         if not contents:
-            print("Didn't read anything from response.read()", file=sys.stderr)
+            if self.verbose:
+                print("Didn't read anything from response.read()",
+                      file=sys.stderr)
             response.close()
             raise NoContentError("Empty response.read()")
 
@@ -272,14 +246,12 @@ class FeedmeURLDownloader(object):
 
 class FeedmeHTMLParser(FeedmeURLDownloader):
 
-    def __init__(self, config, feedname):
-        super(FeedmeHTMLParser, self).__init__(config, feedname)
+    def __init__(self, feedname):
+        super(FeedmeHTMLParser, self).__init__(feedname)
 
         self.outfile = None
         self.skipping = None
-        self.remapped_images = {}
         self.base_href = None
-        self.verbose = False
 
     def fetch_url(self, url, newdir, newname, title=None, author=None,
                   html=None,
@@ -290,13 +262,18 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
            If the optional argument html contains a string,
            skip the downloading and use the html provided.
            Write the modified HTML output to $newdir/$newname,
+           (unless newname is None, in which case just return the html)
            and download any images into $newdir.
            Raises NoContentError if it can't get the page or skipped it.
         """
-        self.verbose = self.config.getboolean(self.feedname, 'verbose')
+        self.verbose = utils.g_config.getboolean(self.feedname, 'verbose')
         if self.verbose:
-            print("Fetching link", url, \
-                "to", newdir + "/" + newname, file=sys.stderr)
+            if newname:
+                print("Fetching link", url,
+                      "to", newdir + "/" + newname, file=sys.stderr)
+            else:
+                print("Parsing html from", url, "with dir", newdir,
+                      file=sys.stderr)
 
         self.newdir = newdir
         self.newname = newname
@@ -312,45 +289,48 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
             urlparts = urllib.parse.urlparse(url)
             urlparts = urlparts._replace(path='/')
             self.base_href = urllib.parse.urlunparse(urlparts)
-            print("On first fetched URL, set base_href to",
-                  self.base_href, file=sys.stderr)
+            if self.verbose:
+                print("On first fetched URL, set base_href to",
+                      self.base_href, file=sys.stderr)
 
         # A flag to indicate when we're skipping everything --
         # e.g. inside <script> tags.
         self.skipping = None
 
         # Do we need to do any substitution on the URL first?
-        urlsub = get_config_multiline(self.config, self.feedname,
-                                      'url_substitute')
+        urlsub = utils.g_config.get_multiline(self.feedname, 'url_substitute')
         if urlsub:
-            print("Substituting", urlsub[0], "to", urlsub[1], file=sys.stderr)
-            print("Rewriting:", url, file=sys.stderr)
+            if self.verbose:
+                print("Multiline: Substituting", urlsub[0],
+                      "to", urlsub[1], file=sys.stderr)
+                print("Rewriting:", url, file=sys.stderr)
             url = re.sub(urlsub[0], urlsub[1], url)
-            print("Became:   ", url, file=sys.stderr)
+            if self.verbose:
+                print("Became:   ", url, file=sys.stderr)
 
-        self.encoding = self.config.get(self.feedname, 'encoding')
+        self.encoding = utils.g_config.get(self.feedname, 'encoding')
         if not self.encoding:
             self.encoding = "utf-8"
 
         if not html:
-            html = self.download_url(url, referrer, user_agent,
-                                     verbose=self.verbose)
+            html = self.download_url(url, referrer, user_agent)
 
         # Does it contain any of skip_content_pats anywhere? If so, bail.
-        skip_content_pats = get_config_multiline(self.config, self.feedname,
+        skip_content_pats = utils.g_config.get_multiline(self.feedname,
                                                  'skip_content_pats')
         for pat in skip_content_pats:
             if re.search(pat, html):
                 raise NoContentError("Skipping, skip_content_pats " + pat)
 
-        outfilename = os.path.join(self.newdir, self.newname)
-        # XXX Open outfile with the right encoding -- which seems to
-        # be a no-op, as we'll still get
-        # "UnicodeEncodeError: 'ascii' codec can't encode character
-        # unless we explicitly encode everything with fallbacks.
-        # So much for python3 being easier to deal with for unicode.
-        self.outfile = open(outfilename, "w", encoding=self.encoding)
-        self.outfile.write("""<html>\n<head>
+        if self.newname:
+            outfilename = os.path.join(self.newdir, self.newname)
+            # XXX Open outfile with the right encoding -- which seems to
+            # be a no-op, as we'll still get
+            # "UnicodeEncodeError: 'ascii' codec can't encode character
+            # unless we explicitly encode everything with fallbacks.
+            # So much for python3 being easier to deal with for unicode.
+            self.outfile = open(outfilename, "w", encoding=self.encoding)
+            self.outfile.write("""<html>\n<head>
 <meta http-equiv="Content-Type" content="text/html; charset=%s">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" type="text/css" title="Feeds" href="../../feeds.css"/>
@@ -359,15 +339,17 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
 
 <body>
 """ % (self.encoding, title))
+        else:
+            outfilename = None
+            self.outfile = io.StringIO()
 
         if author:
             self.outfile.write("By: %s\n<p>\n" % author)
 
         # Throw out everything before the first page_start re pattern seen,
         # and after the first page_end pattern seen.
-        page_starts = get_config_multiline(self.config, self.feedname,
-                                           'page_start')
-        page_ends = get_config_multiline(self.config, self.feedname, 'page_end')
+        page_starts = utils.g_config.get_multiline(self.feedname, 'page_start')
+        page_ends = utils.g_config.get_multiline(self.feedname, 'page_end')
 
         if len(page_starts) > 0:
             for page_start in page_starts:
@@ -397,8 +379,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
 
         # Skip anything matching any of the skip_pats.
         # It may eventually be better to do this in the HTML parser.
-        skip_pats = get_config_multiline(self.config, self.feedname,
-                                         'skip_pats')
+        skip_pats = utils.g_config.get_multiline(self.feedname, 'skip_pats')
         if len(skip_pats) > 0:
             for skip in skip_pats:
                 if self.verbose:
@@ -482,11 +463,15 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                         print("Removing", outfilename, \
                             "and renaming", singlefile, file=sys.stderr)
                 else:
-                    print("Tried to fetch single-page file but apparently failed", file=sys.stderr)
+                    print("Tried to fetch single-page file "
+                          "but apparently failed", file=sys.stderr)
             except (IOError, urllib.error.HTTPError) as e:
                 print("Couldn't read single-page URL", \
                     self.single_page_url, file=sys.stderr)
                 print(e, file=sys.stderr)
+
+        if not outfilename and type(self.outfile) is io.StringIO():
+            return self.outfile.getvalue()
 
     def feed(self, uhtml):
         """Duplicate, in a half-assed way, HTMLParser.feed() but
@@ -498,7 +483,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         try:
             tree = lxml.html.fromstring(uhtml)
         except ValueError:
-            print("ValueError!")
+            print("ValueError parsing!")
             # Idiot lxml.html that doesn't give any sensible way
             # to tell what really went wrong:
             if str(sys.exc_info()[1]).startswith(
@@ -528,104 +513,6 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         self.crawl_tree(tree)
 
         # Eventually we can print it with lxml.html.tostring(tree)
-
-    def rewrite_images(self, content, encoding=None):
-        """Rewrite img src tags to point to local images we downloaded earlier.
-           We already rewrote the img tags in the HTML file, but feedme
-           may need us to rewrite img tags embedded in the RSS content.
-        """
-        try:
-            # And yes, BeautifulSoup would be more straightforward here.
-            # But we're already using lxml.html for the rest of the parsing.
-            # XXX TODO rewrite in BeautifulSoup.
-            tree = lxml.html.fromstring(content)
-            for e in tree.iter():
-                if e.tag == 'img':
-                    if 'src' in list(e.keys()):
-                        try:
-                            src = self.make_absolute(e.attrib['src'])
-                            if src in list(self.remapped_images.keys()):
-                                e.attrib['src'] = self.remapped_images[src]
-                                continue
-                        except KeyError:
-                            print("KeyError remapping img src",
-                                  e.attrib['src'],
-                                  file=sys.stderr)
-                            pass
-                        if self.verbose:
-                            print("Removing img", e.attrib['src'],
-                                  file=sys.stderr)
-                        e.drop_tree()
-                    # img src wasn't in e.keys, or remapping it
-                    # didn't result in the right attribute.
-                    else:
-                        if self.verbose:
-                            print("Removing img with no src", file=sys.stderr)
-                        e.drop_tree()
-
-            # lxml.html.tostring returns bytes, despite the name.
-            # And converting it with str() doesn't work,
-            # must use decode with a charset.
-            if not encoding:
-                # We may or may not have a self.encoding defined here;
-                # for the indexstr we often don't, so default to UTF-8.
-                if not self.encoding:
-                    self.encoding = "UTF-8"
-                encoding = self.encoding
-            return lxml.html.tostring(tree).decode(encoding=encoding)
-
-        except Exception as e:
-            print("Couldn't rewrite images in content:" + str(e),
-                  file=sys.stderr)
-            print("Content type:", type(content), file=sys.stderr)
-            ptraceback()
-            return content
-
-    # The srcset spec is here:
-    # http://w3c.github.io/html/semantics-embedded-content.html#element-attrdef-img-srcset
-    # https://html.spec.whatwg.org/multipage/images.html#srcset-attribute
-    # A simple version is easy:
-    # srcset="http://site/img1.jpg 1024w,
-    #         http://site/img1.jpg 150w, ..."
-    # but some sites, like Wired, embed commas inside their
-    # image URLs. Since the spaces aren't required, that
-    # makes the w and the comma the only way to parse it,
-    # and w and comma are both legal URL characters.
-    #
-    # The key is: "If an image candidate string contains no descriptors
-    # and no ASCII whitespace after the URL, the following image candidate
-    # string, if there is one, must begin with one or more ASCII whitespace."
-    # so basically, a comma that's separating image descriptors
-    # either has to have a space after it, or a w or x before it.
-    def parse_srcset(self, srcset_attr):
-        '''Parse a SRCSET attribute inside an IMG tag.
-           Return a list of pairs [(img_url, descriptor), ...]
-           where the descriptor is a resolution ending in w (pixel width)
-           or x (pixel density).
-        '''
-        commaparts = srcset_attr.split(',')
-        parts = []
-        for part in commaparts:
-            # First, might we be continuing an image URL from the previous part?
-            # That's the case if the previous part lacked a descriptor
-            # and this part doesn't start with a space.
-            if not part.startswith(' ') and parts and not parts[-1][1]:
-                part = parts.pop(-1)[0] + ',' + part
-
-            # Does this part have a descriptor?
-            match = re.search(' *[0-9]+[wx]$', part)
-            if match:
-                matched = match.group()
-                parts.append((part[0:-len(matched)].strip(), matched.strip()))
-            else:
-                # Possibly shouldn't strip this, in case there's a
-                # continuation (this might only be the first part of
-                # an image URL, before a comma) and the URL might have
-                # a space in it. But since spaces in URLs are illegal,
-                # let's hope for now that no one does that.
-                parts.append((part.strip(), None))
-
-        return parts
 
     def crawl_tree(self, tree):
         """For testing:
@@ -683,10 +570,12 @@ tree = lxml.html.fromstring(html)
                     # Maybe we can actually get it here.
                     if not self.single_page_url:
                         self.single_page_url = \
-                            self.make_absolute(href)
-                        print("\nTrying meta refresh as single-page pattern:", \
-                            self.single_page_url.encode('utf-8',
-                                                        'xmlcharrefreplace'), file=sys.stderr)
+                            imagecache.make_absolute(href, self.base_href)
+                        if self.verbose:
+                            print("\nTrying meta refresh as single-page pat:", \
+                                  self.single_page_url.encode('utf-8',
+                                                        'xmlcharrefreplace'),
+                                  file=sys.stderr)
                 return
                 # XXX Note that this won't skip the </meta> tag, unfortunately,
                 # and tag_skippable_section can't distinguish between
@@ -711,7 +600,8 @@ tree = lxml.html.fromstring(html)
             # XXX Would be nice to make this smarter and delete only
             # color or background.
             if 'color:' in style or 'background:' in style:
-                print("tag", tag, ": deleting style '%s'" % attrs['style'])
+                if self.verbose:
+                    print("tag", tag, ": deleting style '%s'" % attrs['style'])
                 del attrs['style']
 
         # Some tags, we always skip
@@ -732,21 +622,27 @@ tree = lxml.html.fromstring(html)
                 # if we're not already following one:
                 if not self.single_page_url:
                     #print("we're not in the single page already")
-                    single_page_pats = get_config_multiline(self.config,
-                                                            self.feedname,
+                    single_page_pats = utils.g_config.get_multiline(self.feedname,
                                                             'single_page_pats')
                     for single_page_pat in single_page_pats:
                         m = re.search(single_page_pat, href)
                         if m:
                             self.single_page_url = \
-                                self.make_absolute(href[m.start():m.end()])
-                            print("\nFound single-page pattern:", \
-                                  self.single_page_url, file=sys.stderr)
+                                imagecache.make_absolute(
+                                    href[m.start():m.end()],
+                                    self.base_href)
+                            if self.verbose:
+                                print("\nFound single-page pattern:", \
+                                      self.single_page_url, file=sys.stderr)
                             # But continue fetching the regular pattern,
                             # since the single-page one may fail
 
-                # print("Rewriting href", href, "to", self.make_absolute(href))
-                attrs['href'] = self.make_absolute(href)
+                # if self.verbose:
+                #     print("Rewriting href", href, end='')
+                attrs['href'] = imagecache.make_absolute(href,
+                                                         self.base_href)
+                # if self.verbose:
+                #     print("to", href)
 
         # Images have so many cases where the image can't be shown.
         if tag != 'img':
@@ -754,228 +650,10 @@ tree = lxml.html.fromstring(html)
             return
 
         # If we get here, it's an image, which needs a lot of extra logic.
-        keys = list(attrs.keys())
-        # Handle both src and srcset.
-        # Los Alamos Daily Post has bogus src="data:..." URLs that don't
-        # display anything, and the real src is in data-src. Go figure.
-        if 'data-src' in keys:
-            src = attrs['data-src']
-        elif 'src' in keys:
-            src = attrs['src']
-        else:
-            src = None
-
-        if 'srcset' in keys or 'data-lazy-srcset' in keys:
-            # The intent here:
-            # If there's a srcset, pick the largest one that's still
-            # under max_srcset_size, and set src to that.
-            # That's what we'll try to download.
-            # Then remove the srcset attribute.
-            try:
-                maximgwidth = int(self.config.get(self.feedname,
-                                                  'max_srcset_size'))
-            except:
-                maximgwidth = 800
-
-            # ladailypost has a crazy setup
-            # where they set the src to something that isn't an image,
-            # then have data-lazy-src and/or data-lazy-srcset
-            # which presumably get loaded later with JavaScript.
-            if 'data-lazy-srcset' in attrs:
-                srcset = self.parse_srcset(attrs['data-lazy-srcset'])
-                print("parsed lazy srcset, srcset is", srcset)
-            elif 'srcset' in attrs:
-                srcset = self.parse_srcset(attrs['srcset'])
-            else:
-                srcset = None
-
-            if srcset:
-                try:
-                    curimg = None
-                    curwidth = 0
-                    for pair in srcset:
-                        w = pair[1].strip().lower()
-                        if not w.endswith('w'):
-                            # It probably ends in x and is a resolution-based
-                            # descriptor. We don't handle those yet,
-                            # but just in case we don't see any width-based
-                            # ones, let's save the image.
-                            if not curimg:
-                                curimg = pair[0].strip()
-                            print("srcset non-width descriptor '%s" % w,
-                                  file=sys.stderr)
-                            continue
-                        w = int(w[:-1])
-                        if w > curwidth and w <= maximgwidth:
-                            curwidth = w
-                            curimg = pair[0].strip()
-                            print("Using '%s' at width %d" % (curimg, curwidth),
-                                  file=sys.stderr)
-                    if curimg:
-                        src = curimg
-                except:
-                    # Wired sometimes has srcset with just a single url
-                    # that's the same as the src=. In that case it
-                    # wouldn't do us any good anyway.
-                    # And there are all sorts of nutty and random things
-                    # sites do with srcset.
-                    print("Error parsing srcset: %s" % attrs['srcset'],
-                          file=sys.stderr)
-                    pass
-
-        if not src:
-            # Don't do anything to this image, it has no src or srcset.
-            return
-
-        if 'srcset' in keys:
-            del attrs['srcset']
-
-        # Make relative URLs absolute
-        src = self.make_absolute(src)
-        if not src:
-            return
-        if src.startswith("data:"):
-            # With a data: url we already have all we need
-            self.write_tag_and_attrs(tag, attrs)
-            return
-
-        # urllib2 can't parse out the host part without first
-        # creating a Request object.
-        # Quote it to guard against URLs with nonascii characters,
-        # which will make urllib.request.urlopen bomb out with
-        # UnicodeEncodeError: 'ascii' codec can't encode character.
-        # If this proves problematical, try the more complicated
-        # solution at https://stackoverflow.com/a/40654295
-        # req = urllib.request.Request(urllib.parse.quote(src, safe=':/'))
-        # lareporter has a new Wordpress plugin that puts images on i0.wp.com
-        # with a bunch more characters that now need not to be quoted:
-        req = urllib.request.Request(urllib.parse.quote(src, safe=':/?=&%'))
-        req.add_header('User-Agent', self.user_agent)
-
-        # Should we only fetch images that come from the HTML's host?
-        try:
-            nonlocal_images = self.config.getboolean(self.feedname,
-                                                     'nonlocal_images')
-        except:
-            nonlocal_images = False
-
-        # Should we rewrite images that come from elsewhere,
-        # to avoid unwanted data use?
-        try:
-            block_nonlocal = self.config.getboolean(self.feedname,
-                                                    'block_nonlocal_images')
-        except:
-            block_nonlocal = False
-
-        # If we can't or won't download an image, what should
-        # we replace it with?
-        if block_nonlocal:
-            print("Using bogus image source for nonlocal images",
-                  file=sys.stderr)
-            alt_src = 'file:///nonexistant'
-            # XXX Would be nice, in this case, to put a link around
-            # the image so the user could tap on it if they wanted
-            # to see it, at least if it isn't already inside a link.
-            # That would be easy in BeautifulSoup but it's hard
-            # with this start/end tag model.
-        else:
-            alt_src = src
-
-        alt_domains = get_config_multiline(self.config, self.feedname,
-                                           'alt_domains')
-        if nonlocal_images or self.similar_host(req.host, self.host,
-                                                alt_domains):
-            # base = os.path.basename(src)
-            # For now, don't take the basename; we want to know
-            # if images are unique, and the basename alone
-            # can't tell us that.
-            base = src.replace('/', '_')
-            # Clean up the filename, since it might have illegal chars.
-            # Only allow alphanumerics or others in a short whitelist.
-            # Don't allow % in the whitelist -- it causes problems
-            # with recursively copying the files over http later.
-            base = ''.join([x for x in base if x.isalpha() or x.isdigit()
-                            or x in '-_.'])
-            if not base : base = '_unknown.img'
-            imgfilename = os.path.join(self.newdir, base)
-
-            # Some sites, like High Country News, use the same image
-            # name for everything (e.g. they'll have
-            # storyname-0418-jpg/image, storyname-0418-jpg/image etc.)
-            # so we can't assume that just because the basename is unique,
-            # the image must be.
-            # if os.path.exists(imgfilename) and \
-            #    src not in self.remapped_images:
-            #     howmany = 2
-            #     while True:
-            #         newimgfile = "%d-%s" % (howmany, imgfilename)
-            #         if not os.path.exists(newimgfile):
-            #             imgfilename = newimgfile
-            #             break
-            #         howmany += 1
-            # But we don't need this clause if we use the whole image path,
-            # not just the basename.
-
-            # Check again for a data: URL, in case it came in
-            # from one of the src substitutions.
-            # If so, output it and return.
-            if src.startswith("data:"):
-                self.write_tag_and_attrs(tag, attrs)
-                return
-
-            try:
-                if not os.path.exists(imgfilename):
-                    print("Fetching image", src, "to", imgfilename,
-                          file=sys.stderr)
-                    # urllib.request.urlopen is supposed to have
-                    # a default timeout, but if so, it must be
-                    # many minutes. Try this instead.
-                    # Timeout is in seconds.
-                    f = urllib.request.urlopen(req, timeout=8)
-                    # Lots of things can go wrong with downloading
-                    # the image, such as exceptions.IOError from
-                    # [Errno 36] File name too long
-                    # XXX Might want to wrap this in its own try.
-                    local_file = open(imgfilename, "wb")
-                    # Write to our local file
-                    local_file.write(f.read())
-                    local_file.close()
-                #else:
-                #    print("Not downloading, already have", imgfilename)
-
-                # If we got this far, then we have a local image,
-                # so go ahead and rewrite the url:
-                self.remapped_images[src] = base
-                attrs['src'] = base
-
-            # handle download errors
-            except urllib.error.HTTPError as e:
-                print("HTTP Error on image:", e.code,
-                      "on", src, ": setting img src to", alt_src,
-                      file=sys.stderr)
-                # Since we couldn't download, point instead to the
-                # absolute URL, so it will at least work with a
-                # live net connection.
-                attrs['src'] = alt_src
-            except urllib.error.URLError as e:
-                print("URL Error on image:", e.reason,
-                      "on", src, file=sys.stderr)
-                attrs['src'] = alt_src
-            except Exception as e:
-                print("Error downloading image:", str(e), \
-                    "on", src, file=sys.stderr)
-                ptraceback()
-                attrs['src'] = alt_src
-        else:
-            # Looks like it's probably a nonlocal image.
-            print(req.host, "and", self.host,
-                  "are too different -- not fetching image", src,
-                  file=sys.stderr)
-            # But that means we're left with a nonlocal image in the source.
-            # That could mean unwanted data use to fetch the image
-            # when viewing the file. So remove the image tag and
-            # replace it with a link.
-            attrs['src'] = alt_src
+        # fake_request = urllib.request.Request(self.cur_url)
+        # self.host = real_request.host
+        tag, attrs = imagecache.process_img_tag(tag, attrs, self.feedname,
+                                                self.base_href, self.newdir)
 
         # Now we've done any needed processing to the img tag and its attrs.
         # It's time to write the start tag to the output file.
@@ -992,7 +670,6 @@ tree = lxml.html.fromstring(html)
             # And yes, this means we'll lose any other styles that are
             # specified along with a font style. Probably no loss!
             if attr == 'style' and 'font' in attrs[attr]:
-                print("Skipping a style tag!", attrs[attr], file=sys.stderr)
                 continue
 
             self.outfile.write(' ' + attr)
@@ -1042,7 +719,7 @@ tree = lxml.html.fromstring(html)
             # How do we protect against that?
             # Is there any reliable way to write str to a file in python3?
             self.outfile.write(data)
-        else:
+        elif self.verbose:
             print("Data isn't str! type =", type(data), file=sys.stderr)
 
     # def handle_entityref(self, name):
@@ -1050,72 +727,6 @@ tree = lxml.html.fromstring(html)
     #         #print("Skipping entityref")
     #         return
     #     self.outfile.write('&' + name + ';')
-
-    def similar_host(self, host1, host2, alt_domains):
-        """Are two hosts close enough for the purpose of downloading images?
-           Or is host1 close to anything in alt_domains?
-        """
-        if self.same_host(host1, host2):
-            return True
-        for d in alt_domains:
-            if self.same_host(host1, d):
-                return True
-        return False
-
-    def same_host(self, host1, host2):
-        """Are two hosts close enough for the purpose of downloading images?"""
-
-        # host can be None:
-        if not host1 and not host2:
-            return True
-        if not host1 or not host2:
-            return False
-
-        # For now, a simplistic comparison:
-        # are the last two elements (foo.com) the same?
-        # Eventually we might want smarter special cases,
-        # exceptions for akamai, etc.
-        return host1.split('.')[-2:] == host2.split('.')[-2:]
-
-    def make_absolute(self, url):
-        '''Make URLs, particularly img src, absolute according to
-           the current page location and any base href we've seen.
-        '''
-        # May want to switch to lxml.html.make_links_absolute(base_href,
-        # resolve_base_href=True)
-
-        if not url:
-            return url
-
-        if '://' in url:
-            return url       # already absolute
-
-        # If we have a base href then it doesn't matter whether it's
-        # relative or absolute.
-        if self.base_href:
-            return urllib.parse.urljoin(self.base_href, url)
-
-        # Map paths without a schema or host to the full URL.
-        # Set it here from from the site RSS UR, though that isn't
-        # always right, e.g. https://rss.example.com.
-        # XXX We should always have a base_href here since it should
-        # have been set the first time through fetch_url,
-        # so this clause should never trigger. But just in case,
-        # leave this clause here for a while.
-        if url[0] == '/':
-            if not self.base_href:
-                print("******** Yikes, got to make_absolute with no base_url",
-                      file=sys.stderr)
-                url = self.config.get(self.feedname, 'url')
-                urlparts = urllib.parse.urlparse(url)
-                urlparts = urlparts._replace(path='/')
-                self.base_href = urllib.parse.urlunparse(urlparts)
-                print("Set base_href to", self.base_href, file=sys.stderr)
-
-            return urllib.parse.urljoin(self.base_href, url)
-
-        # It's relative, so append it to the current url minus cur filename:
-        return os.path.join(os.path.dirname(self.cururl), url)
 
     def tag_skippable_section(self, tag):
         """Skip certain types of tags we don't want in simplified HTML.
@@ -1183,13 +794,13 @@ tree = lxml.html.fromstring(html)
         # entirely, or leave them in with their src= unchanged
         # so that a network-connected viewer can still fetch them.
         # For now, let's opt to remove them.
-        if (self.config.getboolean(self.feedname, 'skip_images') and
+        if (utils.g_config.getboolean(self.feedname, 'skip_images') and
             (tag == 'img' or tag == 'svg' or tag == 'video'
              or tag == "figure")):
             return True
 
         if tag == 'a' and \
-                self.config.getboolean(self.feedname, 'skip_links'):
+                utils.g_config.getboolean(self.feedname, 'skip_links'):
             return True
 
         # Embedded <body> tags often have unfortunate color settings.
@@ -1211,100 +822,6 @@ tree = lxml.html.fromstring(html)
             return True
 
         return False
-
-#
-# Keep track of the config file directory
-#
-default_confdir = None
-def init_default_confdir():
-    global default_confdir
-    if 'XDG_CONFIG_HOME' in os.environ:
-        confighome = os.environ['XDG_CONFIG_HOME']
-    elif 'xdg.BaseDirectory' in sys.modules:
-        confighome = xdg.BaseDirectory.xdg_config_home
-    else:
-        confighome = os.path.join(os.environ['HOME'], '.config')
-
-    default_confdir = os.path.join(confighome, 'feedme')
-
-init_default_confdir()
-print("default_confdir:", default_confdir)
-
-#
-# Read the configuration files
-#
-def read_config_file(confdir=None):
-    '''Read the config file from XDG_CONFIG_HOME/feedme/*.conf,
-       returning a ConfigParser object'''
-
-    if not confdir:
-        confdir = default_confdir
-
-    main_conf_file = 'feedme.conf'
-    conffile = os.path.join(confdir, main_conf_file)
-    if not os.access(conffile, os.R_OK):
-        print("Error: no config file in", conffile, file=sys.stderr)
-        sys.exit(1)
-
-    config = ConfigParser({'url' : '',
-                           'verbose' : 'false',
-                           'levels' : '2',
-                           'encoding' : '',  # blank means try several
-                           'page_start' : '',
-                           'page_end':'',
-                           'single_page_pats' : '',
-                           'url_substitute' : '',
-                           'simplify_rss' : 'false',
-                           'rss_entry_size' : '0',  # max size in bytes
-
-                           # Patterns to skip within a story.
-                           # Anything within the regexps will be excised
-                           # from the story.
-                           'skip_pats' : '',
-
-                           # Various triggers for skipping a whole story:
-                           # Skip links with these patterns:
-                           'skip_link_pats' : '',
-                           # Skip anything with titles containing these:
-                           'skip_title_pats' : '',
-                           # Skip anything whose content includes these:
-                           'skip_content_pats' : '',
-                           # Skip anything where the index content includes:
-                           'index_skip_content_pats' : '',
-
-                           # acceptable alternate sources for images:
-                           'alt_domains' : '',
-
-                           # module for special URL downloading:
-                           'page_helper' : '',
-                           # Single string argument passed to the helper.
-                           'helper_arg' : '',
-
-                           'nocache' : 'false',
-                           'allow_repeats': 'false',
-                           'logfile' : '',
-                           'save_days' : '7',
-                           'skip_images' : 'true',
-                           'nonlocal_images' : 'false',
-                           'block_nonlocal_images' : 'false',
-                           'skip_links' : 'false',
-                           'when' : '',  # Day, like tue, or month-day, like 14
-                           'min_width' : '25', # min # chars in an item link
-                           'continue_on_timeout' : 'false',
-                           'user_agent' : VersionString,
-                           'ascii' : 'false',
-                           'allow_gzip' : 'true'})
-
-    config.read(conffile)
-    for fil in os.listdir(confdir):
-        if fil.endswith('.conf') and fil != main_conf_file:
-            filepath = os.path.join(confdir, fil)
-            if os.access(filepath, os.R_OK):
-                config.read(filepath)
-            else:
-                print("Can't read", filepath)
-
-    return config
 
 class HTMLSimplifier:
     keeptags = [ 'p', 'br', 'div' ]
@@ -1369,7 +886,6 @@ def get_firefox_cookie_jar(filename):
     """
 
     import sqlite3
-    from io import StringIO
     from http.cookiejar import MozillaCookieJar
 
     con = sqlite3.connect(filename)
@@ -1379,7 +895,7 @@ def get_firefox_cookie_jar(filename):
 
     ftstr = ["FALSE", "TRUE"]
 
-    s = StringIO()
+    s = io.StringIO()
     s.write("""\
 # Netscape HTTP Cookie File
 # http://www.netscape.com/newsref/std/cookie_spec.html
@@ -1397,10 +913,4 @@ def get_firefox_cookie_jar(filename):
 
     return cookie_jar
 
-
-if __name__ == '__main__':
-    config = read_config_file()
-
-    parser = FeedmeHTMLParser(config, 'Freaktest')
-    parser.fetch_url('http://www.freakonomics.com/2011/12/21/what-to-do-with-cheating-students/', '/home/akkana/feeds/Freaktest/', 'test.html', "Freak Test")
 
