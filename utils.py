@@ -79,30 +79,32 @@ def read_config_file(confdir=None):
         'simplify_rss' : 'false',
         'rss_entry_size' : '0',  # max size in bytes
 
-                           # Patterns to skip within a story.
-        # Anything within the regexps will be excised
-        # from the story.
-                           'skip_pats' : '',
+        # Patterns to skip within a story.
+        # Anything within the regexps will be excised from the story.
+        'skip_pats' : '',
 
-                           # Various triggers for skipping a whole story:
+        # Nodes to skip within a story, e.g. div class="advertisement"
+        'skip_nodes' : '',
+
+        # Various triggers for skipping a whole story:
         # Skip links with these patterns:
-                           'skip_link_pats' : '',
+        'skip_link_pats' : '',
         # Skip anything with titles containing these:
-                           'skip_title_pats' : '',
+        'skip_title_pats' : '',
         # Skip anything whose content includes these:
-                           'skip_content_pats' : '',
+        'skip_content_pats' : '',
         # Skip anything where the index content includes:
-                           'index_skip_content_pats' : '',
+        'index_skip_content_pats' : '',
 
-                           # acceptable alternate sources for images:
-                           'alt_domains' : '',
+        # acceptable alternate sources for images:
+        'alt_domains' : '',
 
-                           # module for special URL downloading:
-                           'page_helper' : '',
+        # module for special URL downloading:
+        'page_helper' : '',
         # Single string argument passed to the helper.
-                           'helper_arg' : '',
+        'helper_arg' : '',
 
-                           'nocache' : 'false',
+        'nocache' : 'false',
         'allow_repeats': 'false',
         'logfile' : '',
         'save_days' : '7',

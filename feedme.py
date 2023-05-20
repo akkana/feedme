@@ -163,9 +163,14 @@ def clean_up():
            Otherwise remove old files at the toplevel.
         '''
         for f in os.listdir(dirname):
+            # Files never to delete:
+            if f in ['feedme.dat', 'feeds.css', 'darkfeeds.css',
+                     'LOG', 'urlrss.log' ]:
+                continue
+
             f = os.path.join(dirname, f)
 
-            # Logical xor: if rmdir is set, it's not a directory,
+            # Logical xor: if rmdir is set, or it's not a directory,
             # but not both, then skip this entry.
             # ^ is bitwise xor but works if both args are bool.
             if rmdir ^ os.path.isdir(f):

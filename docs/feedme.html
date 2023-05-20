@@ -259,7 +259,8 @@ allow_repeats:
 
 <h3>Trickier Site Options</h3>
 <p>
-You may need some of these options for particular sites.
+These options aren't as easy to explain or understand,
+but you may need them for particular sites.
 
 <dl>
 
@@ -299,11 +300,25 @@ You may need some of these options for particular sites.
   this pattern in a story, and if it sees it, it will follow the
   link and use it instead of the original story link.
 
+<dt>skip_nodes
+<dd>
+  For sites that embed annoying things in the middle of stories:
+  maybe video clips, or ads, or distracting pull-quotes,
+  you can specify an HTML tag plus an attribute to look for.
+  Syntax looks like:
+<pre>
+skip_pats = div class="advertisement"
+    span class="junk"
+</pre>
+  The attribute (e.g. "junk") is a regular expression as used by BeautifulSoup.
+
 <dt>skip_pats
 <dd>
   For sites that embed annoying things in the middle of stories:
   maybe video clips, or ads, or distracting pull-quotes.
-  Anything matching one of the skip_pats will be deleted from the story.
+  Anything matching one of the skip_pats regular expressions
+  will be deleted from the story.
+  Note: skip_nodes is usually a better way to skip.
 
 <dt>skip_link_pats
 <dd>
@@ -380,19 +395,15 @@ contact me.
 Feedme uses three important directories:
 <p>
 Feedme's configuration file is <i>~/.config/feedme/feedme.conf</i>.
-<p>
-Feedme's cache is <i>~/.cache/feedme/feedme.dat</i>.
-This file should remain relatively small if you have a sane number of feeds,
-but it doesn't hurt to keep an eye on it.
-Feedme will also keep backup cache files for about a week, named by date;
-you can use these to go back to an earlier state in case you lost your
-feeds or accidentally deleted something.
+
 <p>
 ~/feeds is where it stores the downloaded HTML by default
 (you can change this as <code>dir</code> in the <i>feedme.conf</i>).
 Stories are downloaded as <i>sitename/number.html</i>, e.g.
 <i>~/feeds/BBC_World_News/2.html</i>. These stories are cleaned
 out every <i>save_days</i> (set in your feedme.conf).
+<p>
+The third important directory is the cache directory (see below).
 <p>
 If you save to formats beyond plain HTML, there may be other directories
 used for the converted files; for example, plucker files are created in
@@ -402,6 +413,29 @@ When I used plucker as my feed
 reader, I had an alias that ran <code>rm ~/.plucker/feedme/*</code>
 to remove the  previous day's plucks just before I ran feedme.
 
+<h3>The Cache, and Fixing Bad Runs</h3>
+<p>
+Feedme's cache is <i>~/.cache/feedme/feedme.dat</i>.
+This file should remain relatively small if you have a sane number of feeds,
+but it doesn't hurt to keep an eye on it.
+Feedme will also keep backup cache files for about a week, named by date;
+you can use these to go back to an earlier state in case you lost your
+feeds or accidentally deleted something.
+<p>
+Old cache files are backed up for roughly a week. If you run feedme and
+something goes wrong, you can reset back to the previous cache file.
+For instance, if everything was fine when you ran feedme on Monday May 15,
+but something goes wrong on Tuesday, go to your cache directory and
+you'll see <em>feedme.dat</em> from Tuesday (a few minutes old),
+and <em>feedme-23-05-15-Mon.dat</em>
+so the fix is:
+<pre>
+cp feedme-23-05-15-Mon.dat feedme.dat
+</pre>
+and then when you run feedme again, it will re-fetch all of Tuesday's stories
+as though the first bad run never happened.
+
+<h2>License</h2>
 <p>
 FeedMe's license is GPLv2 or (at your option) any later GPL version.
 <p>

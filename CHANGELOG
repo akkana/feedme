@@ -1,4 +1,11 @@
-2023-11-05  Akkana Peck  <akkana@shallowsky.com>
+2023-05-18  Akkana Peck  <akkana@shallowsky.com>
+	Add a new config variable, skip_nodes, to skip whole parsed
+	nodes and all children.
+
+2023-05-11  Akkana Peck  <akkana@shallowsky.com>
+	Show images in index page as well as sub-pages.
+
+2022-11-05  Akkana Peck  <akkana@shallowsky.com>
 	Show images in index page as well as sub-pages, if RSS has images.
 
 2022-09-09  Akkana Peck  <akkana@shallowsky.com>

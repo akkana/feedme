@@ -82,19 +82,13 @@ def process_img_tag(tag, attrs, feedname, base_href, newdir, host=None):
         # then have data-lazy-src and/or data-lazy-srcset
         # which presumably get loaded later with JavaScript.
         if 'data-lazy-srcset' in attrs:
-            print("\n*** Using data-lazy-srcset: '%s'"
-                  % attrs['data-lazy-srcset'], file=sys.stderr)
             srcset = parse_srcset(attrs['data-lazy-srcset'])
         elif 'srcset' in attrs:
-            print("\n*** Using srcset: '%s'" % attrs['srcset'],
-                  file=sys.stderr)
             srcset = parse_srcset(attrs['srcset'])
         else:
             srcset = None
-        print("parsed srcset:", srcset, file=sys.stderr)
 
         if srcset:
-            print("Got into 'if srcset' block", file=sys.stderr)
             try:
                 curimg = None
                 curwidth = 0
@@ -107,16 +101,12 @@ def process_img_tag(tag, attrs, feedname, base_href, newdir, host=None):
                         # ones, let's save the image.
                         if not curimg:
                             curimg = pair[0].strip()
-                        print("srcset non-width descriptor '%s" % w,
-                              file=sys.stderr)
                         continue
                     w = int(w[:-1])
                     if w > curwidth and w <= maximgwidth:
                         curwidth = w
                         curimg = pair[0].strip()
                 if curimg:
-                    print("srcset: using '%s' at width %d"
-                          % (curimg, curwidth), file=sys.stderr)
                     src = curimg
             except:
                 # Wired sometimes has srcset with just a single url

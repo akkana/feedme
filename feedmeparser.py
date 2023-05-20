@@ -10,6 +10,7 @@ import os, sys
 import urllib.request, urllib.error, urllib.parse
 import re
 import lxml.html
+from bs4 import BeautifulSoup
 from http.cookiejar import CookieJar
 import io
 import gzip
@@ -25,35 +26,11 @@ except:
     pass
 
 
-# XXX
-# This doesn't work any more, in the Python 3 world, because everything
-# is already encoded into a unicode string before we can get here.
-# If I ever need to go back and support ununicode or re-coding,
-# I'll have to revisit this.
-#
-# has_ununicode = False
-#
-# try:
-#     import ununicode
-# except ImportError as e:
-#     has_ununicode=False
-#
-# def output_encode(s, encoding):
-#     if encoding == 'ascii' and has_ununicode:
-#         #return unicodedata.normalize('NFKD', s).encode('ascii', 'ignore')
-#         # valid values in encode are replace and ignore
-#         return ununicode.toascii(s,
-#                                  in_encoding=encoding,
-#                                  errfilename=os.path.join(outdir,
-#                                                           "errors"))
-#     elif isinstance(s, str):
-#         return s.encode('utf-8', 'backslashreplace')
-#     else:
-#         return s
-
-
 class NoContentError(Exception):
     pass
+
+
+SKIP_NODE_PAT = r'''\s*([a-zA-Z]+)\s+(?:([a-zA-Z]+)\s*=\s*['"](.*)['"])?'''
 
 
 class CookieError(Exception):
@@ -91,21 +68,25 @@ class FeedmeURLDownloader(object):
         """
         if not user_agent:
             user_agent = utils.VersionString
-        if self.verbose:
-            print("download_url", url, "referrer=", referrer, \
-                                "user_agent", user_agent, file=sys.stderr)
+
+        if url.startswith("file://"):
+            # In file:, allow for relative filenames even though that's not
+            # part of the real file:// spec, to make testing a little easier.
+            filename = url[7:]
+            with open(filename) as fp:
+                return fp.read()
 
         request = urllib.request.Request(url)
 
         # If we're after the single-page URL, we may need a referrer
         if referrer:
-            if self.verbose:
-                print("Adding referrer", referrer, file=sys.stderr)
             request.add_header('Referer', referrer)
 
         request.add_header('User-Agent', user_agent)
+
         if self.verbose:
-            print("Using User-Agent of", user_agent, file=sys.stderr)
+            print("download_url", url, "referrer=", referrer, \
+                                "user_agent", user_agent, file=sys.stderr)
 
         if not self.cookiejar:
             # Create the cookiejar once per site; it will be reused
@@ -378,24 +359,25 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                     break
 
         # Skip anything matching any of the skip_pats.
-        # It may eventually be better to do this in the HTML parser.
+        # This is an earlier, regex-based version of skip_nodes.
+        # Most sites should use skip_nodes, but there may be some
+        # sites where skip_pats works better.
         skip_pats = utils.g_config.get_multiline(self.feedname, 'skip_pats')
-        if len(skip_pats) > 0:
-            for skip in skip_pats:
-                if self.verbose:
-                    print("Trying to skip '%s'" % skip, file=sys.stderr)
-                    #print("in", html.encode('utf-8'), file=sys.stderr)
-                    #sys.stderr.flush()
-                # flags=DOTALL doesn't exist in re.sub until 2.7,
-                #html = re.sub(skip, '', html, flags=re.DOTALL)
-                # but does exist in a compiled re expression:
-                try:
-                    regexp = re.compile(skip, flags=re.DOTALL)
-                except Exception as e:
-                    print("Couldn't compile regexp", skip, file=sys.stderr)
-                    print(str(e), file=sys.stderr)
-                    continue
-                html = regexp.sub('', html)
+        for skip in skip_pats:
+            if self.verbose:
+                print("Trying to skip '%s'" % skip, file=sys.stderr)
+                #print("in", html.encode('utf-8'), file=sys.stderr)
+                #sys.stderr.flush()
+            # flags=DOTALL doesn't exist in re.sub until 2.7,
+            #html = re.sub(skip, '', html, flags=re.DOTALL)
+            # but does exist in a compiled re expression:
+            try:
+                regexp = re.compile(skip, flags=re.DOTALL)
+            except Exception as e:
+                print("Couldn't compile regexp", skip, file=sys.stderr)
+                print(str(e), file=sys.stderr)
+                continue
+            html = regexp.sub('', html)
 
         # print("After all skip_pats, html is:", file=sys.stderr)
         # print(html.encode(self.encoding, 'replace'), file=sys.stderr)
@@ -410,8 +392,40 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         # Keep a record of whether we've seen any content:
         self.wrote_data = False
 
-        # Does the page have an H1 header already? If not,
-        # we can manufacture one.
+        # Delete any skip_nodes
+        skip_nodespecs = utils.g_config.get_multiline(self.feedname,
+                                                      'skip_nodes')
+        if skip_nodespecs:
+            # XXX It's sad to parse with BeautifulSoup and then go back
+            # and re-parse the whole document for start and end tags,
+            # but with the node begin/end parsing used with lxml,
+            # it's hard to delete a node and all its contents.
+            # The latter should be rewritten to use BeautifulSoup.
+            soup = BeautifulSoup(html, "lxml")
+
+            changed = False
+            for nodespec in skip_nodespecs:
+                # Syntax is something like: div class="sticky-box"
+                # first word should be node type,
+                # which may be followed by someattr="somename"
+                try:
+                    nodename, attrname, attrval = \
+                        re.match(SKIP_NODE_PAT, nodespec).groups()
+                    for node in soup.find_all(attrs={ attrname: attrval }):
+                        node.decompose()
+                        changed = True
+                except Exception as e:
+                    print("Problem finding SKIP_NODE_PAT '%s': %s"
+                          % (nodespec, e), file=sys.stderr)
+                    utils.ptraceback()
+                    continue
+            if changed:
+                print("Changed nodes in the HTML: rewriting", file=sys.stderr)
+                html = str(soup)
+
+        # Does the page have an H1 header already? If not, manufacture one.
+        # XXX Would be better to do this check with BeautifulSoup,
+        # once that's used for all parsing instead of just skip_nodes.
         if not re.search("<h1", html, re.IGNORECASE):
             self.outfile.write("<h1>%s</h1>\n" % title)
 
