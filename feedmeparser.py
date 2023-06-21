@@ -809,8 +809,14 @@ tree = lxml.html.fromstring(html)
         # so that a network-connected viewer can still fetch them.
         # For now, let's opt to remove them.
         if (utils.g_config.getboolean(self.feedname, 'skip_images') and
-            (tag == 'img' or tag == 'svg' or tag == 'video'
-             or tag == "figure")):
+            (tag == 'img' or tag == 'svg' or tag == "figure")):
+            return True
+
+        # Skip videos regardless of the skip_images setting,
+        # since there's no mechanism to download videos,
+        # and including them inline leads to unwanted data charges.
+        # Some day maybe this could be a separate pref.
+        if tag == 'video':
             return True
 
         if tag == 'a' and \
