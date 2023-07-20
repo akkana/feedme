@@ -110,7 +110,7 @@ def read_config_file(confdir=None):
         'save_days' : '7',
         'skip_images' : 'true',
         'nonlocal_images' : 'false',
-        'block_nonlocal_images' : 'false',
+        'block_nonlocal_images' : 'true',
         'skip_links' : 'false',
         'when' : '',  # Day, like tue, or month-day, like 14
         'min_width' : '25', # min # chars in an item link

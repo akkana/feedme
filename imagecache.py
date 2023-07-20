@@ -25,26 +25,34 @@ def clear():
 
 
 def rewrite_images(html, baseurl, outdir, feedname, host=None):
+    """Process all images referenced in an html file.
+    """
     if not host:
         host = urllib.parse.urlparse(baseurl).hostname
 
     soup = BeautifulSoup(html, "lxml")
     for img in soup.find_all("img"):
-        process_img_tag(img.name, img.attrs, feedname, baseurl, outdir,
-                        host=host)
+        process_img_tag(img.name, img.attrs, feedname, baseurl,
+                        outdir, host=host, tag=img)
     return str(soup)
 
 
-def process_img_tag(tag, attrs, feedname, base_href, newdir, host=None):
+def process_img_tag(tagname, attrs, feedname, base_href, newdir,
+                    host=None, tag=None):
     """Process an img tag and its attributes.
        Try to detect stand-ins for src, like srcset and various
        weirdo wordpress plugin attributes.
 
+       tag is an optional BeautifulSoup tag. If provided, nonlocal
+       images will be sandwiched in a link to the actual image.
+        Unfortunately feedmeparser's crawl_tree() doesn't (yet)
+       use BeautifulSoup so it can't provide this.
+
        Download a local copy of the image (if not already downloaded),
-       set the tag to point to it, and return (tag, attrs).
+       set the tag to point to it, and return (tagname, attrs)
 
        Arguments:
-         tag: the img tag, which will be modified in place
+         tagname: the img tagname, which will be modified in place
          attrs: the tag's attributes
          feedname: the config name of the current feed
          base_href: the base URL of the feed (not of this specific image,
@@ -121,7 +129,7 @@ def process_img_tag(tag, attrs, feedname, base_href, newdir, host=None):
 
     if not src:
         # Don't do anything to this image, it has no src or srcset.
-        return tag, attrs
+        return tagname, attrs
 
     if 'srcset' in keys:
         del attrs['srcset']
@@ -129,10 +137,10 @@ def process_img_tag(tag, attrs, feedname, base_href, newdir, host=None):
     # Make relative URLs absolute
     src = make_absolute(src, base_href)
     if not src:
-        return tag, attrs
+        return tagname, attrs
     if src.startswith("data:"):
         # With a data: url we already have all we need
-        return tag, attrs
+        return tagname, attrs
 
     # urllib2 can't parse out the host part without first
     # creating a Request object.
@@ -212,7 +220,7 @@ def process_img_tag(tag, attrs, feedname, base_href, newdir, host=None):
         # from one of the src substitutions.
         # If so, output it and return.
         if src.startswith("data:"):
-            return tag, attrs
+            return tagname, attrs
 
         try:
             if not os.path.exists(imgfilename):
@@ -262,13 +270,35 @@ def process_img_tag(tag, attrs, feedname, base_href, newdir, host=None):
         print(req.host, "and", host,
               "are too different -- not fetching image", src,
               file=sys.stderr)
-        # But that means we're left with a nonlocal image in the source.
+
+        # Add a link to the image, if a BS tag is provided
+        if tag:
+            # Find tag's root BeautifulSoup object (needed for new_tag)
+            soup = tag
+            while type(soup) is not BeautifulSoup:
+                soup = soup.parent
+            awrap = soup.new_tag("a", href=src)
+            awrap.string = "[nonlocal image]"
+            # Originally, added alt text and wrapped the image in it,
+            # but Firefox, at least, doesn't show images with
+            # src = 'file:///nonexistant' and doesn't even show the
+            # alt text for them, so there's nothing visible to click on.
+            # tag.wrap(awrap)
+            # Instead, just add a tag around a text string.
+            tag.append(awrap)
+            print("Trying to wrap image tag in link to", src,
+                  file=sys.stderr)
+        else:
+            print("No soup, can't add image link to", src,
+                  file=sys.stderr)
+
+        # We're left with a nonlocal image in the source.
         # That could mean unwanted data use to fetch the image
         # when viewing the file. So remove the image tag and
         # replace it with a link.
         attrs['src'] = alt_src
 
-    return tag, attrs
+    return tagname, attrs
 
 
 # The srcset spec is here:
