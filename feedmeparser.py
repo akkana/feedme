@@ -318,7 +318,6 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
 <title>%s</title>
 </head>
 
-<body>
 """ % (self.encoding, title))
         else:
             outfilename = None
@@ -488,87 +487,122 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
             return self.outfile.getvalue()
 
     def feed(self, uhtml):
-        """Duplicate, in a half-assed way, HTMLParser.feed() but
-           using lxml.html since it handles real-world documents.
-           Input is expected to be unicode.
+        """Parse the given unicode as HTML and make all needed substitutions.
+           Write the resulting <body> to self.outfile.
+           (The caller has already written a header and will write a footer.)
         """
-        # Parse the whole document.
-        # (Trying valiantly to recover from lxml errors.)
-        try:
-            tree = lxml.html.fromstring(uhtml)
-        except ValueError:
-            print("ValueError parsing!")
-            # Idiot lxml.html that doesn't give any sensible way
-            # to tell what really went wrong:
-            if str(sys.exc_info()[1]).startswith(
-                "Unicode strings with encoding declaration"):
-                # This seems to happen because somehow the html gets
-                # something like this inserted at the beginning:
-                # <?xml version="1.0" encoding="utf-8"?>
-                # So if we've hit the error, try to remove it:
-                print("Stupid lxml encoding error on:", file=sys.stderr)
-                print(uhtml[:512].encode('utf-8', 'xmlcharrefreplace'),
-                      end=' ', file=sys.stderr)
-                print('...')
 
-                # Some sample strings that screw up lxml and must be removed:
-                # <?xml version="1.0" encoding="ascii" ?>
-                uhtml = re.sub('<\?xml .*?encoding=[\'\"].*?[\'\"].*?\?>',
-                                '', uhtml)
-                tree = lxml.html.fromstring(uhtml)
-                print("Tried to remove encoding: now")
-                print(uhtml[:512].encode('utf-8',
-                                                       'xmlcharrefreplace'), end=' ', file=sys.stderr)
-                print('...')
-            else:
-                raise ValueError
+        soup = BeautifulSoup(uhtml, features='lxml')
 
-        # Iterate over the DOM tree:
-        self.crawl_tree(tree)
+        # Tags to remove, but keep children if any
+        for tagname in [
+                # disallow scripts
+                "script",
 
-        # Eventually we can print it with lxml.html.tostring(tree)
+                # style tags are often evil MS-Word crap
+                "style",
 
-    def crawl_tree(self, tree):
-        """For testing:
-import lxml.html
-html = '<html><body onload="" color="white">\n<p>Hi  ! Ma&ntilde;ana!\n<a href="/my/path/to/link.html">my link</a>\n</body></html>\n'
-tree = lxml.html.fromstring(html)
-"""
-        if type(tree.tag) is str:
-            # lxml.html gives comments tag = <built-in function Comment>
-            # This is not documented anywhere and there seems to be
-            # no way to ask "Is this element a comment?"
-            # So we only handle tags that are type str.
-            self.handle_starttag(tree.tag, tree.attrib)
-            if tree.text:
-                self.handle_data(tree.text)
-            for node in tree:
-                self.crawl_tree(node)
-            self.handle_endtag(tree.tag)
-        # print the tail even if it was a comment -- the tail is
-        # part of the parent tag, not the current tag.
-        if tree.tail:
-            self.handle_data(tree.tail)
+                # Don't want embedded <head> stuff
+                # Unfortunately, skipping the <head> means we miss
+                # meta and base. Missing meta is a problem because it
+                # means we don't get the charset. XXX But note: we
+                # probably won't see the charset anyway, because we'll
+                # look for it in the first head, the one we create ourselves,
+                # rather than the one that comes from the original page.
+                # We really need to merge the minimal information from the page
+                # head into the generated one.
+                # Meanwhile, these tags may do more harm than good.
+                # We definitely need to remove <link type="text/css".
+                "head",
 
-    def handle_starttag(self, tag, attrs):
-        #if self.verbose:
-        #    print("start tag", tag, attrs)
+                # Omit form elements, since it's too easy to land on
+                # them accidentally when scrolling and trigger an
+                # unwanted Android onscreen keyboard:
+                "form", "input", "textarea",
 
+                # font tags are almost always to impose colors that
+                # only work against certain backgrounds
+                "font",
+
+                # Omit iframes -- they badly confuse Android's WebView
+                # (goBack fails if there's an iframe anywhere in the page:
+                # you have to goBack multiple times, I think once for every
+                # iframe in the page, and this doesn't seem to be a bug
+                # that's getting fixed any time soon).
+                # We don't want iframes in simplified HTML anyway.
+                "iframe",
+
+                # assorted other unhelpful tags.
+                # object is probably flash or video or some such.
+                "source", "video", "object",
+                "meta", "link",
+        ]:
+            for t in soup.find_all(tagname):
+                t.replace_with_children()
+
+        # Tags to remove entirely along with all children
+        for tagname in [
+                # The source tag is used to specify alternate forms of media.
+                # But the LA Daily Post uses it for images, and many browsers
+                # including Android WebView use it to override the img src.
+                # So leaving in the source tag may cause images to be fetched
+                # from the net rather than from the locally fetched files.
+                "source",
+
+                # Skip videos regardless of the skip_images setting,
+                # since there's no mechanism to download videos,
+                # and including them inline leads to unwanted data charges.
+                # Some day maybe this could be a separate pref.
+                "video",
+
+                # <link rel="stylesheet" isn't always in the head.
+                # Undark puts them at the end of the document but they still
+                # apply to the whole document, making text unreadable.
+                # I don't know of any other legitimate uses for <link>
+                # so let's just remove them all.
+                "link",
+
+                ]:
+            for t in soup.find_all(tagname):
+                t.decompose()
+
+        # base tags can confuse the HTML displayer program
+        # into looking remotely for images we've copied locally.
+        # But it's useful to save it.
+        for t in soup.find_all("base"):
+            if "href" in base.attrs:
+                self.base_href = base.attrs["href"]
+                t.decompose()
+
+        # Remove img if skipping images
+        if utils.g_config.getboolean(self.feedname, 'skip_images'):
+            for tagname in [ "img", "svg", "figure" ]:
+                for t in soup.find_all(tagname):
+                    t.decompose()
+
+        # embedded body tags often have unfortunate color settings.
+        # Embedded <html> tags don't seem to do any harm, but seem wrong.
+        # Keep the first one.
+        for tagname in [ "html", "body" ]:
+            for i, t in enumerate(soup.find_all(tagname)):
+                if i > 0:
+                    t.replace_with_children()
         # meta refreshes won't work when we're offline, but we
         # might want to display them to give the user the option.
         # <meta http-equiv="Refresh" content="0; URL=http://blah"></meta>
         # meta charset is the other meta tag we care about.
         # All other meta tags will be skipped, so do this test
         # before checking for tag_skippable.
-        if tag == 'meta':
-            if 'charset' in list(attrs.keys()) and attrs['charset']:
-                self.encoding = attrs['charset']
-                return
-            if 'http-equiv' in list(attrs.keys()) and \
-                    attrs['http-equiv'].lower() == 'refresh':
+        if soup.meta:
+            meta = soup.meta
+            if 'charset' in meta.attrs and meta.attrs['charset']:
+                self.encoding = meta.attrs['charset']
+
+            if 'http-equiv' in meta.attrs and \
+               meta.attrs['http-equiv'].lower() == 'refresh':
                 self.outfile.write("Meta refresh suppressed.<br />")
-                if 'content' in list(attrs.keys()):
-                    content = attrs['content'].split(';')
+                if 'content' in meta.attrs:
+                    content = meta.attrs['content'].split(';')
                     if len(content) > 1:
                         href = content[1].strip()
                     else:
@@ -590,259 +624,63 @@ tree = lxml.html.fromstring(html)
                                   self.single_page_url.encode('utf-8',
                                                         'xmlcharrefreplace'),
                                   file=sys.stderr)
-                return
                 # XXX Note that this won't skip the </meta> tag, unfortunately,
-                # and tag_skippable_section can't distinguish between
-                # meta refresh and any other meta tags.
+                # and doesn't distinguish meta refresh from any other meta tags.
 
-        if self.skipping:
-            # print("Skipping start tag", tag, "inside a skipped section")
-            return
+        if utils.g_config.getboolean(self.feedname, 'skip_links'):
+            for t in soup.find_all("a"):
+                t.replace_with_children()
 
-        if tag == 'base' and 'href' in list(attrs.keys()):
-            self.base_href = attrs['href']
-            return
-
-        # Delete any style tags used for color or things like display:none
-        if 'style' in list(attrs.keys()):
-            style = attrs['style']
-            if re.search('display: *none', style):
-                return    # If it's display: none, skip this tag
-            # If the style is used to set color or background,
-            # keep the tag (it might be there for other reasons)
-            # but delete the whole style attribute.
-            # XXX Would be nice to make this smarter and delete only
-            # color or background.
-            if 'color:' in style or 'background:' in style:
-                if self.verbose:
-                    print("tag", tag, ": deleting style '%s'" % attrs['style'])
-                del attrs['style']
-
-        # Some tags, we always skip
-        if self.tag_skippable_section(tag):
-            self.skipping = tag
-            # print("Starting a skippable", tag, "section", file=sys.stderr)
-            return
-
-        if self.tag_skippable(tag):
-            # print("skipping start", tag, "tag", file=sys.stderr)
-            return
-
-        if tag == 'a':
-            if 'href' in list(attrs.keys()):
-                href = attrs['href']
-
-                # See if this matches the single-page pattern,
-                # if we're not already following one:
-                if not self.single_page_url:
-                    #print("we're not in the single page already")
-                    single_page_pats = utils.g_config.get_multiline(self.feedname,
+        # Look for a tags matching the single-page pattern,
+        # if we're not already following one.
+        if not self.single_page_url:
+            # print("we're not in the single page already")
+            single_page_pats = utils.g_config.get_multiline(self.feedname,
                                                             'single_page_pats')
-                    for single_page_pat in single_page_pats:
-                        m = re.search(single_page_pat, href)
-                        if m:
-                            self.single_page_url = \
-                                imagecache.make_absolute(
-                                    href[m.start():m.end()],
-                                    self.base_href)
-                            if self.verbose:
-                                print("\nFound single-page pattern:", \
-                                      self.single_page_url, file=sys.stderr)
-                            # But continue fetching the regular pattern,
-                            # since the single-page one may fail
+            for single_page_pat in single_page_pats:
+                singlepage = soup.find("a", href=single_page_pat)
+                if singlepage:
+                    self.single_page_url = imagecache.make_absolute(
+                        singlepage.href)
+                    if self.verbose:
+                        print("\nFound single-page pattern:", \
+                              self.single_page_url, file=sys.stderr)
+                        # But continue fetching the regular pattern,
+                        # since the single-page one may fail
+                        break
 
-                # if self.verbose:
-                #     print("Rewriting href", href, end='')
-                attrs['href'] = imagecache.make_absolute(href,
-                                                         self.base_href)
-                # if self.verbose:
-                #     print("to", href)
 
-        # Images have so many cases where the image can't be shown.
-        if tag != 'img':
-            self.write_tag_and_attrs(tag, attrs)
-            return
-
-        # If we get here, it's an image, which needs a lot of extra logic.
-        # fake_request = urllib.request.Request(self.cur_url)
-        # self.host = real_request.host
-        tag, attrs = imagecache.process_img_tag(tag, attrs, self.feedname,
-                                                self.base_href, self.newdir)
-
-        # Now we've done any needed processing to the img tag and its attrs.
-        # It's time to write the start tag to the output file.
-        self.write_tag_and_attrs(tag, attrs)
-
-    def write_tag_and_attrs(self, tag, attrs):
-        self.outfile.write('<' + tag)
-
-        for attr in list(attrs.keys()):
-            # If the tag has style=, arguably we should just remove it entirely.
-            # But certainly remove it if it has style="font-anything" --
-            # don't want to let the page force its silly ideas of font
-            # size or face.
-            # And yes, this means we'll lose any other styles that are
-            # specified along with a font style. Probably no loss!
-            if attr == 'style' and 'font' in attrs[attr]:
+        # Try to make links absolute.
+        for t in soup.find_all("a"):
+            try:
+                abs_href = imagecache.make_absolute(t.href, self.base_href)
+                if abs_href != t.href:
+                    t.href = abs_href
+            except:
                 continue
 
-            self.outfile.write(' ' + attr)
-            if attrs[attr] and type(attrs[attr]) is str:
-                # make sure attr[1] doesn't have any embedded double-quotes
-                val = attrs[attr].replace('"', '\"')
-                self.outfile.write('="' + val + '"')
+        # Now crawl all tags removing any style= attribute
+        for t in soup.find_all(style=True):
+            style = t.attrs['style']
+            if 'color' in style or 'background' in style:
+                del t.attrs["style"]
 
-        self.outfile.write('>')
+        # Finally, handle images
+        for tagname in [ "img", "svg" ]:
+            for t in soup.find_all(tagname):
+                imagecache.process_img_tag(t, self.feedname,
+                                           self.base_href, self.newdir)
 
-    def handle_endtag(self, tag):
-        if tag == self.skipping:
-            self.skipping = False
-            # print("Ending a skippable", tag, "section", file=sys.stderr)
-            return
-        if self.skipping:
-            # print("Skipping end tag", tag, "inside a skipped section")
-            return
-        if self.tag_skippable(tag) or self.tag_skippable_section(tag):
-            # print("Skipping end", tag, file=sys.stderr)
-            return
-
-        # Some tags don't have ends, and it can cause problems:
-        # e.g. <br></br> displays as two breaks, not one.
-        if tag in [ "br", "img" ]:
-            return
-
-        # Don't close the body or html -- caller may want to add a footer.
-        if tag == "body" or tag == 'html':
-            return
-
-        self.outfile.write('</' + tag + '>\n')
-
-    def handle_data(self, data):
-        # XXX lxml.etree.tostring() might be a cleaner way of printing
-        # these nodes: http://lxml.de/tutorial.html
-        if self.skipping:
-            return
-
-        # If it's not just whitespace, make a note that we've written something.
-        if data.strip():
+        # Done with processing! Write the soup's body to self.outfile.
+        pretty = soup.body.prettify()
+        if pretty:
+            self.outfile.write(pretty)
             self.wrote_data = True
+        else:
+            print("Empty body! Not writing", file=sys.stderr)
 
-        if type(data) is str:
-            # XXX This is getting:
-            # UnicodeEncodeError: 'ascii' codec can't encode character '\u2019' in position 193: ordinal not in range(128)
-            # How do we protect against that?
-            # Is there any reliable way to write str to a file in python3?
-            self.outfile.write(data)
-        elif self.verbose:
-            print("Data isn't str! type =", type(data), file=sys.stderr)
 
-    # def handle_entityref(self, name):
-    #     if self.skipping:
-    #         #print("Skipping entityref")
-    #         return
-    #     self.outfile.write('&' + name + ';')
-
-    def tag_skippable_section(self, tag):
-        """Skip certain types of tags we don't want in simplified HTML.
-           This skips everything until the matching end tag.
-        """
-        # script and style tags aren't helpful in minimal offline reading
-        if tag == 'script' or tag == 'style':
-            return True
-
-        # base tags can confuse the HTML displayer program
-        # into looking remotely for images we've copied locally.
-        if tag == 'base':
-            return True
-
-        # Omit generic objects, which are probably flash or video or some such.
-        if tag == 'object':
-            return True
-
-        # Omit form elements, since it's too easy to land on them accidentally
-        # when scrolling and trigger an unwanted Android onscreen keyboard:
-        if tag == 'input' or tag == 'textarea':
-            return True
-
-        # Omit iframes -- they badly confuse Android's WebView
-        # (goBack fails if there's an iframe anywhere in the page:
-        # you have to goBack multiple times, I think once for every
-        # iframe in the page, and this doesn't seem to be a bug
-        # that's getting fixed any time soon).
-        # We don't want iframes in simplified HTML anyway.
-        if tag == 'iframe':
-            return True
-
-        # Don't want embedded <head> stuff
-        # Unfortunately, skipping the <head> means we miss meta and base.
-        # Missing meta is a problem because it means we don't get the charset.
-        # XXX But note: we probably won't see the charset anyway, because
-        # we'll look for it in the first head, the one we create ourselves,
-        # rather than the one that comes from the original page.
-        # We really need to merge the minimal information from the page
-        # head into the generated one.
-        # Meanwhile, these tags may do more harm than good.
-        # We definitely need to remove <link type="text/css".
-        if tag == 'head':
-            return True
-
-        return False
-
-    def tag_skippable(self, tag):
-        """Skip certain types of tags we don't want in simplified HTML.
-           This will not remove tags inside the skipped tag, only the
-           skipped tag itself.
-        """
-        if tag == 'form':
-            return True
-
-        # The source tag is used to specify alternate forms of media.
-        # But the LA Daily Post uses it for images, and many browsers
-        # including Android WebView use it to override the img src attribute.
-        # So leaving in the source tag may cause images to be fetched
-        # from the net rather than from the locally fetched files.
-        if tag == 'source':
-            return True
-
-        # If we're skipping images, we could either omit them
-        # entirely, or leave them in with their src= unchanged
-        # so that a network-connected viewer can still fetch them.
-        # For now, let's opt to remove them.
-        if (utils.g_config.getboolean(self.feedname, 'skip_images') and
-            (tag == 'img' or tag == 'svg' or tag == "figure")):
-            return True
-
-        # Skip videos regardless of the skip_images setting,
-        # since there's no mechanism to download videos,
-        # and including them inline leads to unwanted data charges.
-        # Some day maybe this could be a separate pref.
-        if tag == 'video':
-            return True
-
-        if tag == 'a' and \
-                utils.g_config.getboolean(self.feedname, 'skip_links'):
-            return True
-
-        # Embedded <body> tags often have unfortunate color settings.
-        # Embedded <html> tags don't seem to do any harm, but seem wrong.
-        if tag == 'body' or tag == 'html' or tag == 'meta':
-            return True
-
-        # Font tags are almost always to impose colors that don't
-        # work against an arbitrary background.
-        if tag == 'font':
-            return True
-
-        # <link rel="stylesheet" isn't always in the head.
-        # Undark puts them at the end of the document but they still
-        # apply to the whole document, making text unreadable.
-        # I don't know of any other legitimate uses for <link>
-        # so let's just remove them all.
-        if tag == 'link':
-            return True
-
-        return False
-
+# XXX Rewrite this class to use BeautifulSoup
 class HTMLSimplifier:
     keeptags = [ 'p', 'br', 'div' ]
     encoding = 'utf-8'

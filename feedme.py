@@ -1579,6 +1579,10 @@ Which (default = s): """)
                     content = ''.join([str(c) for c in soup.body.children]) \
                         +  " [...]"
 
+            # Clear space for images: nmpoliticalreport has a big
+            # image for each feed that's taller than the feed text.
+            content += '\n<br clear="all">\n'
+
             indexstr += content
 
             if author:

@@ -32,24 +32,17 @@ def rewrite_images(html, baseurl, outdir, feedname, host=None):
 
     soup = BeautifulSoup(html, "lxml")
     for img in soup.find_all("img"):
-        process_img_tag(img.name, img.attrs, feedname, baseurl,
-                        outdir, host=host, tag=img)
+        process_img_tag(img, feedname, baseurl, outdir, host=host)
     return str(soup)
 
 
-def process_img_tag(tagname, attrs, feedname, base_href, newdir,
-                    host=None, tag=None):
-    """Process an img tag and its attributes.
+def process_img_tag(tag, feedname, base_href, newdir, host=None):
+    """Process an img tag (BeautifulSoup) and its attributes.
        Try to detect stand-ins for src, like srcset and various
        weirdo wordpress plugin attributes.
 
-       tag is an optional BeautifulSoup tag. If provided, nonlocal
-       images will be sandwiched in a link to the actual image.
-        Unfortunately feedmeparser's crawl_tree() doesn't (yet)
-       use BeautifulSoup so it can't provide this.
-
        Download a local copy of the image (if not already downloaded),
-       set the tag to point to it, and return (tagname, attrs)
+       and set the tag to point to it, and return (tagname, attrs)
 
        Arguments:
          tagname: the img tagname, which will be modified in place
@@ -59,6 +52,7 @@ def process_img_tag(tagname, attrs, feedname, base_href, newdir,
                     which may be hosted elsewhere)
          newdir: the local directory in which this site is being written
     """
+    attrs = tag.attrs
     keys = list(attrs.keys())
 
     if not host:
@@ -129,18 +123,19 @@ def process_img_tag(tagname, attrs, feedname, base_href, newdir,
 
     if not src:
         # Don't do anything to this image, it has no src or srcset.
-        return tagname, attrs
+        return
 
     if 'srcset' in keys:
-        del attrs['srcset']
+        del tag.attrs['srcset']
 
     # Make relative URLs absolute
-    src = make_absolute(src, base_href)
-    if not src:
-        return tagname, attrs
     if src.startswith("data:"):
         # With a data: url we already have all we need
-        return tagname, attrs
+        return
+    src = make_absolute(src, base_href)
+    if not src:
+        print("make_absolute returned null", file=sys.stderr)
+        return
 
     # urllib2 can't parse out the host part without first
     # creating a Request object.
@@ -165,7 +160,8 @@ def process_img_tag(tagname, attrs, feedname, base_href, newdir,
     # Should we rewrite images that come from elsewhere,
     # to avoid unwanted data use?
     try:
-        block_nonlocal = utils.g_config.getboolean(feedname, 'block_nonlocal_images')
+        block_nonlocal = utils.g_config.getboolean(feedname,
+                                                   'block_nonlocal_images')
     except:
         block_nonlocal = False
 
@@ -220,7 +216,7 @@ def process_img_tag(tagname, attrs, feedname, base_href, newdir,
         # from one of the src substitutions.
         # If so, output it and return.
         if src.startswith("data:"):
-            return tagname, attrs
+            return
 
         try:
             if not os.path.exists(imgfilename):
@@ -245,7 +241,7 @@ def process_img_tag(tagname, attrs, feedname, base_href, newdir,
             # If we got this far, then we have a local image,
             # so go ahead and rewrite the url:
             ImageCache[src] = base
-            attrs['src'] = base
+            tag.attrs['src'] = base
 
         # handle download errors
         except urllib.error.HTTPError as e:
@@ -255,18 +251,18 @@ def process_img_tag(tagname, attrs, feedname, base_href, newdir,
             # Since we couldn't download, point instead to the
             # absolute URL, so it will at least work with a
             # live net connection.
-            attrs['src'] = alt_src
+            tag.attrs['src'] = alt_src
         except urllib.error.URLError as e:
             print("URL Error on image:", e.reason,
                   "on", src, file=sys.stderr)
-            attrs['src'] = alt_src
+            tag.attrs['src'] = alt_src
         except Exception as e:
             print("Error downloading image:", str(e), \
                 "on", src, file=sys.stderr)
             utils.ptraceback()
-            attrs['src'] = alt_src
+            tag.attrs['src'] = alt_src
     else:
-        # Looks like it's probably a nonlocal image.
+        # Looks like it's probably a nonlocal image, don't download
         print(req.host, "and", host,
               "are too different -- not fetching image", src,
               file=sys.stderr)
@@ -296,9 +292,7 @@ def process_img_tag(tagname, attrs, feedname, base_href, newdir,
         # That could mean unwanted data use to fetch the image
         # when viewing the file. So remove the image tag and
         # replace it with a link.
-        attrs['src'] = alt_src
-
-    return tagname, attrs
+        tag.attrs['src'] = alt_src
 
 
 # The srcset spec is here:
