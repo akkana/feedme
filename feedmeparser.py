@@ -323,8 +323,17 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
             outfilename = None
             self.outfile = io.StringIO()
 
+        #
+        # First, some operations on the HTML source,
+        # like regexps that match patterns in the source.
+        # The edited source will later be parsed by BeautifulSoup.
+        #
+
         if author:
-            self.outfile.write("By: %s\n<p>\n" % author)
+            body = html.find('<body>')
+            if body >= 0:
+                html = html[0:body] + "By: %s\n<p>\n" % author \
+                    + html[body:]
 
         # Throw out everything before the first page_start re pattern seen,
         # and after the first page_end pattern seen.

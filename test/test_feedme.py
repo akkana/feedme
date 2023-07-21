@@ -143,11 +143,11 @@ page_end = <div id="comment-form-nascar">
         except FileExistsError:
             pass
 
-        CONFFILE = 'test/config/wired-backchannel.conf'
-        shutil.copyfile('siteconf/wired-backchannel.conf', CONFFILE)
+        CONFFILE = 'test/config/wired.conf'
+        shutil.copyfile('siteconf/wired.conf', CONFFILE)
         utils.read_config_file(confdir='test/config')
 
-        fmp = feedmeparser.FeedmeHTMLParser('Wired Backchannel')
+        fmp = feedmeparser.FeedmeHTMLParser('Wired')
         fmp.fetch_url('file://test/samples/wired-orig.html', TMPDIR, '0.html')
 
         expectcontents, fetchedcontents = self.read_two_files(
