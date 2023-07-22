@@ -1515,8 +1515,7 @@ Which (default = s): """)
 
             # Sites that put too much formatting crap in the RSS:
             if utils.g_config.getboolean(feedname, 'simplify_rss'):
-                simp = feedmeparser.HTMLSimplifier()
-                content = simp.simplify(content) + " ... "
+                content = feedmeparser.simplify_html(content) + " ... "
 
             # There's an increasing trend to load up RSS pages with images.
             # Try to remove them if skip_images is true,

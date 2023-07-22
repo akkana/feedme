@@ -392,11 +392,6 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
 
         self.single_page_url = None
 
-        # XXX temporarily record the original html src, so we can compare.
-        # srcfp = open(outfilename + ".src", "w")
-        # srcfp.write(html.encode(self.encoding, 'replace'))
-        # srcfp.close()
-
         # Keep a record of whether we've seen any content:
         self.wrote_data = False
 
@@ -404,11 +399,6 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         skip_nodespecs = utils.g_config.get_multiline(self.feedname,
                                                       'skip_nodes')
         if skip_nodespecs:
-            # XXX It's sad to parse with BeautifulSoup and then go back
-            # and re-parse the whole document for start and end tags,
-            # but with the node begin/end parsing used with lxml,
-            # it's hard to delete a node and all its contents.
-            # The latter should be rewritten to use BeautifulSoup.
             soup = BeautifulSoup(html, "lxml")
 
             changed = False
@@ -431,14 +421,8 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                 print("Changed nodes in the HTML: rewriting", file=sys.stderr)
                 html = str(soup)
 
-        # Does the page have an H1 header already? If not, manufacture one.
-        # XXX Would be better to do this check with BeautifulSoup,
-        # once that's used for all parsing instead of just skip_nodes.
-        if not re.search("<h1", html, re.IGNORECASE):
-            self.outfile.write("<h1>%s</h1>\n" % title)
-
         # Iterate through the HTML, making any necessary simplifications:
-        self.feed(html)
+        self.handle_html(html, title)
 
         # Did we write anything real, any real content?
         # XXX Currently this requires text, might want to add img tags.
@@ -495,13 +479,19 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         if not outfilename and type(self.outfile) is io.StringIO():
             return self.outfile.getvalue()
 
-    def feed(self, uhtml):
+    def handle_html(self, uhtml, title=None):
         """Parse the given unicode as HTML and make all needed substitutions.
            Write the resulting <body> to self.outfile.
            (The caller has already written a header and will write a footer.)
         """
 
         soup = BeautifulSoup(uhtml, features='lxml')
+
+        # Does the page have an H1 header already? If not, manufacture one.
+        if title and not soup.h1:
+            h1 = soup.new_tag("h1")
+            soup.body.insert(0, h1)
+            h1.append(title)
 
         # Tags to remove, but keep children if any
         for tagname in [
@@ -602,8 +592,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         # meta charset is the other meta tag we care about.
         # All other meta tags will be skipped, so do this test
         # before checking for tag_skippable.
-        if soup.meta:
-            meta = soup.meta
+        for meta in soup.find_all("meta"):
             if 'charset' in meta.attrs and meta.attrs['charset']:
                 self.encoding = meta.attrs['charset']
 
@@ -689,53 +678,17 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
             print("Empty body! Not writing", file=sys.stderr)
 
 
-# XXX Rewrite this class to use BeautifulSoup
-class HTMLSimplifier:
-    keeptags = [ 'p', 'br', 'div' ]
-    encoding = 'utf-8'
-
-    def __init__(self):
-        self.outstr = ''
-
-    def simplify(self, htmlstring):
-        tree = lxml.html.fromstring(htmlstring)
-        self.crawl_tree(tree)
-        return self.outstr
-
-    def crawl_tree(self, tree):
-        if type(tree.tag) is str:
-            # lxml.html gives comments tag = <built-in function Comment>
-            # This is not documented anywhere and there seems to be
-            # no way to ask "Is this element a comment?"
-            # So we only handle tags that are type str.
-            self.handle_starttag(tree.tag, tree.attrib)
-            if tree.text:
-                #print(tree.tag, "contains text", tree.text)
-                self.handle_data(tree.text)
-            for node in tree:
-                self.crawl_tree(node)
-            self.handle_endtag(tree.tag, tree.attrib)
-        # print the tail even if it was a comment -- the tail is
-        # part of the parent tag, not the current tag.
-        if tree.tail:
-            #print(tree.tag, "contains text", tree.tail)
-            self.handle_data(tree.tail)
-
-    def handle_starttag(self, tag, attrs):
-        # Only keep a few well-defined tags:
-        if tag in self.keeptags:
-            self.outstr += "<%s>" % tag
-
-    def handle_endtag(self, tag, attrs):
-        # Only keep a few well-defined tags:
-        if tag in self.keeptags:
-            self.outstr += "</%s>" % tag
-
-    def handle_data(self, data):
-        if type(data) is str:
-            self.outstr += data
-        else:
-            print("Data isn't str! type =", type(data), file=sys.stderr)
+def simplify_html(inhtml):
+    """Simplify HTML to contain only a very few tags.
+       Used for the text in the blurbs in each site toplevel page,
+       on sites that put the whole article in the RSS and so
+       need to be truncated.
+    """
+    soup = BeautifulSoup(inhtml, "lxml")
+    for tag in soup.body.find_all():
+        if "style" in tag.attrs:
+            del tag.attrs["style"]
+    return soup.prettify()
 
 
 #
