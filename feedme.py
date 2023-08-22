@@ -102,6 +102,8 @@ import email.utils as email_utils
 # FeedMe's module for parsing HTML inside feeds:
 import feedmeparser
 
+from msglog import MsgLog
+
 # Rewriting image URLs to local ones
 import imagecache
 
@@ -190,168 +192,6 @@ def clean_up():
     print("Cleaning up files older than %d days from feed and cache dirs" % days)
     clean_up_dir(feedsdir, True)
     clean_up_dir(cachedir, False)
-
-##################################################################
-# OUTPUT GENERATING FUNCTIONS
-# Define functions for each output format you need to support.
-#
-
-def run_conversion_cmd(appargs):
-    if verbose:
-        cmd = " ".join(appargs)
-        print("Running:", cmd, file=sys.stderr)
-        sys.stdout.flush()
-
-    retval = os.spawnvp(os.P_WAIT, appargs[0], appargs)
-    #retval = os.system(cmd)
-    if retval != 0:
-        raise OSError(retval, "Couldn't run: " + ' '.join(appargs))
-
-#
-# Generate a Plucker file
-#
-def make_plucker_file(indexfile, feedname, levels, ascii):
-    day = time.strftime("%a")
-    docname = day + " " + feedname
-    cleanfilename = day + "_" + feedname.replace(" ", "_")
-
-    # Make sure the plucker directory exists:
-    pluckerdir = os.path.join(expanduser("~/.plucker"), "feedme")
-    if not os.path.exists(pluckerdir):
-        os.makedirs(pluckerdir)
-
-    # Run plucker. This should eventually be configurable --
-    # but how, with arguments like these?
-
-    # Plucker mysteriously creates unbeamable files if the
-    # document name has a colons in it.
-    # So use the less pretty but safer underscored docname.
-    #docname = cleanfilename
-    appargs = [ "plucker-build", "-N", docname,
-                "-f", os.path.join("feedme", cleanfilename),
-                "--stayonhost", "--noimages",
-                "--maxdepth", str(levels),
-                "--zlib-compression", "--beamable",
-                "-H", "file://" + indexfile ]
-    if not ascii:
-        appargs.append("--charset=utf-8")
-
-    run_conversion_cmd(appargs)
-
-#
-# http://calibre-ebook.com/user_manual/conversion.html
-#
-def make_calibre_file(indexfile, feedname, extension, levels, ascii,
-                      author, flags):
-    day = time.strftime("%a")
-    # Prepend daynum to the filename because fbreader can only sort by filename
-    #daynum = time.strftime("%w")
-    cleanfilename = day + "_" + feedname.replace(" ", "_")
-    outdir = os.path.join(utils.g_config.get('DEFAULT', 'dir'), extension[1:])
-    if not os.access(outdir, os.W_OK):
-        os.makedirs(outdir)
-
-    appargs = [ "ebook-convert",
-                indexfile,
-                #os.path.join(expanduser("~/feeds"),
-                #             cleanfilename + extension),
-                # directory should be configurable too, probably
-                os.path.join(outdir, cleanfilename + extension),
-                "--authors", author ]
-    for flag in flags:
-        appargs.append(flag)
-    if verbose:
-        cmd = " ".join(appargs)
-        print("Running:", cmd, file=sys.stderr)
-        sys.stdout.flush()
-
-    run_conversion_cmd(appargs)
-
-#
-# Generate a fictionbook2 file
-#
-def make_fb2_file(indexfile, feedname, levels, ascii):
-    make_calibre_file(indexfile, feedname, ".fb2", levels, ascii,
-                      "feedme", flags = [ "--disable-font-rescaling" ] )
-
-#
-# Generate an ePub file
-# http://calibre-ebook.com/user_manual/cli/ebook-convert-3.html#html-input-to-epub-output
-# XXX Would be nice to have a way to do this without needing calibre,
-# so it could run on servers that don't have X/Qt libraries installed.
-#
-def make_epub_file(indexfile, feedname, levels, ascii):
-    make_calibre_file(indexfile, feedname, ".epub", levels, ascii,
-                      time.strftime("%m-%d %a") + " feeds",
-                      flags = [ '--no-default-epub-cover',
-                                '--dont-split-on-page-breaks' ])
-
-# END OUTPUT GENERATING FUNCTIONS
-##################################################################
-
-##################################################################
-# MsgLog: Print messages and also batch them up to print at the end:
-#
-class MsgLog:
-    def __init__(self):
-        self.msgstr = ""
-        self.errstr = ""
-
-    def msg(self, s):
-        self.msgstr += "\n" + s
-        print("MESSAGE:", s, file=sys.stderr)
-
-    def warn(self, s):
-        self.msgstr += "\n" + s
-        print("WARNING:", s, file=sys.stderr)
-
-    def err(self, s):
-        self.errstr += "\n" + s
-        print("ERROR:", s, file=sys.stderr)
-
-    def get_msgs(self):
-        return self.msgstr
-
-    def get_errs(self):
-        return self.errstr
-
-class tee():
-    '''A file-like class that can optionally send output to a log file.
-       Inspired by
-http://www.redmountainsw.com/wordpress/archives/python-subclassing-file-types
-       and with IRC help from Kirk McDonald.
-    '''
-    def __init__(self, _fd1, _fd2):
-        self.fd1 = _fd1
-        self.fd2 = _fd2
-
-    def __del__(self):
-        if self.fd1 != sys.stdout and self.fd1 != sys.stderr:
-            self.fd1.close()
-        if self.fd2 != sys.stdout and self.fd2 != sys.stderr:
-            self.fd2.close()
-
-    def write(self, text):
-        self.fd1.write(text)
-        # UnicodeEncodeError: 'ascii' codec can't encode character '\u2019' in position 4: ordinal not in range(128)
-        # fd1 is stderr.
-        # fd2 was opened with: outputlog = open(logfilename, "w", buffering=1)
-        # But it only happens when invoked from the web server,
-        # maybe because the web server's environment is C rather than UTF-8,
-        # and seemingly only when initiated from a phone (not from wget).
-        try:
-            self.fd2.write(text)
-        except UnicodeEncodeError:
-            s = "caught a UnicodeEncodeError trying to write a " \
-                + str(type(text)) + '\n'
-            self.fd1.write(s)
-            self.fd2.write(s)
-            # This just raises another error, probably for the same reason:
-            # utils.ptraceback()
-
-    def flush(self):
-        self.fd1.flush()
-        self.fd2.flush()
 
 #
 # Ctrl-C Interrupt handler: prompt for what to do.
@@ -1952,6 +1792,105 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
     if msgs:
         print("\n====== Errors =====", file=sys.stderr)
         print(msgs, file=sys.stderr)
+
+
+##################################################################
+# OUTPUT GENERATING FUNCTIONS
+# Define functions for each output format you need to support.
+#
+
+def run_conversion_cmd(appargs):
+    if verbose:
+        cmd = " ".join(appargs)
+        print("Running:", cmd, file=sys.stderr)
+        sys.stdout.flush()
+
+    retval = os.spawnvp(os.P_WAIT, appargs[0], appargs)
+    #retval = os.system(cmd)
+    if retval != 0:
+        raise OSError(retval, "Couldn't run: " + ' '.join(appargs))
+
+#
+# Generate a Plucker file
+#
+def make_plucker_file(indexfile, feedname, levels, ascii):
+    day = time.strftime("%a")
+    docname = day + " " + feedname
+    cleanfilename = day + "_" + feedname.replace(" ", "_")
+
+    # Make sure the plucker directory exists:
+    pluckerdir = os.path.join(expanduser("~/.plucker"), "feedme")
+    if not os.path.exists(pluckerdir):
+        os.makedirs(pluckerdir)
+
+    # Run plucker. This should eventually be configurable --
+    # but how, with arguments like these?
+
+    # Plucker mysteriously creates unbeamable files if the
+    # document name has a colons in it.
+    # So use the less pretty but safer underscored docname.
+    #docname = cleanfilename
+    appargs = [ "plucker-build", "-N", docname,
+                "-f", os.path.join("feedme", cleanfilename),
+                "--stayonhost", "--noimages",
+                "--maxdepth", str(levels),
+                "--zlib-compression", "--beamable",
+                "-H", "file://" + indexfile ]
+    if not ascii:
+        appargs.append("--charset=utf-8")
+
+    run_conversion_cmd(appargs)
+
+#
+# http://calibre-ebook.com/user_manual/conversion.html
+#
+def make_calibre_file(indexfile, feedname, extension, levels, ascii,
+                      author, flags):
+    day = time.strftime("%a")
+    # Prepend daynum to the filename because fbreader can only sort by filename
+    #daynum = time.strftime("%w")
+    cleanfilename = day + "_" + feedname.replace(" ", "_")
+    outdir = os.path.join(utils.g_config.get('DEFAULT', 'dir'), extension[1:])
+    if not os.access(outdir, os.W_OK):
+        os.makedirs(outdir)
+
+    appargs = [ "ebook-convert",
+                indexfile,
+                #os.path.join(expanduser("~/feeds"),
+                #             cleanfilename + extension),
+                # directory should be configurable too, probably
+                os.path.join(outdir, cleanfilename + extension),
+                "--authors", author ]
+    for flag in flags:
+        appargs.append(flag)
+    if verbose:
+        cmd = " ".join(appargs)
+        print("Running:", cmd, file=sys.stderr)
+        sys.stdout.flush()
+
+    run_conversion_cmd(appargs)
+
+#
+# Generate a fictionbook2 file
+#
+def make_fb2_file(indexfile, feedname, levels, ascii):
+    make_calibre_file(indexfile, feedname, ".fb2", levels, ascii,
+                      "feedme", flags = [ "--disable-font-rescaling" ] )
+
+#
+# Generate an ePub file
+# http://calibre-ebook.com/user_manual/cli/ebook-convert-3.html#html-input-to-epub-output
+# XXX Would be nice to have a way to do this without needing calibre,
+# so it could run on servers that don't have X/Qt libraries installed.
+#
+def make_epub_file(indexfile, feedname, levels, ascii):
+    make_calibre_file(indexfile, feedname, ".epub", levels, ascii,
+                      time.strftime("%m-%d %a") + " feeds",
+                      flags = [ '--no-default-epub-cover',
+                                '--dont-split-on-page-breaks' ])
+
+# END OUTPUT GENERATING FUNCTIONS
+##################################################################
 
 
 #
