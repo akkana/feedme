@@ -1246,7 +1246,7 @@ def get_feed(feedname, cache, last_time, msglog):
 
             itemnum += 1
             if verbose:
-                print("Item:", item_title, file=sys.stderr)
+                print("\nItem:", item_title, file=sys.stderr)
 
             # Now itemnum is the number of the entry on the index page;
             # pagenum is the html file of the subentry, e.g. 3.html.
@@ -1306,11 +1306,11 @@ def get_feed(feedname, cache, last_time, msglog):
                     else:
                         htmlstr = None
 
-                    parser.fetch_url(item_link,
-                                     outdir, fnam,
-                                     title=item_title, author=author,
-                                     footer=footer, html=htmlstr,
-                                     user_agent=user_agent)
+                        parser.fetch_url(item_link,
+                                         outdir, fnam,
+                                         title=item_title, author=author,
+                                         footer=footer, html=htmlstr,
+                                         user_agent=user_agent)
                     last_page_written = fnam
 
                 except feedmeparser.NoContentError as e:
@@ -1338,11 +1338,18 @@ def get_feed(feedname, cache, last_time, msglog):
                 # In Python 2.6, instead of raising socket.timeout
                 # a timeout will raise urllib2.URLerror with
                 # e.reason set to socket.timeout.
+                # XXX Should add a note to the index page about what happened.
                 except socket.timeout as e:
                     errmsg = "Socket.timeout error on title " + item_title
                     errmsg += "\nBreaking -- hopefully we'll write index.html"
                     msglog.err(errmsg)
-                    if utils.g_config.get(feedname, 'continue_on_timeout') == 'true':
+
+                    # Include a note in the indexstr
+                    indexstr += '<p>Socket timeout for <a href="%s">%s</a>\n' \
+                                % (item_link, item_title)
+
+                    if utils.g_config.get(feedname,
+                                          'continue_on_timeout') == 'true':
                         continue
                     break
 
@@ -1352,12 +1359,18 @@ def get_feed(feedname, cache, last_time, msglog):
                         errmsg = "URLError Socket.timeout on title "
                         errmsg += item_title
                         errmsg += "\n"
-                        errmsg += "Breaking -- hopefully we'll write index.html"
-                        msglog.err(errmsg)
                         indexstr += "<p>" + errmsg
                         if utils.g_config.get(feedname,
                                       'continue_on_timeout') == 'true':
+                            errmsg += "continue_on_timeout is true"
+                            msglog.err(errmsg)
                             continue
+                        errmsg += "Breaking -- hopefully we'll write index.html"
+                        msglog.err(errmsg)
+
+                        indexstr += \
+                            '<p>Socket timeout for <a href="%s">%s</a>\n' \
+                            % (item_link, item_title)
                         break
 
                     # Some other type of URLError.
@@ -1365,6 +1378,9 @@ def get_feed(feedname, cache, last_time, msglog):
                              % (item_link, item_link, str(e))
                     msglog.err(errmsg)
                     indexstr += "<p><b>" + errmsg + "</b>"
+
+                    indexstr += '<p>URLerror for <a href="%s">%s</a>: %s\n' \
+                                % (item_link, item_title, str(e))
                     continue
 
                 except KeyboardInterrupt:
@@ -1520,9 +1536,6 @@ Which (default = s): """)
             # There's an increasing trend to load up RSS pages with images.
             # Try to remove them if skip_images is true,
             # as well as any links that contain only an image.
-            # XXX Eventually, try to actually display them.
-            # The trick is reconciling their paths with paths from
-            # individual stories so we don't get multiple copies.
             if utils.g_config.getboolean(feedname, 'skip_images'):
                 content = re.sub('<a [^>]*href=.*> *<img .*?></a>', '', content)
                 content = re.sub('<img .*?>', '', content)

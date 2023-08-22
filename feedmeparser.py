@@ -52,6 +52,8 @@ class FeedmeURLDownloader(object):
     """An object that can download stories while retaining
        information about a feed, such as feed name, user_agent,
        encoding, cookie file and other config values.
+       If there are no network errors but the content is empty after any
+       substitutes (or just empty to begin with), raises NoContentError.
     """
 
     def __init__(self, feedname, verbose=False):
@@ -137,7 +139,13 @@ class FeedmeURLDownloader(object):
                 print(url, "isn't text -- content-type was", \
                       ctype, ". Skipping.", file=sys.stderr)
             response.close()
-            raise RuntimeError("Contents not text (%s)! %s" % (ctype, url))
+            # Used to raise a RuntimeError here -- but then the feed
+            # (especially Xtra) ends up empty with no indication why.
+            # Instead, return a simple string explaining the problem
+            # raise RuntimeError("Contents not text (%s)! %s" % (ctype, url))
+            print("Contents not text (%s)! %s" % (ctype, url), file=sys.stderr)
+            return '<p>Contents not text! (%s) <a href="%s">%s</a></p>' \
+                % (ctyle, url, url)
 
         # Were we redirected? geturl() will tell us that.
         self.cur_url = response.geturl()
@@ -198,6 +206,7 @@ class FeedmeURLDownloader(object):
 
         # contents can be undefined here.
         # If so, no point in doing anything else.
+        # But save a string telling the user there was a problem
         if not contents:
             if self.verbose:
                 print("Didn't read anything from response.read()",
@@ -495,12 +504,6 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
 
         # Tags to remove, but keep children if any
         for tagname in [
-                # disallow scripts
-                "script",
-
-                # style tags are often evil MS-Word crap
-                "style",
-
                 # Don't want embedded <head> stuff
                 # Unfortunately, skipping the <head> means we miss
                 # meta and base. Missing meta is a problem because it
@@ -541,6 +544,12 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
 
         # Tags to remove entirely along with all children
         for tagname in [
+                # disallow scripts
+                "script",
+
+                # style tags are often evil MS-Word crap
+                "style",
+
                 # The source tag is used to specify alternate forms of media.
                 # But the LA Daily Post uses it for images, and many browsers
                 # including Android WebView use it to override the img src.
