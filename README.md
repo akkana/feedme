@@ -12,4 +12,4 @@ on your reading device.
 It's written in Python and requires the feedparser module and lxml.html.
 
 [The documentation for feedme is on my website](http://shallowsky.com/software/feedme/),
-or in in feedme.html in this repository.
+or in in docs/feedme.html in this repository.

@@ -3,7 +3,7 @@
 # feedme: download RSS/Atom feeds and convert to HTML, epub, Plucker,
 # or other formats suitable for offline reading on a handheld device,
 #
-# Copyright 2009-2017 by Akkana Peck <akkana@shallowsky.com>
+# Copyright 2009-2023 by Akkana Peck <akkana@shallowsky.com>
 # and licensed under the GPLv2 or later.
 #
 # This program is free software: you can redistribute it and/or modify
@@ -49,6 +49,12 @@ applicable to all feeds:
     will be padded to this length (to make tapping easier). Default 25.
   save_days
     How long to retain feeds locally.
+  order
+    The order of the feeds you'd like to see: an ordered list
+    (one name per line) of the full names (not filenames) of each feed.
+    Feed directories will have _01, _02 etc. prepended.
+    Feeds not listed in order will be sorted alphabetically after
+    the ordered ones.
 
 Configuration options you might want to reset for specific feeds:
   continue_on_timeout
@@ -92,9 +98,12 @@ import shutil
 import traceback
 
 import feedparser
+import output_fmt
+
 import urllib.error
 import socket
 import posixpath
+import unicodedata
 
 # sheesh, this is apparently the recommended way to parse RFC 2822 dates:
 import email.utils as email_utils
@@ -102,6 +111,7 @@ import email.utils as email_utils
 # FeedMe's module for parsing HTML inside feeds:
 import feedmeparser
 
+from tee import tee
 from msglog import MsgLog
 
 # Rewriting image URLs to local ones
@@ -542,6 +552,30 @@ def parse_name_from_conf_file(feedfile):
                 return m.group(1)
     return None
 
+
+allow_unicode = False
+
+def slugify(value, allow_unicode=False):
+    """
+    Taken from https://github.com/django/django/blob/master/django/utils/text.py
+    Convert to ASCII if 'allow_unicode' is False. Convert spaces or repeated
+    dashes to single underscores. Remove characters that aren't alphanumerics,
+    underscores, or hyphens. Convert to lowercase. Also strip leading and
+    trailing whitespace, dashes, and underscores.
+    """
+    value = str(value)
+    if allow_unicode:
+        value = unicodedata.normalize('NFKC', value)
+    else:
+        value = unicodedata.normalize('NFKD', value) \
+                           .encode('ascii', 'ignore').decode('ascii')
+    value = re.sub(r'[^\w\s-]', '', value.lower())
+    return re.sub(r'[-\s]+', '_', value).strip('-_')
+
+
+# A number prepended to each feed if the user specifies feed order.
+g_feednum = 0
+
 #
 # Get a single feed
 #
@@ -550,7 +584,7 @@ def get_feed(feedname, cache, last_time, msglog):
        feedname can be the feed's config name ("Washington Post")
        or the conf file name ("washingtonpost" or "washingtonpost.conf").
     """
-    global verbose
+    global verbose, g_feednum
 
     verbose = (utils.g_config.get("DEFAULT", 'verbose').lower() == 'true')
 
@@ -639,10 +673,17 @@ def get_feed(feedname, cache, last_time, msglog):
     #encoding = utils.g_config.get(feedname, 'encoding')
 
     print("\n============\nfeedname:", feedname, file=sys.stderr)
-    # Use underscores rather than spaces in the filename.
-    feednamedir = feedname.replace(" ", "_")
-    # Also, make sure there are no colons (illegal in filenames):
-    feednamedir = feednamedir.replace(":", "")
+    # Make it a legal and sane dirname
+    feednamedir = slugify(feedname)
+
+    # If the user specified an order, prepend its number
+    g_feednum += 1
+    try:
+        order = utils.g_config.get_multiline('DEFAULT', 'order')
+        feednamedir = "%02d_%s" % (g_feednum, feednamedir)
+    except:
+        pass
+
     outdir = os.path.join(feedsdir,  feednamedir)
     if verbose:
         print("feednamedir:", feednamedir, file=sys.stderr)
@@ -1091,7 +1132,7 @@ def get_feed(feedname, cache, last_time, msglog):
             # Now itemnum is the number of the entry on the index page;
             # pagenum is the html file of the subentry, e.g. 3.html.
 
-            # Make the parent directory if we haven't already
+            # Make the directory for this feed if we haven't already
             if not os.access(outdir, os.W_OK):
                 if verbose:
                     print("Making", outdir, file=sys.stderr)
@@ -1550,11 +1591,11 @@ Which (default = n): """)
         # Generate the output files
         #
         if 'plucker' in formats:
-            make_plucker_file(indexfile, feedname, levels, ascii)
+            output_fmt.make_plucker_file(indexfile, feedname, levels, ascii)
         if 'fb2' in formats:
-            make_fb2_file(indexfile, feedname, levels, ascii)
+            output_fmt.make_fb2_file(indexfile, feedname, levels, ascii)
         if 'epub' in formats:
-            make_epub_file(indexfile, feedname, levels, ascii)
+            output_fmt.make_epub_file(indexfile, feedname, levels, ascii)
 
         #
         # All done. Update the cache file.
@@ -1603,6 +1644,32 @@ Which (default = n): """)
             print("lastfile", lastfile, "doesn't exist", file=sys.stderr)
     elif verbose:
         print("No pages written", file=sys.stderr)
+
+
+def user_sort(feednames):
+    """Given a list of feed names, return a list of feed names
+       sorted by the user's 'order' config, otherwise alphabetically
+       by title.
+       The order file need not include all feed names;
+       any that are missing will be listed alphabetically
+       after the ones that are listed.
+    """
+    try:
+        order = utils.g_config.get_multiline('DEFAULT', 'order')
+    except:
+        order = None
+    if not order:
+        return sorted(feednames)
+
+    orderedlist = []
+    for name in order:
+        if name in feednames:
+            orderedlist.append(name)
+            feednames.remove(name)
+
+    feednames.sort()
+
+    return orderedlist + feednames
 
 
 def main():
@@ -1702,25 +1769,32 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
                 feeds_to_remove.append(feedurl)
 
         for feedurl in feeds_to_remove:
-            print(feedurl, "is obsolete, will delete from cache", file=sys.stderr)
+            print(feedurl, "is obsolete, will delete from cache",
+                  file=sys.stderr)
             del cache[feedurl]
 
+    #
     # Actually get the feeds.
+    #
     try:
         if options.feeds:
             for feed in options.feeds:
                 print('Getting feed for', feed, file=sys.stderr)
                 get_feed(feed, cache, last_time, msglog)
         else:
-            for feedname in sections:
+            # Sort feeds according to user preference.
+            # Sections is a list of user-friendly feed names.
+            for feedname in user_sort(sections):
                 # This can hang if feedparser hangs parsing the initial RSS.
                 # So give the user a chance to ^C out of one feed
                 # without stopping the whole run:
                 try:
                     get_feed(feedname, cache, last_time, msglog)
                 except KeyboardInterrupt:
-                    print("Interrupt! Skipping feed", feedname, file=sys.stderr)
-                    handle_keyboard_interrupt("Type q to quit, anything else to skip to next feed: ")
+                    print("Interrupt! Skipping feed", feedname,
+                          file=sys.stderr)
+                    handle_keyboard_interrupt(
+                        "Type q to quit, anything else to skip to next feed: ")
                     # No actual need to check the return value:
                     # handle_keyboard_interrupt will quit if the user types q.
 
@@ -1740,7 +1814,8 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
         # Now we're done. It's time to move the log file into its final place.
         datestr = time.strftime("%m-%d-%a")
         datedir = os.path.join(feeddir, datestr)
-        print("Renaming", logfilename, "to", os.path.join(datedir, 'LOG'), file=sys.stderr)
+        print("Renaming", logfilename, "to", os.path.join(datedir, 'LOG'),
+              file=sys.stderr)
         os.rename(logfilename,
                   os.path.join(datedir, 'LOG'))
 
@@ -1792,105 +1867,6 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
     if msgs:
         print("\n====== Errors =====", file=sys.stderr)
         print(msgs, file=sys.stderr)
-
-
-##################################################################
-# OUTPUT GENERATING FUNCTIONS
-# Define functions for each output format you need to support.
-#
-
-def run_conversion_cmd(appargs):
-    if verbose:
-        cmd = " ".join(appargs)
-        print("Running:", cmd, file=sys.stderr)
-        sys.stdout.flush()
-
-    retval = os.spawnvp(os.P_WAIT, appargs[0], appargs)
-    #retval = os.system(cmd)
-    if retval != 0:
-        raise OSError(retval, "Couldn't run: " + ' '.join(appargs))
-
-#
-# Generate a Plucker file
-#
-def make_plucker_file(indexfile, feedname, levels, ascii):
-    day = time.strftime("%a")
-    docname = day + " " + feedname
-    cleanfilename = day + "_" + feedname.replace(" ", "_")
-
-    # Make sure the plucker directory exists:
-    pluckerdir = os.path.join(expanduser("~/.plucker"), "feedme")
-    if not os.path.exists(pluckerdir):
-        os.makedirs(pluckerdir)
-
-    # Run plucker. This should eventually be configurable --
-    # but how, with arguments like these?
-
-    # Plucker mysteriously creates unbeamable files if the
-    # document name has a colons in it.
-    # So use the less pretty but safer underscored docname.
-    #docname = cleanfilename
-    appargs = [ "plucker-build", "-N", docname,
-                "-f", os.path.join("feedme", cleanfilename),
-                "--stayonhost", "--noimages",
-                "--maxdepth", str(levels),
-                "--zlib-compression", "--beamable",
-                "-H", "file://" + indexfile ]
-    if not ascii:
-        appargs.append("--charset=utf-8")
-
-    run_conversion_cmd(appargs)
-
-#
-# http://calibre-ebook.com/user_manual/conversion.html
-#
-def make_calibre_file(indexfile, feedname, extension, levels, ascii,
-                      author, flags):
-    day = time.strftime("%a")
-    # Prepend daynum to the filename because fbreader can only sort by filename
-    #daynum = time.strftime("%w")
-    cleanfilename = day + "_" + feedname.replace(" ", "_")
-    outdir = os.path.join(utils.g_config.get('DEFAULT', 'dir'), extension[1:])
-    if not os.access(outdir, os.W_OK):
-        os.makedirs(outdir)
-
-    appargs = [ "ebook-convert",
-                indexfile,
-                #os.path.join(expanduser("~/feeds"),
-                #             cleanfilename + extension),
-                # directory should be configurable too, probably
-                os.path.join(outdir, cleanfilename + extension),
-                "--authors", author ]
-    for flag in flags:
-        appargs.append(flag)
-    if verbose:
-        cmd = " ".join(appargs)
-        print("Running:", cmd, file=sys.stderr)
-        sys.stdout.flush()
-
-    run_conversion_cmd(appargs)
-
-#
-# Generate a fictionbook2 file
-#
-def make_fb2_file(indexfile, feedname, levels, ascii):
-    make_calibre_file(indexfile, feedname, ".fb2", levels, ascii,
-                      "feedme", flags = [ "--disable-font-rescaling" ] )
-
-#
-# Generate an ePub file
-# http://calibre-ebook.com/user_manual/cli/ebook-convert-3.html#html-input-to-epub-output
-# XXX Would be nice to have a way to do this without needing calibre,
-# so it could run on servers that don't have X/Qt libraries installed.
-#
-def make_epub_file(indexfile, feedname, levels, ascii):
-    make_calibre_file(indexfile, feedname, ".epub", levels, ascii,
-                      time.strftime("%m-%d %a") + " feeds",
-                      flags = [ '--no-default-epub-cover',
-                                '--dont-split-on-page-breaks' ])
-
-# END OUTPUT GENERATING FUNCTIONS
-##################################################################
 
 
 #
