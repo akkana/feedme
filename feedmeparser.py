@@ -431,7 +431,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                 html = str(soup)
 
         # Iterate through the HTML, making any necessary simplifications:
-        self.handle_html(html, title)
+        self.handle_html(html, title, footer)
 
         # Did we write anything real, any real content?
         # XXX Currently this requires text, might want to add img tags.
@@ -441,13 +441,6 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
             self.outfile.close()
             os.remove(outfilename)
             raise NoContentError(errstr)
-
-        # feed() won't write the final tags, so that we can add a footer:
-        self.outfile.write(footer)
-
-        self.outfile.write("\n</body>\n</html>\n")
-
-        self.outfile.close()
 
         # Now we've fetched the normal URL.
         # Did we see a single-page link? If so, move the fetched
@@ -488,10 +481,12 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         if not outfilename and type(self.outfile) is io.StringIO():
             return self.outfile.getvalue()
 
-    def handle_html(self, uhtml, title=None):
+    def handle_html(self, uhtml, title=None, footer=''):
         """Parse the given unicode as HTML and make all needed substitutions.
-           Write the resulting <body> to self.outfile.
-           (The caller has already written a header and will write a footer.)
+           Append the footer if any, write the resulting <body>
+           to self.outfile, then close outfile.
+           (The caller has already opened the file and written a header.
+           XXX should handle the header here too, for consistency.)
         """
 
         soup = BeautifulSoup(uhtml, features='lxml')
@@ -681,6 +676,13 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         # Done with processing! Write the soup's body to self.outfile.
         pretty = soup.body.prettify()
         if pretty:
+            if footer:
+                # pretty already ends with </body>, so find the last
+                # occurrence of </body> and prepend the footer.
+                # Anything after the last </body> will be lost,
+                # but there shouldn't be anything there.
+                spl = pretty.rsplit('</body>', 1)
+                pretty = spl[0] + footer + '\n</body>\n</html>\n'
             self.outfile.write(pretty)
             self.wrote_data = True
         else:
