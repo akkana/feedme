@@ -22,6 +22,9 @@ import cgi
 # CONFIGURATION
 ##############################
 # Path to mount the device, if any:
+# this assumes a device that's mountable as usb-storage,
+# which was once true for Android but hasn't been since KitKat.
+# Left in just in case there are other devices that find it useful.
 if len(sys.argv) > 1:
     devicepath = sys.argv[1]
 else:
@@ -35,11 +38,11 @@ serverhome = '/var/www/'
 # Where to look for the saved URL files.
 # This will be tilde-expanded;
 # in CGI mode, ~ will expand to serverhome/feedme.
-urlfiles = [ "~/feeds/localurls" ]
+urlfiles = map(os.path.expanduser, [ "~/feeds/localurls" ])
 
 # Where to create the RSS file.
 # Will be tilde-expanded.
-rssfile = "~/feeds/xtraurls.rss"
+rssfile = os.path.expanduser("~/feeds/xtraurls.rss")
 
 # Where to save an HTML-format archive of the URLs.
 # We'll append to what's already there.
@@ -103,6 +106,8 @@ def find_process(progname, uid):
     # Didn't find a process.
     return None
 
+output = ''
+
 # See if we're being called as a CGI script:
 form = cgi.FieldStorage()
 if 'xtraurls' in form:
@@ -143,7 +148,7 @@ if 'xtraurls' in form:
         print("feedme exec:", feedme_exec, file=debuglog)
         print('HOME:', os.environ['HOME'], file=debuglog)
 
-    cgi_out = '''Content-type: text/plain
+    output += '''Content-type: text/plain
 Content-Disposition: inline; filename=urlrss-out.txt
 
 '''
@@ -160,7 +165,7 @@ Content-Disposition: inline; filename=urlrss-out.txt
             print("feedme is already running, pid", feedmeproc[-1],
                   file=debuglog)
 
-        print(cgi_out)
+        print(output)
         print('Feedme is already running! PID %s. Quitting' % feedmeproc[-1],
               file=debuglog)
         sys.exit(0)
@@ -168,13 +173,14 @@ Content-Disposition: inline; filename=urlrss-out.txt
     if debuglog:
         print("feedme isn't running yet -- whew!", file=sys.stderr)
 
-    cgi_out += 'Extra URLs\n'
+    output += 'Extra URLs\n'
 
 else:
+    # Not a CGI, run locally.
     debuglog = sys.stderr
 
     # Mount the device's SD card if it isn't already mounted:
-    if devicepath:
+    if devicepath and os.path.exists(devicepath):
         if not os.path.ismount(devicepath):
             subprocess.call(["mount", devicepath], shell=False)
             # Ignore return value: it will be nonzero if already mounted.
@@ -212,13 +218,15 @@ else:
     # We have URLs to save. So open the output files.
     #
 
+    now = datetime.datetime.now().astimezone()
+
     try:
         ofp = open(rssfile, "w")
     except Exception as e:
-        cgi_out += "\nCouldn't write to RSS file %s\n" % rssfile
-        cgi_out += str(e)
-        print(cgi_out)
-        print(cgi_out, file=debuglog)
+        output += "\nCouldn't write to RSS file %s\n" % rssfile
+        output += str(e)
+        print(output)
+        print(output, file=debuglog)
         sys.exit(1)
 
     print("""<rss version="0.91">
@@ -230,7 +238,7 @@ else:
     try:
         archivefp = open(urlarchive, "a")
         print("\n<h4>Feedme URLs %s</h4>" \
-            % datetime.datetime.now().ctime(), file=archivefp)
+            % now.ctime(), file=archivefp)
     except:
         print("Couldn't open archive file", urlarchive, file=sys.stderr)
         archivefp = None
@@ -239,16 +247,16 @@ else:
     for url in urls:
         # Follow it and see if it's a redirect -- we want the real, final url.
         try:
-            cgi_out += url + " ..."
+            output += url + " ..."
             sys.stdout.flush()
             urlobj = urllib.request.urlopen(url, timeout=60)
             newurl = urlobj.geturl()
             urlobj.close()
             if newurl != url:
-                cgi_out += " -- redirected to %s" % newurl
+                output += " -- redirected to %s" % newurl
                 url = newurl
 
-            cgi_out += "\n"
+            output += "\n"
         except:
             pass
 
@@ -265,7 +273,10 @@ else:
   <title>%s</title>
   <description>%s</description>
   <link>%s</link>
-</item>""" % (escaped_url, escaped_url, escaped_url), file=ofp)
+  <pubDate>%s</pubDate>
+</item>""" % (escaped_url, escaped_url, escaped_url,
+              now.strftime('%a, %d %b %Y %H:%M:%S %z')),
+            file=ofp)
         print("URL saved to RSS file:", url, file=debuglog)
 
         # Save an HTML copy to the archive file:
@@ -317,12 +328,12 @@ if cgi_mode:
         print(output[0], file=sys.stderr)
         print("\n==== stderr:", file=sys.stderr)
         print(output[1], file=sys.stderr)
-        cgi_out += "\n\n==== stdin:\n" + output[0]
-        cgi_out += "\n\n==== stderr:\n" + output[1]
+        output += "\n\n==== stdin:\n" + output[0]
+        output += "\n\n==== stderr:\n" + output[1]
 
-    print(cgi_out)
+    print(output)
     print("CGI OUTPUT:", file=sys.stderr)
-    print(cgi_out, file=sys.stderr)
+    print(output, file=sys.stderr)
 
 
 # ofp and archivefp has already been closed, but debuglog hasn't
