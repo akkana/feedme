@@ -125,7 +125,11 @@ def read_config_file(confdir=None):
         if fil.endswith('.conf') and fil != main_conf_file:
             filepath = os.path.join(confdir, fil)
             if os.access(filepath, os.R_OK):
-                g_config.read(filepath)
+                try:
+                    g_config.read(filepath)
+                except Exception as e:
+                    print("Couldn't parse site file %s: %s"
+                          % (filepath, e))
             else:
                 print("Can't read", filepath)
 

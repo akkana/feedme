@@ -42,14 +42,13 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
        weirdo wordpress plugin attributes.
 
        Download a local copy of the image (if not already downloaded),
-       and set the tag to point to it, and return (tagname, attrs)
+       and set the tag to point to it.
 
        Arguments:
-         tagname: the img tagname, which will be modified in place
-         attrs: the tag's attributes
-         feedname: the config name of the current feed
-         base_href: the base URL of the feed (not of this specific image,
-                    which may be hosted elsewhere)
+         tag: the img tag, which will be modified in place
+         feedname: the name of the current feed
+         base_href: the href from which we'll get the host
+         host: if there's a need to override the host in base_href
          newdir: the local directory in which this site is being written
     """
     attrs = tag.attrs

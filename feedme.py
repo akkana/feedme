@@ -1358,6 +1358,9 @@ Which (default = s): """)
                     if verbose:
                         print("==============", file=sys.stderr)
 
+                    # Put a note in the index string
+                    indexstr += "<pre>" + errmsg + "</pre>"
+
                     # Are we sure we didn't get anything?
                     # Should we decrement itemnum, etc. ?
                     continue   # Move on to next story, ensure we get index

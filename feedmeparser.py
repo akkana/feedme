@@ -16,6 +16,7 @@ import io
 import gzip
 
 import utils
+import traceback
 
 import imagecache
 
@@ -229,9 +230,13 @@ class FeedmeURLDownloader(object):
         try:
             return contents.decode(encoding=self.encoding)
         except UnicodeDecodeError:
-            print("UnicodeDecodeError on", self.cur_url)
+            print("UnicodeDecodeError on", self.cur_url, file=sys.stderr)
             return contents.decode(encoding=self.encoding,
                                    errors="backslashreplace")
+        except Exception as e:
+            s = "Unknown error trying to decode %s: %s" (self.cur_url, e)
+            print(s, file=sys.stderr)
+            return s
 
 
 class FeedmeHTMLParser(FeedmeURLDownloader):
@@ -431,14 +436,33 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                 html = str(soup)
 
         # Iterate through the HTML, making any necessary simplifications:
-        self.handle_html(html, title, footer)
+        try:
+            self.handle_html(html, title, footer)
+        except Exception as e:
+            if verbose:
+                print("error in handle_html:", e, file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
+                # traceback.print_stack(limit=6, file=sys.stderr)
+            # We're in trouble here, but try to write some indication
+            # of the error to the outfile.
+            try:
+                print("error in handle_html:", e, file=self.outfile)
+                self.wrote_data = True
+                self.outfile.close()
+            except Exception as e:
+                print("Couldn't save handle_html error in output file"
+                      " because:", e,
+                      file=sys.stderr)
 
         # Did we write anything real, any real content?
         # XXX Currently this requires text, might want to add img tags.
         if not self.wrote_data:
             errstr = "No real content"
             print(errstr, file=sys.stderr)
-            self.outfile.close()
+            try:
+                self.outfile.close()
+            except:
+                pass
             os.remove(outfilename)
             raise NoContentError(errstr)
 
@@ -569,12 +593,13 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
             for t in soup.find_all(tagname):
                 t.decompose()
 
-        # base tags can confuse the HTML displayer program
-        # into looking remotely for images we've copied locally.
-        # But it's useful to save it.
+        # <base> tags can confuse the HTML displayer program
+        # into looking remotely for images we've copied locally,
+        # so remove them.
+        # But it might be useful to save the base.
         for t in soup.find_all("base"):
-            if "href" in base.attrs:
-                self.base_href = base.attrs["href"]
+            if "href" in t.attrs:
+                self.base_href = t.attrs["href"]
                 t.decompose()
 
         # Remove img if skipping images
@@ -670,8 +695,12 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         # Finally, handle images
         for tagname in [ "img", "svg" ]:
             for t in soup.find_all(tagname):
-                imagecache.process_img_tag(t, self.feedname,
-                                           self.base_href, self.newdir)
+                try:
+                    imagecache.process_img_tag(t, self.feedname,
+                                               self.base_href, self.newdir)
+                except Exception as e:
+                    print("Error handling image tag", t, ":", e,
+                          file=sys.stderr)
 
         # Done with processing! Write the soup's body to self.outfile.
         pretty = soup.body.prettify()
