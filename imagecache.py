@@ -270,10 +270,11 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
         if tag:
             # Find tag's root BeautifulSoup object (needed for new_tag)
             soup = tag
+            tag.attrs['src'] = "nonlocal"
             while type(soup) is not BeautifulSoup:
                 soup = soup.parent
             awrap = soup.new_tag("a", href=src)
-            awrap.string = "[nonlocal image]"
+            awrap.string = " [nonlocal image]"
             # Originally, added alt text and wrapped the image in it,
             # but Firefox, at least, doesn't show images with
             # src = 'file:///nonexistant' and doesn't even show the
@@ -281,8 +282,6 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
             # tag.wrap(awrap)
             # Instead, just add a tag around a text string.
             tag.append(awrap)
-            print("Trying to wrap image tag in link to", src,
-                  file=sys.stderr)
         else:
             print("No soup, can't add image link to", src,
                   file=sys.stderr)
