@@ -1,15 +1,19 @@
 FeedMe: a lightweight RSS/feed fetcher.
 
-FeedMe is sort of an RSS version of Sitescooper or AvantGo,
-optimized for offline reading, especially on a small device like a phone,
+FeedMe is a program to fetch stories from RSS (or Atom) feeds
+to a local directory
+so they can be read offline, especially on a small device like a phone,
 PDA or ebook reader.
+It's sort of an RSS version of Sitescooper or AvantGo.
 
-You can maintain a list of RSS feeds you want to read daily,
-fetch them, cleaning up the HTML and (if you like) removing images,
-then, optionally, convert them to a format that's easier to read
-on your reading device.
+You specify which feeds you want to read, and run feedme once a day.
+Feedme fetches the stories (and, optionally, images), cleans up the HTML,
+and optionally converts to a format other than HTML if your reading device
+prefers some other format (e.g. epub).
 
-It's written in Python and requires the feedparser module and lxml.html.
+FeedMe is written in Python and uses the feedparser module,
+as well as various other dependencies like BeautifulSoup, lxml.html,
+and cookiejar.
 
 [The documentation for feedme is on my website](http://shallowsky.com/software/feedme/),
 or in in docs/feedme.html in this repository.
