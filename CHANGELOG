@@ -1,3 +1,22 @@
+2023-12-15  Akkana Peck  <akkana@shallowsky.com>
+	Refactoring, and rename feedmeparser to pageparser.
+
+2023-12-12  Akkana Peck  <akkana@shallowsky.com>
+	More improvement on not showing nonlocal images.
+
+2023-12-05  Akkana Peck  <akkana@shallowsky.com>
+	Continuing work on showing something in the index file
+	when stories couldn't be fetched.
+
+	urlrss: better local operation (helpful for testing).
+
+2023-07-21  Akkana Peck  <akkana@shallowsky.com>
+	Use BeautifulSoup for parsing.
+
+2023-07-20  Akkana Peck  <akkana@shallowsky.com>
+	Smarter handling of nonlocal images.
+	(Work continues for a few months.)
+
 2023-05-18  Akkana Peck  <akkana@shallowsky.com>
 	Add a new config variable, skip_nodes, to skip whole parsed
 	nodes and all children.
