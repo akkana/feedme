@@ -165,7 +165,7 @@ class FeedmeURLDownloader(object):
 
         # feed() is going to need to know the host, to rewrite urls.
         # So save host and prefix based on any redirects we've had:
-        # feedmeparser will need them.
+        # pagemeparser will need them.
         self.host = real_request.host
         self.prefix = real_request.type + '://' + self.host + '/'
 

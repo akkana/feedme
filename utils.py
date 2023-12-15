@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-"""Some useful utilities for feedme, mostly config-file related.
+"""Some useful utilities for feedme, mostly config-file and time related.
 """
 
 from configparser import ConfigParser
 
+import time
 import sys, os
 import traceback
 
@@ -134,6 +135,153 @@ def read_config_file(confdir=None):
                 print("Can't read", filepath)
 
     return g_config
+
+
+def expanduser(name):
+    """Do what os.path.expanduser does, but also allow $HOME in paths"""
+    # utils.g_config.get alas doesn't substitute $HOME or ~
+    if name[0:2] == "~/":
+        name = os.path.join(os.environ['HOME'], name[2:])
+    elif name[0:6] == "$HOME/":
+        name = os.path.join(os.environ['HOME'], name[6:])
+    return name
+
+
+def last_time_this_feed(feeddir):
+    '''Return the last time we fetched a given feed.
+       This is most useful for feeds that randomly show old entries.
+       Pass in the intended outdir, e.g. .../feeds/08-11-Thu/feedname
+       Returns seconds since epoch.
+    '''
+    feeddir, feedname = os.path.split(feeddir)
+    feeddir = os.path.dirname(feeddir)
+
+    if not os.path.exists(feeddir):
+        return 0
+
+    newest_mtime = 0
+    newest_mtime_dir = None
+    newest_parsed_time = 0
+    newest_parsed_dir = None
+
+    # Now feeddir is the top level feeds directory, containing dated subdirs.
+    # Look over old feed subdirs to find the most recent time we fed
+    # this particular feedname.
+    for d in os.listdir(feeddir):
+        dpath = os.path.join(feeddir, d)
+        if os.path.isdir(dpath):
+            oldfeeddir = os.path.join(dpath, feedname)
+            if os.path.isdir(oldfeeddir):
+                # We could do this one of two ways.
+                # d has a name like "08-03-Wed", so we could parse that.
+                # Or we could use the last modified date of the directory.
+                # Use both, and compare them.
+                # These are both seconds since epoch.
+                modtime = os.stat(oldfeeddir).st_mtime
+                if modtime > newest_mtime:
+                    newest_mtime = modtime
+                    newest_mtime_dir = d
+
+                # As of October 2016 suddenly strptime has a new error mode
+                # where it can get a ValueError: unconverted data remains.
+                # Guard against this:
+                try:
+                    # The feed directory name doesn't have a year,
+                    # so make the year the same as the modtime:
+                    ddate = "%s-%d" % (d, time.localtime(modtime).tm_year)
+                    parsed_time = time.mktime(time.strptime(ddate,
+                                                            "%m-%d-%a-%Y"))
+                except ValueError:
+                    msglog.msg("Skipping directory %s" % d)
+                    continue
+                if parsed_time > newest_parsed_time:
+                    newest_parsed_time = parsed_time
+                    newest_parsed_dir = d
+
+    if newest_mtime_dir != newest_parsed_dir:
+        msglog.warn("Last time we fetched %s was %s, but dir was %s" \
+                    % (feedname,
+                       time.strftime("%a-%Y-%m-%d",
+                                     time.localtime(newest_mtime)),
+                       newest_parsed_dir))
+    # else:
+    #     # XXX This should only print if verbose,
+    #     # but this function doesn't know whether we're verbose.
+    #     print >>sys.stderr, "Last time we fetched %s was %s" \
+    #         % (feedname, newest_parsed_dir))
+
+    return newest_mtime
+
+
+def falls_between(when, time1, time2):
+    """Does a given day-of-week or day-of-month fall between
+       the two given times? It is presumed that time1 <= time2.
+       If when == "Tue", did we cross a tuesday getting from time1 to time2?
+       If when == 15, did we cross the 15th of a month?
+       If when == none, return True.
+       If when matches time2, return True.
+    """
+    if not when or type(when) is str and len(when) <= 0:
+        return True
+
+    # We need both times both in seconds since epoch and in struct_time:
+    def both_time_types(t):
+        """Given a time that might be either seconds since epoch or struct_time,
+           return a tuple of (seconds, struct_time).
+        """
+        if type(t) is time.struct_time:
+            return time.mktime(t), t
+        elif type(t) is int or type(t) is float:
+            return t, time.localtime(t)
+        else : raise ValueError("%s not int or struct_time" % str(t))
+
+    (t1, st1) = both_time_types(time1)
+    (t2, st2) = both_time_types(time2)
+
+    daysdiff = (t2 - t1) / 60. / 60. / 24.
+    if daysdiff < 0:
+        msglog.err("daysdiff < 0!!! " + str(daysdiff))
+
+    # Is it a day of the month?
+    try:
+        day_of_month = int(when)
+
+        # It is a day of the month! How many days in between the two dates?
+        if daysdiff > 31:
+            return True
+
+        # Now we know the two dates differ by less than a month.
+        # Are time1 and time2 both in the same month? Then it's easy.
+        if st1.tm_mon == st2.tm_mon:
+            return st1.tm_mday <= day_of_month and st2.tm_mday >= day_of_month
+
+        # Else time1 is the month prior to time2, so:
+        return st1.tm_mday < day_of_month or day_of_month <= st2.tm_mday
+
+    except ValueError :  # Not an integer, probably a string.
+        pass
+
+    if type(when) is not str:
+        raise ValueError("%s must be a string or integer" % when)
+
+    # Okay, not a day of the month. Is it a day of the week?
+    # We have to start with Monday because struct_time.tm_wday does.
+    weekdays = [ 'mo', 'tu', 'we', 'th', 'fr', 'sa', 'su' ]
+    if len(when) < 2:
+        raise ValueError("%s too short: days must have at least 2 chars" % when)
+
+    when = when[0:2].lower()
+    if when not in weekdays:
+        raise ValueError("%s is a string but not a day" % when)
+
+    # Whew -- we know it's a day of the week.
+
+    # Has more than a week passed? Then it encompasses all weekdays.
+    if daysdiff > 7:
+        return True
+
+    day_of_week = weekdays.index(when)
+    return (st2.tm_wday - day_of_week) % 7 < daysdiff
 
 
 # Python3 seems to have no straightforward way to just print a

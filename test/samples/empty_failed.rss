@@ -1,0 +1,19 @@
+<rss version="0.91">
+<channel>
+  <title>FeedMe URLs</title>
+  <description>Empty and Failed URLs Sat Aug 12 16:57:45 2023</description>
+  <language>en</language>
+
+<item>
+  <title>Test of Nonexistant File</title>
+  <description>blah blah</description>
+  <link>https://example.com/failed_url.html</link>
+</item>
+
+<item>
+  <title>Test of Empty File</title>
+  <description>Test of Present but Empty File</description>
+  <link>https://example.com/empty.html</link>
+</item>
+</channel>
+</rss>

@@ -241,7 +241,7 @@ def fetch_article(url):
         ad.decompose()
 
     # Remove images, for now, until this is folded into the
-    # regular feedme/feedmeparser code to fetch images locally.
+    # regular feedme/pagemeparser code to fetch images locally.
     for img in article.find_all("img"):
         img.decompose()
     # NYT has huge SVG images that use the "svg" tag

@@ -109,10 +109,13 @@ import unicodedata
 import email.utils as email_utils
 
 # FeedMe's module for parsing HTML inside feeds:
-import feedmeparser
+import pageparser
 
 from tee import tee
-from msglog import MsgLog
+import msglog
+
+from cache import FeedmeCache
+from utils import falls_between, last_time_this_feed, expanduser
 
 # Rewriting image URLs to local ones
 import imagecache
@@ -133,12 +136,6 @@ except AttributeError:
 
 from bs4 import BeautifulSoup
 
-# Use XDG for the config and cache directories if it's available
-try:
-    import xdg.BaseDirectory
-except:
-    pass
-
 # For importing helper modules
 import importlib
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)),
@@ -146,14 +143,6 @@ sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)),
 
 verbose = False
 
-def expanduser(name):
-    """Do what os.path.expanduser does, but also allow $HOME in paths"""
-    # utils.g_config.get alas doesn't substitute $HOME or ~
-    if name[0:2] == "~/":
-        name = os.path.join(os.environ['HOME'], name[2:])
-    elif name[0:6] == "$HOME/":
-        name = os.path.join(os.environ['HOME'], name[6:])
-    return name
 
 #
 # Clean up old feed directories
@@ -226,320 +215,6 @@ def handle_keyboard_interrupt(msg):
     if response[0] == 'q':
         sys.exit(1)
     return response[0]
-
-def falls_between(when, time1, time2):
-    """Does a given day-of-week or day-of-month fall between
-       the two given times? It is presumed that time1 <= time2.
-       If when == "Tue", did we cross a tuesday getting from time1 to time2?
-       If when == 15, did we cross the 15th of a month?
-       If when == none, return True.
-       If when matches time2, return True.
-    """
-    if not when or type(when) is str and len(when) <= 0:
-        return True
-
-    # We need both times both in seconds since epoch and in struct_time:
-    def both_time_types(t):
-        """Given a time that might be either seconds since epoch or struct_time,
-           return a tuple of (seconds, struct_time).
-        """
-        if type(t) is time.struct_time:
-            return time.mktime(t), t
-        elif type(t) is int or type(t) is float:
-            return t, time.localtime(t)
-        else : raise ValueError("%s not int or struct_time" % str(t))
-
-    (t1, st1) = both_time_types(time1)
-    (t2, st2) = both_time_types(time2)
-
-    daysdiff = (t2 - t1) / 60. / 60. / 24.
-    if daysdiff < 0:
-        msglog.err("daysdiff < 0!!! " + str(daysdiff))
-
-    # Is it a day of the month?
-    try:
-        day_of_month = int(when)
-
-        # It is a day of the month! How many days in between the two dates?
-        if daysdiff > 31:
-            return True
-
-        # Now we know the two dates differ by less than a month.
-        # Are time1 and time2 both in the same month? Then it's easy.
-        if st1.tm_mon == st2.tm_mon:
-            return st1.tm_mday <= day_of_month and st2.tm_mday >= day_of_month
-
-        # Else time1 is the month prior to time2, so:
-        return st1.tm_mday < day_of_month or day_of_month <= st2.tm_mday
-
-    except ValueError :  # Not an integer, probably a string.
-        pass
-
-    if type(when) is not str:
-        raise ValueError("%s must be a string or integer" % when)
-
-    # Okay, not a day of the month. Is it a day of the week?
-    # We have to start with Monday because struct_time.tm_wday does.
-    weekdays = [ 'mo', 'tu', 'we', 'th', 'fr', 'sa', 'su' ]
-    if len(when) < 2:
-        raise ValueError("%s too short: days must have at least 2 chars" % when)
-
-    when = when[0:2].lower()
-    if when not in weekdays:
-        raise ValueError("%s is a string but not a day" % when)
-
-    # Whew -- we know it's a day of the week.
-
-    # Has more than a week passed? Then it encompasses all weekdays.
-    if daysdiff > 7:
-        return True
-
-    day_of_week = weekdays.index(when)
-    return (st2.tm_wday - day_of_week) % 7 < daysdiff
-
-def last_time_this_feed(feeddir):
-    '''Return the last time we fetched a given feed.
-       This is most useful for feeds that randomly show old entries.
-       Pass in the intended outdir, e.g. .../feeds/08-11-Thu/feedname
-       Returns seconds since epoch.
-    '''
-    feeddir, feedname = os.path.split(feeddir)
-    feeddir = os.path.dirname(feeddir)
-
-    if not os.path.exists(feeddir):
-        return 0
-
-    newest_mtime = 0
-    newest_mtime_dir = None
-    newest_parsed_time = 0
-    newest_parsed_dir = None
-
-    # Now feeddir is the top level feeds directory, containing dated subdirs.
-    # Look over old feed subdirs to find the most recent time we fed
-    # this particular feedname.
-    for d in os.listdir(feeddir):
-        dpath = os.path.join(feeddir, d)
-        if os.path.isdir(dpath):
-            oldfeeddir = os.path.join(dpath, feedname)
-            if os.path.isdir(oldfeeddir):
-                # We could do this one of two ways.
-                # d has a name like "08-03-Wed", so we could parse that.
-                # Or we could use the last modified date of the directory.
-                # Use both, and compare them.
-                # These are both seconds since epoch.
-                modtime = os.stat(oldfeeddir).st_mtime
-                if modtime > newest_mtime:
-                    newest_mtime = modtime
-                    newest_mtime_dir = d
-
-                # As of October 2016 suddenly strptime has a new error mode
-                # where it can get a ValueError: unconverted data remains.
-                # Guard against this:
-                try:
-                    # The feed directory name doesn't have a year,
-                    # so make the year the same as the modtime:
-                    ddate = "%s-%d" % (d, time.localtime(modtime).tm_year)
-                    parsed_time = time.mktime(time.strptime(ddate,
-                                                            "%m-%d-%a-%Y"))
-                except ValueError:
-                    msglog.msg("Skipping directory %s" % d)
-                    continue
-                if parsed_time > newest_parsed_time:
-                    newest_parsed_time = parsed_time
-                    newest_parsed_dir = d
-
-    if newest_mtime_dir != newest_parsed_dir:
-        msglog.warn("Last time we fetched %s was %s, but dir was %s" \
-                    % (feedname,
-                       time.strftime("%a-%Y-%m-%d",
-                                     time.localtime(newest_mtime)),
-                       newest_parsed_dir))
-    # else:
-    #     # XXX This should only print if verbose,
-    #     # but this function doesn't know whether we're verbose.
-    #     print >>sys.stderr, "Last time we fetched %s was %s" \
-    #         % (feedname, newest_parsed_dir))
-
-    return newest_mtime
-
-class FeedmeCache(object):
-    '''The FeedmeCache is a dictionary where the keys are site RSS URLs,
-       and for each feed we have a list of URLs we've seen.
-       { siteurl: [ url, url, url, ...] }
-       It's best to create a new FeedmeCache using the static method
-       FeedmeCache.newcache().
-       filename is the cache file we're using;
-       last_time is the last modified time of the cache file, or None.
-    '''
-    def __init__(self, cachefile):
-        self.filename = cachefile
-        self.thedict = {}
-        self.last_time = None
-
-    @staticmethod
-    def get_cache_dir():
-        if 'XDG_CACHE_HOME' in os.environ:
-            cachehome = os.environ['XDG_CACHE_HOME']
-        elif 'xdg.BaseDirectory' in sys.modules:
-            cachehome = xdg.BaseDirectory.xdg_cache_home
-        else:
-            cachehome = expanduser('~/.cache')
-
-        return os.path.join(cachehome, 'feedme')
-
-    @staticmethod
-    def newcache():
-        '''Find the cache file and load it into a newly created Cache object,
-           returning the cache object.
-           If there's no cache file yet, create one.
-        '''
-        cachefile = os.path.join(FeedmeCache.get_cache_dir(), "feedme.dat")
-
-        if not os.access(cachefile, os.W_OK):
-            dirname = os.path.dirname(cachefile)
-            if not os.path.exists(dirname):
-                os.makedirs(dirname)
-            cache = FeedmeCache(cachefile)
-            cache.last_time = None
-
-        else:
-            cache = FeedmeCache(cachefile)
-
-            # Make a backup of the cache file, in case something goes wrong.
-            cache.back_up()
-            cache.last_time = os.stat(cachefile).st_mtime
-            cache.read_from_file()
-
-        return cache
-
-    #
-    # New style cache files are human readable and look like this:
-    # FeedMe v. 1
-    # siteurl|time|url url, url ...
-    # One line per site.
-    # urls are a list of URLs on the RSS feed the last time we looked.
-    # Time is the last time we updated this site, seconds since epoch.
-    # Urls must all be urlencoded,
-    # and in particular must have no spaces or colons.
-    #
-    def read_from_file(self):
-        '''Read cache from a cache file, either old or new style.'''
-        with open(self.filename) as fp:
-            contents = fp.read()
-
-        if not contents.startswith("FeedMe v."):
-            print("Sorry, old-style pickle-based cache files are "
-                  "no longer supported.\nStarting over without cache.")
-            # It's an old style, pickle-based file.
-            return
-
-        # Must be a new-style file.
-        for line in contents.split('\n')[1:]:
-            if not line.strip():
-                continue
-            try:
-                key, urllist = line.split('|')
-            except ValueError:
-                print("Problem splitting on |:", line, file=sys.stderr)
-                continue
-            key = key.strip()
-            urls = urllist.strip().split()
-
-            self.thedict[key] = urls
-
-    def back_up(self):
-        '''Back up the cache file to a file named for when
-           the last cache, self.filename, was last modified.
-        '''
-        try:
-            mtime = os.stat(self.filename).st_mtime
-            timeappend = time.strftime("%y-%m-%d-%a", time.localtime(mtime))
-
-            base, ext = os.path.splitext(self.filename)
-            backupfilebase = "%s-%s%s" % (base, timeappend, ext)
-            num = 0
-            for num in range(10):
-                if num:
-                    backupfile = "%s-%d" % (backupfilebase, num)
-                else:
-                    backupfile = backupfilebase
-                if not os.path.exists(backupfile):
-                    break
-            print("Backing up cache file to", backupfile)
-            shutil.copy2(self.filename, backupfile)
-        except Exception as e:
-            msglog.warn("WARNING: Couldn't back up cache file!")
-            print(str(e), file=sys.stderr)
-            utils.ptraceback()
-
-    def save_to_file(self):
-        '''Serialize the cache to a version-1 new style cache file.
-           The file should already have been backed up by newcache().
-        '''
-        # Write the new cache file.
-        with open(self.filename, "w") as fp:
-            print("FeedMe v. 1", file=fp)
-            for k in self.thedict:
-                print("%s|%s" % (FeedmeCache.id_encode(k),
-                                 ' '.join(map(FeedmeCache.id_encode,
-                                              self.thedict[k]))), file=fp)
-
-        # Remove backups older than N days.
-        # XXX should pass in save_days from config file
-        cachedir = os.path.dirname(self.filename)
-        files = os.listdir(cachedir)
-        for f in files:
-            if not f.startswith("feedme."):
-                continue
-            # does it have six numbers after the feedme?
-            try:
-                d = int(f[7:14])
-            except ValueError:
-                continue
-            # It matches feedme.nnnnnn. How old is it? st_mtime is secs.
-            mtime = os.stat(f).st_mtime
-            age_days = (time.time() - mtime) / 60 / 60 / 24
-            if age_days > 5:
-                print("Removing old cache", f, file=sys.stderr)
-                os.unlink(f)
-
-    def save_to_file_pickle(self):
-        '''Serialize the cache to an old-style pickle cachefile.'''
-        t = time.time()
-        cPickle.dump(cache, open(self.filename, 'w'))
-        print("Writing cache took", time.time() - t, "seconds", file=sys.stderr)
-
-    def __repr__(self):
-        return self.thedict.__repr__()
-
-    @staticmethod
-    def id_encode(s):
-        return s.replace(' ', '+')
-
-    # Dictionary class forwarded methods:
-    def __getitem__(self, key):
-        return self.thedict.__getitem__(key)
-
-    def __setitem__(self, key, val):
-        return self.thedict.__setitem__(key, val)
-
-    def __delitem__(self, name):
-        return self.thedict.__delitem__(name)
-
-    def __len__(self):
-        # Dictionaries don't always/reliably have __len__, apparently;
-        # just calling self.__len__() sometimes fails with
-        # TypeError: an integer is required
-        return len(list(self.thedict.keys()))
-
-    def __iter__(self):
-        return self.thedict.__iter__()
-
-    def __contains__(self, item):
-        return self.thedict.__contains__(item)
-
-    def keys(self):
-        return list(self.thedict.keys())
 
 def parse_name_from_conf_file(feedfile):
     """Given the full pathname to a .conf file name,
@@ -832,7 +507,7 @@ def get_feed(feedname, cache, last_time, msglog):
         if sitefeedurl.startswith("file://"):
             feed = feedparser.parse(sitefeedurl)
         else:
-            downloader = feedmeparser.FeedmeURLDownloader(feedname,
+            downloader = pageparser.FeedmeURLDownloader(feedname,
                                                           verbose=verbose)
             rss_str = downloader.download_url(sitefeedurl)
             feed = feedparser.parse(rss_str)
@@ -845,7 +520,7 @@ def get_feed(feedname, cache, last_time, msglog):
         print(str(e), file=sys.stderr)
         return
 
-    except feedmeparser.CookieError as e:
+    except pageparser.CookieError as e:
         msglog.err("No cookies, skipping site")
         msglog.err("Error was: %s" % e.message)
         msglog.err("Cookiefile details: %s\n" % e.longmessage)
@@ -1146,7 +821,7 @@ def get_feed(feedname, cache, last_time, msglog):
             # A parser is mostly needed for levels > 1, but even with
             # levels=1 we'll use it at the end for rewriting images
             # in the index string.
-            parser = feedmeparser.FeedmeHTMLParser(feedname)
+            parser = pageparser.FeedmeHTMLParser(feedname)
 
             #
             # If it's a normal multi-level site,
@@ -1194,7 +869,7 @@ def get_feed(feedname, cache, last_time, msglog):
                                          user_agent=user_agent)
                     last_page_written = fnam
 
-                except feedmeparser.NoContentError as e:
+                except pageparser.NoContentError as e:
                     # fetch_url didn't get the page or didn't write a file.
                     # So don't increment pagenum or itemnum for the next story.
                     msglog.warn("Didn't find any content on " + item_link
@@ -1415,7 +1090,7 @@ Which (default = s): """)
 
             # Sites that put too much formatting crap in the RSS:
             if utils.g_config.getboolean(feedname, 'simplify_rss'):
-                content = feedmeparser.simplify_html(content) + " ... "
+                content = pageparser.simplify_html(content) + " ... "
 
             # There's an increasing trend to load up RSS pages with images.
             # Try to remove them if skip_images is true,
@@ -1707,8 +1382,6 @@ Copyright 2017 by Akkana Peck; share and enjoy under the GPL v2 or later."
     # print("Parsed args. args:", options)
 
     utils.read_config_file()
-
-    msglog = MsgLog()
 
     sections = utils.g_config.sections()
 

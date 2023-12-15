@@ -8,7 +8,7 @@ you should only need to do it once!)
 On the web server, create $SERVERDIR/feedme and $SERVERDIR/feeds
 ($SERVERDIR will probably be /var/www/ for simple setups).
 They must both be writable by the web server's user (probably www-data).
-Once feedmeparser.py has been created, $SERVERDIR/feedme probably
+Once pageparser.py has been created, $SERVERDIR/feedme probably
 no longer needs to be writable, but $SERVERDIR/feeds and
 /$SERVERDIR/feedme/.cache/feedme still will need to remain
 writable by www-data forever.
@@ -23,11 +23,11 @@ the error). I suggest using $SERVERDIR/feeds where $SERVERDIR is the
 same path you'd use from a login shell, e.g. /var/www/feeds.
 
 Copy or link the binaries you need --
-feedme, feedmeparser.py, and urlrss.cgi --
+feedme, pageparser.py, and urlrss.cgi --
 to $SERVERDIR/feedme/urlrss.cgi and make sure they're executable.
 (Your web server will also need to be able to execute CGI scripts
 in that directory. If not, mvoe urlrss.cgi to wherever CGI scripts
-need to live. You may also need to move feedme and feedmeparser.py,
+need to live. You may also need to move feedme and pageparser.py,
 but I'm not sure since I allow CGIs anywhere.)
 
 Now you should be able to initiate a feed by visiting the URL

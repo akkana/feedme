@@ -13,9 +13,10 @@ import shutil
 import filecmp
 import sys, os
 
-import feedmeparser
+import pageparser
 import feedme
 import utils
+import msglog
 
 sys.path.insert(0, '..')
 
@@ -95,11 +96,10 @@ class FeedmeTests(TestCaseWithSave):
     # by urllib.request.build_opener, but that requires building a
     # whole Response by hand.
     #
-    @patch('feedmeparser.FeedmeURLDownloader.download_url',
+    @patch('pageparser.FeedmeURLDownloader.download_url',
            side_effect=mock_downloader)
     def test_file_exists(self, themock):
         config = utils.read_config_file("test/config")
-        msglog = feedme.MsgLog()
 
         feedme.get_feed('Slashdot', None, None, msglog)
 
@@ -147,7 +147,7 @@ page_end = <div id="comment-form-nascar">
         shutil.copyfile('siteconf/wired.conf', CONFFILE)
         utils.read_config_file(confdir='test/config')
 
-        fmp = feedmeparser.FeedmeHTMLParser('Wired')
+        fmp = pageparser.FeedmeHTMLParser('Wired')
         fmp.fetch_url('file://test/samples/wired-orig.html', TMPDIR, '0.html')
 
         expectcontents, fetchedcontents = self.read_two_files(

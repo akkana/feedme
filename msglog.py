@@ -30,3 +30,19 @@ class MsgLog:
         return self.errstr
 
 
+gMsglog = MsgLog()
+
+def msg(s):
+    gMsglog.msg(s)
+
+def warn(s):
+    gMsglog.warn(s)
+
+def err(s):
+    gMsglog.err(s)
+
+def get_msgs():
+    return gMsglog.get_msgs()
+
+def get_errs():
+    return gMsglog.get_errs()
