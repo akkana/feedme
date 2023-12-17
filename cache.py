@@ -38,7 +38,7 @@ class FeedmeCache(object):
         elif 'xdg.BaseDirectory' in sys.modules:
             cachehome = xdg.BaseDirectory.xdg_cache_home
         else:
-            cachehome = expanduser('~/.cache')
+            cachehome = utils.expanduser('~/.cache')
 
         return os.path.join(cachehome, 'feedme')
 

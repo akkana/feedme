@@ -7,7 +7,7 @@ import time
 import shutil
 import os, sys
 
-from feedme import expanduser
+from utils import expanduser
 
 
 def fetch_feed(target_dir, helper_args):

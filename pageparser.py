@@ -234,7 +234,7 @@ class FeedmeURLDownloader(object):
             return contents.decode(encoding=self.encoding,
                                    errors="backslashreplace")
         except Exception as e:
-            s = "Unknown error trying to decode %s: %s" (self.cur_url, e)
+            s = "Unknown error trying to decode %s: %s" % (self.cur_url, e)
             print(s, file=sys.stderr)
             return s
 
