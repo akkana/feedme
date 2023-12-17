@@ -318,7 +318,7 @@ def get_feed(feedname, cache, last_time, msglog):
         return
 
     verbose = (utils.g_config.get(feedname, 'verbose').lower() == 'true')
-    levels = int(utils.g_config.get(feedname, 'levels'))
+    levels = float(utils.g_config.get(feedname, 'levels'))
 
     feedsdir = expanduser(feedsdir)
     todaystr = time.strftime("%m-%d-%a")
@@ -603,7 +603,7 @@ def get_feed(feedname, cache, last_time, msglog):
             # Answer: not obsolete, at least A Word A Day uses it.
             # But sometimes this clause will be triggered on a site
             # that doesn't have "links" in its RSS source
-            # (e.g. Washington Post), which then won't have href either.
+            # (e.g. Washington Post), which doesn't have href either.
             #
             if 'links' in item:
                 href = [str(i['href']) for i in item.links
@@ -818,6 +818,8 @@ def get_feed(feedname, cache, last_time, msglog):
             else:
                 author = None
 
+            content = get_content(item)
+
             # A parser is mostly needed for levels > 1, but even with
             # levels=1 we'll use it at the end for rewriting images
             # in the index string.
@@ -859,14 +861,35 @@ def get_feed(feedname, cache, last_time, msglog):
                                 print("fetch failed on", item_link,
                                       file=sys.stderr)
                             continue
+
                     else:
-                        htmlstr = None
+                        if levels == 1.5:
+                            # On sites that put the full story in the RSS
+                            # entry, we can use that for the story,
+                            # no need to fetch another file.
+                            htmlstr = content
+                        else:
+                            htmlstr = None
 
                         parser.fetch_url(item_link,
                                          outdir, fnam,
                                          title=item_title, author=author,
                                          footer=footer, html=htmlstr,
                                          user_agent=user_agent)
+
+                        # On level 1.5 sites, import any changes just made
+                        # to the final output.
+                        # On level 2 sites, pageparser didn't change the
+                        # index page, just sub-pages so this wouldn't help.
+                        # XXX should be a better way to get that from
+                        # the pageparser, and a way to get pageparser
+                        # to clean the index page for levels 1 and 2.
+                        if levels == 1.5:
+                            justwrotefile = os.path.join(outdir, fnam)
+                            if os.path.exists(justwrotefile):
+                                with open(justwrotefile) as justwrotefp:
+                                    content = justwrotefp.read()
+
                     last_page_written = fnam
 
                 except pageparser.NoContentError as e:
@@ -1075,17 +1098,7 @@ Which (default = s): """)
             # If it's the last entry, we'll change it to "[end]" later.
             indexstr += next_item_string % (itemnum+1)
 
-            # Add either the content or the summary.
-            # Prefer content since it might have links.
-            if 'content' in item:
-                content = str(item.content[0].value) + "\n"
-            elif 'summary_detail' in item:
-                content = str(item.summary_detail.value) + "\n"
-            elif 'summary' in item:
-                content = str(item.summary.value) + "\n"
-            elif 'description' in item:
-                content = str(item.description.value) + "\n"
-            else:
+            if not content:
                 content = "[No content]"
 
             # Sites that put too much formatting crap in the RSS:
@@ -1096,6 +1109,7 @@ Which (default = s): """)
             # Try to remove them if skip_images is true,
             # as well as any links that contain only an image.
             if utils.g_config.getboolean(feedname, 'skip_images'):
+                # XXX Rewrite to use parser rather than re
                 content = re.sub('<a [^>]*href=.*> *<img .*?></a>', '', content)
                 content = re.sub('<img .*?>', '', content)
 
@@ -1120,9 +1134,9 @@ Which (default = s): """)
                 content = re.sub(pat, '', content)
                 author = re.sub(pat, '', author)
 
-            # LA Daily Post has lately started putting the entire story
-            # in the description, along with a lot of formatting crap
-            # that tends to make the text unreadable (color or font size).
+            # Some sites put the entire story in the description,
+            # sometimes with a lot of formatting crap that tends to
+            # make the text unreadable (color or font size).
             # If entrysize is specified, strip all the crap and
             # limit total length.
             entrysize = int(utils.g_config.get(feedname, 'rss_entry_size'))
@@ -1133,7 +1147,6 @@ Which (default = s): """)
                 # because it can include unclosed tags like <ul>.
                 # Fix this by parsing it as its own mini HTML page,
                 # then serializing, which closes all tags.
-                # It does, however, add a new dependency on BeautifulSoup.
                 soup = BeautifulSoup(content, "lxml")
                 # Try to append an ellipsis at the end of the last
                 # text element.
@@ -1322,6 +1335,20 @@ Which (default = n): """)
             print("lastfile", lastfile, "doesn't exist", file=sys.stderr)
     elif verbose:
         print("No pages written", file=sys.stderr)
+
+
+def get_content(item):
+    # Add either the content or the summary.
+    # Prefer content since it might have links.
+    if 'content' in item:
+        return str(item.content[0].value) + "\n"
+    if 'summary_detail' in item:
+        return str(item.summary_detail.value) + "\n"
+    if 'summary' in item:
+        return str(item.summary.value) + "\n"
+    if 'description' in item:
+        return str(item.description.value) + "\n"
+    return ""
 
 
 def user_sort(feednames):

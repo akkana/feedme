@@ -256,14 +256,17 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
            according to the config file and current feed name.
            If the optional argument html contains a string,
            skip the downloading and use the html provided.
-           Write the modified HTML output to $newdir/$newname,
+           Write the modified HTML output to newdir/newname
            (unless newname is None, in which case just return the html)
            and download any images into $newdir.
            Raises NoContentError if it can't get the page or skipped it.
         """
         self.verbose = utils.g_config.getboolean(self.feedname, 'verbose')
         if self.verbose:
-            if newname:
+            if html:
+                print("Parsing html from index, corresponding to", url,
+                      "to", newdir + "/" + newname, file=sys.stderr)
+            elif newname:
                 print("Fetching link", url,
                       "to", newdir + "/" + newname, file=sys.stderr)
             else:

@@ -1,3 +1,8 @@
+2023-12-17  Akkana Peck  <akkana@shallowsky.com>
+	Add new levels=1.5 stage, to not fetch story pages for sites
+	that put the entire story in the feed.
+	Bump version to 1.1b6.
+
 2023-12-15  Akkana Peck  <akkana@shallowsky.com>
 	Refactoring, and rename feedmeparser to pageparser.
 
