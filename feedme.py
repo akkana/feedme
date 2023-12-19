@@ -889,6 +889,10 @@ def get_feed(feedname, cache, last_time, msglog):
                             if os.path.exists(justwrotefile):
                                 with open(justwrotefile) as justwrotefp:
                                     content = justwrotefp.read()
+                            elif verbose:
+                                print("File", justwrotefile,
+                                      "doesn't exist, can't read back",
+                                      file=sys.stderr)
 
                     last_page_written = fnam
 
@@ -1114,7 +1118,9 @@ Which (default = s): """)
                 content = re.sub('<img .*?>', '', content)
 
             # If fetching images, download/rewrite images in the RSS too.
-            elif content.strip():
+            # But for levels==1.5, the RSS content has already passed
+            # through pageparser once and has already had images rewritten.
+            elif levels != 1.5 and content.strip():
                 content = imagecache.rewrite_images(content, sitefeedurl,
                                                     outdir, feedname)
 

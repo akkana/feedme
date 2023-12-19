@@ -457,15 +457,20 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                       " because:", e,
                       file=sys.stderr)
 
+        # handle_html should have closed the file, but if it bombed out
+        # early it might not have.
+        try:
+            self.outfile.close()
+        except:
+            pass
+
         # Did we write anything real, any real content?
         # XXX Currently this requires text, might want to add img tags.
         if not self.wrote_data:
             errstr = "No real content"
             print(errstr, file=sys.stderr)
-            try:
-                self.outfile.close()
-            except:
-                pass
+            if verbose:
+                print("No content, removing", outfilename, file=sys.stderr)
             os.remove(outfilename)
             raise NoContentError(errstr)
 
