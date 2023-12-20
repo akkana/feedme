@@ -1154,12 +1154,22 @@ Which (default = s): """)
                 # Fix this by parsing it as its own mini HTML page,
                 # then serializing, which closes all tags.
                 soup = BeautifulSoup(content, "lxml")
+
+                # While we're here: in the levels==1.5 case,
+                # the H1 headline is getting into the feed, even though it
+                # mostly duplicates the entry title. So remove the first H1,
+                # if any.
+                h1 = soup.find('h1')
+                if h1:
+                    h1.decompose()
+
                 # Try to append an ellipsis at the end of the last
                 # text element.
                 try:
                     last_text = soup.find_all(string=True)[-1]
                     ltstring = str(last_text)
                     last_text.string.replace_with(ltstring + " ...")
+
                     content = ''.join([str(c) for c in soup.body.children])
                 except Exception as e:
                     # If it didn't work, just add the ellipsis after
