@@ -66,6 +66,7 @@ Configuration options you might want to reset for specific feeds:
     But some pages lie, so use this to override that.
   levels
     Level 1: only save the RSS page.
+    Level 1.5: only read the RSS page, but make story pages from it
     Level 2: save sub-pages.
   nocache
     Don't check whether we've seen an entry before: collect everything.
@@ -1178,6 +1179,13 @@ Which (default = s): """)
                     print("Problem adding ellipsis:", e, file=sys.stderr)
                     content = ''.join([str(c) for c in soup.body.children]) \
                         +  " [...]"
+
+                # In level 1.5, the '>-2->' and other footer matter
+                # may have gotten appended. Don't want this in the blurb
+                # on the index page:
+                m = re.search(r'<center><a href="[0-9]+.html">&gt;-[0-9]+-&gt;</a></center>', content)
+                if m:
+                    content = content[:m.span()[0]]
 
             # Clear space for images: nmpoliticalreport has a big
             # image for each feed that's taller than the feed text.

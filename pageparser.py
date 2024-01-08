@@ -250,7 +250,8 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
 
     def fetch_url(self, url, newdir, newname, title=None, author=None,
                   html=None,
-                  footer='', referrer=None, user_agent=None):
+                  footer='', referrer=None, user_agent=None,
+                  sub_page=False):
         """Read a URL from the web. Parse it, rewriting any links,
            downloading any images and making any other changes needed
            according to the config file and current feed name.
@@ -259,6 +260,8 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
            Write the modified HTML output to newdir/newname
            (unless newname is None, in which case just return the html)
            and download any images into $newdir.
+           If sub_page is true, then it will append to an existing file
+           rather than replacing it.
            Raises NoContentError if it can't get the page or skipped it.
         """
         self.verbose = utils.g_config.getboolean(self.feedname, 'verbose')
@@ -268,7 +271,9 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                       "to", newdir + "/" + newname, file=sys.stderr)
             elif newname:
                 print("Fetching link", url,
-                      "to", newdir + "/" + newname, file=sys.stderr)
+                      "to", newdir + "/" + newname,
+                      "sub_page=", sub_page,
+                      file=sys.stderr)
             else:
                 print("Parsing html from", url, "with dir", newdir,
                       file=sys.stderr)
@@ -322,13 +327,17 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
 
         if self.newname:
             outfilename = os.path.join(self.newdir, self.newname)
-            # XXX Open outfile with the right encoding -- which seems to
-            # be a no-op, as we'll still get
-            # "UnicodeEncodeError: 'ascii' codec can't encode character
-            # unless we explicitly encode everything with fallbacks.
-            # So much for python3 being easier to deal with for unicode.
-            self.outfile = open(outfilename, "w", encoding=self.encoding)
-            self.outfile.write("""<html>\n<head>
+
+            if sub_page:
+                self.outfile = open(outfilename, "a", encoding=self.encoding)
+            else:
+                # XXX Open outfile with the right encoding -- which seems to
+                # be a no-op, as we'll still get
+                # "UnicodeEncodeError: 'ascii' codec can't encode character
+                # unless we explicitly encode everything with fallbacks.
+                # So much for python3 being easier to deal with for unicode.
+                self.outfile = open(outfilename, "w", encoding=self.encoding)
+                self.outfile.write("""<html>\n<head>
 <meta http-equiv="Content-Type" content="text/html; charset=%s">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" type="text/css" title="Feeds" href="../../feeds.css"/>
@@ -442,7 +451,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         try:
             self.handle_html(html, title, footer)
         except Exception as e:
-            if verbose:
+            if self.verbose:
                 print("error in handle_html:", e, file=sys.stderr)
                 traceback.print_exc(file=sys.stderr)
                 # traceback.print_stack(limit=6, file=sys.stderr)
@@ -457,7 +466,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                       " because:", e,
                       file=sys.stderr)
 
-        # handle_html should have closed the file, but if it bombed out
+        # handle_html() should have closed the file, but if it bombed out
         # early it might not have.
         try:
             self.outfile.close()
@@ -475,10 +484,14 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
             raise NoContentError(errstr)
 
         # Now we've fetched the normal URL.
+
         # Did we see a single-page link? If so, move the fetched
         # file aside and call ourselves recursively to try to fetch
         # the single-page.
-        if self.single_page_url and self.single_page_url != url:
+        if not self.wrote_data:
+            # Don't look for single page or multipage if there wasn't a story
+            pass
+        elif self.single_page_url and self.single_page_url != url:
             # Call ourself recursively.
             # It should only be possible for this to happen once;
             # when we're called recursively, url will be the single
@@ -510,13 +523,36 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                     self.single_page_url, file=sys.stderr)
                 print(e, file=sys.stderr)
 
+        # Are there multiple pages? Try to fetch them.
+        elif self.multipages and not sub_page:
+            if self.multipages:
+                if self.verbose:
+                    print("Chasing", len(self.multipages), "extra pages",
+                          file=sys.stderr)
+                for href in self.multipages:
+                    try:
+                        # href is the link to this page.
+                        # Fetch the content, append it to the current file
+                        if self.verbose:
+                            print("Recursively fetching next page", href,
+                                  file=sys.stderr)
+                        self.fetch_url(href, newdir, newname,
+                                       title=title, author=author,
+                                       html=None,
+                                       footer=footer, referrer=referrer,
+                                       user_agent=user_agent,
+                                       sub_page=True)
+                    except Exception as e:
+                        print("Couldn't parse", link, ":", e, file=sys.stderr)
+                        continue
+
         if not outfilename and type(self.outfile) is io.StringIO():
             return self.outfile.getvalue()
 
     def handle_html(self, uhtml, title=None, footer=''):
         """Parse the given unicode as HTML and make all needed substitutions.
            Append the footer if any, write the resulting <body>
-           to self.outfile, then close outfile.
+           to self.outfile, then close the outfile.
            (The caller has already opened the file and written a header.
            XXX should handle the header here too, for consistency.)
         """
@@ -709,6 +745,22 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                 except Exception as e:
                     print("Error handling image tag", t, ":", e,
                           file=sys.stderr)
+
+        # find out if there will be a need to look for subsequent pages
+        multipage_pat = utils.g_config.get(self.feedname, "multipage_pat",
+                                           fallback=None)
+        if multipage_pat:
+            links = soup.find_all('a', href=re.compile(multipage_pat))
+            self.multipages = [ a.attrs['href'] for a in links ]
+
+            # Eliminate duplicates
+            self.multipages = list(dict.fromkeys(self.multipages))
+            if self.verbose:
+                print("Found multipage links:", file=sys.stderr)
+                for l in self.multipages:
+                    print("   ", l, file=sys.stderr)
+        else:
+            self.multipages = None
 
         # Done with processing! Write the soup's body to self.outfile.
         pretty = soup.body.prettify()
