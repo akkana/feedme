@@ -590,9 +590,12 @@ def get_feed(feedname, cache, last_time, msglog):
     next_item_string =  '<br>\n<center><i><a href=\"#%d\">&gt;-&gt;</a></i></center>\n<br>\n'
     next_item_pattern = '<br>\n<center><i><a href=\"#[0-9]+\">&gt;-&gt;</a></i></center>\n<br>\n'
 
-    urlrewrite = utils.g_config.get_multiline(feedname, 'story_url_rewrite')
-    if urlrewrite:
-        print("**** urlrewrite:", urlrewrite, file=sys.stderr)
+    try:
+        urlrewrite = utils.g_config.get_multiline(feedname, 'story_url_rewrite')
+        if urlrewrite:
+            print("**** urlrewrite:", urlrewrite, file=sys.stderr)
+    except:
+        urlrewrite = None
 
     # We'll increment itemnum as soon as we start showing entries,
     # so start it negative so anchor links will start at zero.

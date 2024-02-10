@@ -24,8 +24,11 @@ class MultiLineConfigParser(ConfigParser):
     """
     def get_multiline(self, feedname, configname):
         """Get a multiline config into a list, not a string"""
-        configlines = self.get(feedname, configname)
-        if configlines == '':
+        try:
+            configlines = self.get(feedname, configname)
+            if configlines == '':
+                return []
+        except Exception as e:
             return []
         return configlines.split('\n')
 
