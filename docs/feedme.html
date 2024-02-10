@@ -32,7 +32,7 @@ widely used on sites like newspapers and blogs that are constantly
 adding new content.
 
 <p>
-Google has recently re-added RSS support to Chrome:
+Google has re-added RSS support to Chrome after removing it earlier:
 <a href="https://www.popsci.com/diy/chrome-rss-feed-support/">Chrome’s
 newest feature resurrects the ghost of Google Reader</a> (Popular
 Science, Nov 2, 2021),
@@ -235,8 +235,8 @@ allow_repeats:
 <dt>
   simplify
 <dd>
-    Clean up the HTML: try to remove things like text colors and sizes
-    that sometimes make stories unreadable.
+    Clean up the HTML even more than usual: try to remove things like
+    text colors and sizes that sometimes make stories unreadable.
 <dt>
   continue_on_timeout
 <dd>
@@ -308,11 +308,13 @@ but you may need them for particular sites.
 
 <dt>single_page_pats
 <dd>
-  Sites that spread stories over many pages often have a naming
+  Sites that spread stories over many pages sometimes have a naming
   convention in their "view as single page" URLs. This is a pattern,
   e.g. http://example.com/.*single.html. Feedme will look for
   this pattern in a story, and if it sees it, it will follow the
   link and use it instead of the original story link.
+  (2024 note: not many sites do this any more, so this option hasn
+  been tested in a while.)
 
 <dt>multipage_pat
 <dd>
@@ -351,6 +353,10 @@ skip_pats = div class="advertisement"
 <dt>index_skip_content_pats
 <dd>
   Skip anything where the index content includes:
+
+<dt>story_url_rewrite
+<dd>Rewrite story URLs: the first line is the pattern to match,
+    the second is what to replace it with (using python re syntax).
 
 <td>when
 <dd>
