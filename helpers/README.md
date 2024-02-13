@@ -4,16 +4,9 @@
 Some sites make fetching feeds too complicated to handle through
 the normal FeedMe process.
 
-For instance, the New York Times doesn't allow fetching stories
-through their API, and even if you're a subscriber, they don't allow
-any simple method for providing login credentials: you have to have a
-full browser environment with JavaScript and a logged-in browser
-profile.
-
-To make things more complicated, you may need to fetch pages on a
-machine other than the one that's normally assembling your feeds.
-For instance, you may not want to run a desktop browser (and all
-the X machinery it needs) on your web server.
+For instance, a site may not have RSS, so you need to write code to
+parse an HTML page. Or you may need to fetch pages on a machine other
+than the one that's normally assembling your feeds.
 
 Enter feedme helpers. There are two types of helpers: ```page_helpers```
 and ```feed_helpers```.

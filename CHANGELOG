@@ -1,3 +1,10 @@
+2024-02-12  Akkana Peck  <akkana@shallowsky.com>
+	Add html_index_links, an option that allows feeding from an
+	HTML page rather than RSS/Atom.
+
+2024-01-07  Akkana Peck  <akkana@shallowsky.com>
+	Add multipage_pat, for sites that spread stories over multiple pages.
+
 2023-12-17  Akkana Peck  <akkana@shallowsky.com>
 	Add new levels=1.5 stage, to not fetch story pages for sites
 	that put the entire story in the feed.

@@ -49,7 +49,7 @@ def init_default_confdir():
     g_default_confdir = os.path.join(confighome, 'feedme')
 
 init_default_confdir()
-print("default_confdir:", g_default_confdir)
+print("default_confdir:", g_default_confdir, file=sys.stderr)
 
 
 #
@@ -103,6 +103,15 @@ def read_config_file(confdir=None):
         # acceptable alternate sources for images:
         'alt_domains' : '',
 
+        # Rewrite URLs to stories? Two lines if defined, from_pat, to_pat
+        'story_url_rewrite' : '',
+
+        # Index page is HTML, not RSS/Atom? How are links specified?
+        # This is a string indicating how to locate story links,
+        # e.g. 'div class="layout-homepage__lite"'
+        # Multiple attributes are allowed.
+        'html_index_links' : '',
+
         # module for special URL downloading:
         'page_helper' : '',
         # Single string argument passed to the helper.
@@ -135,7 +144,7 @@ def read_config_file(confdir=None):
                     print("Couldn't parse site file %s: %s"
                           % (filepath, e))
             else:
-                print("Can't read", filepath)
+                print("Can't read", filepath, file=sys.stderr)
 
     return g_config
 

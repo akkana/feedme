@@ -124,6 +124,9 @@ import imagecache
 # utilities, mostly config-file related:
 import utils
 
+# For parsing sites that don't have RSS, just HTML with a list of links
+import htmlindex
+
 # Allow links in top page content.
 # Feedparser 6.0 has dropped _HTMLSanitizer.acceptable_elements,
 # but the documentation says that now it allows a and img by default.
@@ -291,7 +294,7 @@ def get_feed(feedname, cache, last_time, msglog):
                             " but config parameters will actually be parsed "
                             " from files in %s"
                             % (fakefeedname, feedname,
-                               utils.g_default_confdir))
+                               utils.g_default_confdir ))
         else:
             feedfile = os.path.join(utils.g_default_confdir, feedname)
             if os.path.exists(feedfile):
@@ -470,6 +473,8 @@ def get_feed(feedname, cache, last_time, msglog):
     downloaded_string ="\n<hr><i>(Downloaded by " + \
         utils.VersionString + ")</i>\n"
 
+    html_index_links = utils.g_config.get(feedname, 'html_index_links')
+
     # feedparser doesn't understand file:// URLs, so translate those
     # to a local file:
     # Ironically, with newer changes to feedparser, now file://
@@ -507,9 +512,11 @@ def get_feed(feedname, cache, last_time, msglog):
         # error -- no idea why. I just love feedparser so much. :-(
         if sitefeedurl.startswith("file://"):
             feed = feedparser.parse(sitefeedurl)
+        elif html_index_links:
+            feed = htmlindex.parse(feedname, html_index_links, verbose=verbose)
         else:
             downloader = pageparser.FeedmeURLDownloader(feedname,
-                                                          verbose=verbose)
+                                                        verbose=verbose)
             rss_str = downloader.download_url(sitefeedurl)
             feed = feedparser.parse(rss_str)
             rss_str = None
@@ -536,17 +543,23 @@ def get_feed(feedname, cache, last_time, msglog):
         return
 
     # feedparser has no error return! One way is to check len(feed.feed).
-    if len(feed.feed) == 0:
+    # Which makes no sense sicne feed is an object, why should it have a length?
+    # if len(feed.feed) == 0:
+    if len(feed.entries) == 0:
         msglog.err("Can't read " + sitefeedurl)
         return
 
     # XXX Sometimes feeds die a few lines later getting feed.feed.title.
     # Here's a braindead guard against it -- but why isn't this
     # whole clause inside a try? It should be.
-    if not 'title' in feed.feed:
+    try:
+        title = feed.feed.title
+    except:
+        title = None
+    # if not 'title' in feed.feed:
+    if not title:
         msglog.msg(sitefeedurl + " lacks a title!")
         feed.feed.title = '[' + feedname + ']'
-        #return
 
     if not nocache:
         if sitefeedurl not in cache:
@@ -596,6 +609,11 @@ def get_feed(feedname, cache, last_time, msglog):
             print("**** urlrewrite:", urlrewrite, file=sys.stderr)
     except:
         urlrewrite = None
+
+    days = int(utils.g_config.get('DEFAULT', 'save_days'))
+    too_old = time.time() - days * 60 * 60 * 24
+    print("too_old would be", too_old, "(now is", time.time(), ")",
+          file=sys.stderr)
 
     # We'll increment itemnum as soon as we start showing entries,
     # so start it negative so anchor links will start at zero.
@@ -787,11 +805,10 @@ def get_feed(feedname, cache, last_time, msglog):
                     if pub_date < last_fed_this and (verbose or not nocache):
                         # If an entry is older than the maximum age
                         # for the cache, skip it with a warning.
-                        days = int(utils.g_config.get('DEFAULT', 'save_days'))
-                        too_old = time.time() - days * 60 * 60 * 24
                         if pub_date <= too_old and not nocache:
-                            msglog.warn("%s is so old (%s) it's expired from the cache -- skipping" \
-                                        % (item_id, str(item.published)))
+                            msglog.warn("%s is so old (%s -> %s) it's expired from the cache -- skipping" \
+                                        % (item_id, str(item.published),
+                                           str(pub_date)))
                             # XXX Remove from suburls?
                             continue
 
