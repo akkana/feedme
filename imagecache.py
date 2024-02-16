@@ -12,6 +12,7 @@ import utils
 import re
 import urllib.request, urllib.parse, urllib.error
 from bs4 import BeautifulSoup
+from PIL import Image
 import sys, os
 
 
@@ -237,11 +238,6 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
             #else:
             #    print("Not downloading, already have", imgfilename)
 
-            # If we got this far, then we have a local image,
-            # so go ahead and rewrite the url:
-            ImageCache[src] = base
-            tag.attrs['src'] = base
-
         # handle download errors
         except urllib.error.HTTPError as e:
             print("HTTP Error on image:", e.code,
@@ -260,6 +256,51 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
                 "on", src, file=sys.stderr)
             utils.ptraceback()
             tag.attrs['src'] = alt_src
+
+        # If we got this far, then we have a local image.
+
+        # Are we resizing large images? Some sites have crazy-big
+        # images, like 5328 x 3996, which make no sense whatsoever
+        # to view on a phone.
+        try:
+            maxsize = int(utils.g_config.get(feedname, 'max_image_size'))
+            if maxsize and imgfilename and os.path.exists(imgfilename):
+                im = Image.open(imgfilename)
+                oldwidth, oldheight = im.size
+                if max(oldwidth, oldheight) > maxsize:
+                    if oldwidth >= oldheight:    # landscape
+                        newwidth = maxsize
+                        newheight = oldheight * maxsize // oldwidth
+                    else:                        # portrait
+                        newheight = maxsize
+                        newwidth = oldwidth * maxsize // oldheight
+                    print("Resizing %dx%x image to %dx%d" % (oldwidth,
+                                                             oldheight,
+                                                             newwidth,
+                                                             newheight),
+                          file=sys.stderr)
+                    im = im.resize((newwidth, newheight))
+                    im.save(imgfilename)
+
+                    # Change the tag's width and height attributes, if any
+                    if 'width' in tag.attrs:
+                        print("Rewriting tag width from %s (%s) to %s"
+                              % (tag.attrs['width'], type(tag.attrs['width']),
+                                 newwidth), file=sys.stderr)
+                        tag.attrs['width'] = str(newwidth)
+                    if 'height' in tag.attrs:
+                        print("Rewriting tag height from %s (%s) to %s"
+                              % (tag.attrs['height'], type(tag.attrs['height']),
+                                 newheight), file=sys.stderr)
+                        tag.attrs['height'] = str(newwidth)
+        except Exception as e:
+            print("Exception", e, "checking maxsize")
+            utils.ptraceback()
+
+        # Rewrite the url:
+        ImageCache[src] = base
+        tag.attrs['src'] = base
+
     else:
         # Looks like it's probably a nonlocal image, don't download
         print(req.host, "and", host,

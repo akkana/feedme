@@ -124,6 +124,7 @@ def read_config_file(confdir=None):
         'skip_images' : 'true',
         'nonlocal_images' : 'false',
         'block_nonlocal_images' : 'true',
+        'max_image_size' : '1200',
         'skip_links' : 'false',
         'when' : '',  # Day, like tue, or month-day, like 14
         'min_width' : '25', # min # chars in an item link
