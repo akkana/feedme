@@ -1477,7 +1477,7 @@ share and enjoy under the GPL v2 or later."""
     options = parser.parse_args()
     # print("Parsed args. args:", options)
 
-    if options.config_help or options.version:
+    if options.config_help:
         print(LongVersion)
         print(ConfigHelp)
         sys.exit(0)
