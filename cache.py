@@ -18,17 +18,18 @@ import utils
 
 
 class FeedmeCache(object):
-    '''The FeedmeCache is a dictionary where the keys are site RSS URLs,
+    """The FeedmeCache is a dictionary where the keys are site RSS URLs,
        and for each feed we have a list of URLs we've seen.
        { siteurl: [ url, url, url, ...] }
        It's best to create a new FeedmeCache using the static method
        FeedmeCache.newcache().
        filename is the cache file we're using;
        last_time is the last modified time of the cache file, or None.
-    '''
+    """
     def __init__(self, cachefile):
         self.filename = cachefile
         self.thedict = {}
+        self.lastfed = {}
         self.last_time = None
 
     @staticmethod
@@ -44,10 +45,10 @@ class FeedmeCache(object):
 
     @staticmethod
     def newcache():
-        '''Find the cache file and load it into a newly created Cache object,
+        """Find the cache file and load it into a newly created Cache object,
            returning the cache object.
            If there's no cache file yet, create one.
-        '''
+        """
         cachefile = os.path.join(FeedmeCache.get_cache_dir(), "feedme.dat")
 
         if not os.access(cachefile, os.W_OK):
@@ -78,7 +79,7 @@ class FeedmeCache(object):
     # and in particular must have no spaces or colons.
     #
     def read_from_file(self):
-        '''Read cache from a cache file, either old or new style.'''
+        """Read cache from a cache file, either old or new style."""
         with open(self.filename) as fp:
             contents = fp.read()
 
@@ -93,7 +94,18 @@ class FeedmeCache(object):
             if not line.strip():
                 continue
             try:
-                key, urllist = line.split('|')
+                # Format v. 1 has feedname|urllist
+                #        v. 1.1 has feedname|lastfed|urllist
+                parts = line.split('|')
+                if len(parts) == 2:
+                    key, urllist = parts
+                    lastfed = 0
+                elif len(parts) == 3:
+                    key, lastfed, urllist = parts
+                else:
+                    print("Confused by", len(parts), "parts in cache",
+                          file=sys.stderr)
+                    continue
             except ValueError:
                 print("Problem splitting on |:", line, file=sys.stderr)
                 continue
@@ -101,11 +113,12 @@ class FeedmeCache(object):
             urls = urllist.strip().split()
 
             self.thedict[key] = urls
+            self.lastfed[key] = lastfed
 
     def back_up(self):
-        '''Back up the cache file to a file named for when
+        """Back up the cache file to a file named for when
            the last cache, self.filename, was last modified.
-        '''
+        """
         try:
             mtime = os.stat(self.filename).st_mtime
             timeappend = time.strftime("%y-%m-%d-%a", time.localtime(mtime))
@@ -128,16 +141,17 @@ class FeedmeCache(object):
             utils.ptraceback()
 
     def save_to_file(self):
-        '''Serialize the cache to a version-1 new style cache file.
-           The file should already have been backed up by newcache().
-        '''
+        """Serialize the cache to a version-1.1 new style cache file.
+           The existing file should already have been backed up by newcache().
+        """
         # Write the new cache file.
         with open(self.filename, "w") as fp:
-            print("FeedMe v. 1", file=fp)
+            print("FeedMe v. 1.1", file=fp)
             for k in self.thedict:
-                print("%s|%s" % (FeedmeCache.id_encode(k),
-                                 ' '.join(map(FeedmeCache.id_encode,
-                                              self.thedict[k]))), file=fp)
+                print("%s|%d|%s" % (FeedmeCache.id_encode(k),
+                                    self.lastfed[k],
+                                    ' '.join(map(FeedmeCache.id_encode,
+                                                 self.thedict[k]))), file=fp)
 
         # Remove backups older than N days.
         # XXX should pass in save_days from config file
@@ -158,11 +172,13 @@ class FeedmeCache(object):
                 print("Removing old cache", f, file=sys.stderr)
                 os.unlink(f)
 
-    def save_to_file_pickle(self):
-        '''Serialize the cache to an old-style pickle cachefile.'''
-        t = time.time()
-        cPickle.dump(cache, open(self.filename, 'w'))
-        print("Writing cache took", time.time() - t, "seconds", file=sys.stderr)
+    def last_fed_site(self, sitename):
+        try:
+            return self.last_fed[sitename]
+        except Exception as e:
+            print("Couldn't get last fed time for", sitename, ":", e,
+                  file=sys.stderr)
+            return None
 
     def __repr__(self):
         return self.thedict.__repr__()
@@ -176,6 +192,9 @@ class FeedmeCache(object):
         return self.thedict.__getitem__(key)
 
     def __setitem__(self, key, val):
+        if key not in self.thedict:
+            self.thedict = []
+        self.lastfed[key] = int(time.time())
         return self.thedict.__setitem__(key, val)
 
     def __delitem__(self, name):

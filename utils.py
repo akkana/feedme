@@ -10,7 +10,7 @@ import sys, os
 import traceback
 
 
-VersionString = "FeedMe 1.1b6"
+VersionString = "FeedMe 1.1b7"
 
 
 # The configuration object, once read in (in feedme.py main()),
@@ -49,7 +49,6 @@ def init_default_confdir():
     g_default_confdir = os.path.join(confighome, 'feedme')
 
 init_default_confdir()
-print("default_confdir:", g_default_confdir, file=sys.stderr)
 
 
 #
@@ -160,72 +159,13 @@ def expanduser(name):
     return name
 
 
-def last_time_this_feed(feeddir):
+def last_time_this_feed(cache, feedname):
     '''Return the last time we fetched a given feed.
        This is most useful for feeds that randomly show old entries.
-       Pass in the intended outdir, e.g. .../feeds/08-11-Thu/feedname
-       Returns seconds since epoch.
     '''
-    # XXX really should store this in the cache file
-    # so it's not so dependent on how often we feed or clean up the cache.
-    feeddir, feedname = os.path.split(feeddir)
-    feeddir = os.path.dirname(feeddir)
-
-    if not os.path.exists(feeddir):
-        return 0
-
-    newest_mtime = 0
-    newest_mtime_dir = None
-    newest_parsed_time = 0
-    newest_parsed_dir = None
-
-    # Now feeddir is the top level feeds directory, containing dated subdirs.
-    # Look over old feed subdirs to find the most recent time we fed
-    # this particular feedname.
-    for d in os.listdir(feeddir):
-        dpath = os.path.join(feeddir, d)
-        if os.path.isdir(dpath):
-            oldfeeddir = os.path.join(dpath, feedname)
-            if os.path.isdir(oldfeeddir):
-                # We could do this one of two ways.
-                # d has a name like "08-03-Wed", so we could parse that.
-                # Or we could use the last modified date of the directory.
-                # Use both, and compare them.
-                # These are both seconds since epoch.
-                modtime = os.stat(oldfeeddir).st_mtime
-                if modtime > newest_mtime:
-                    newest_mtime = modtime
-                    newest_mtime_dir = d
-
-                # As of October 2016 suddenly strptime has a new error mode
-                # where it can get a ValueError: unconverted data remains.
-                # Guard against this:
-                try:
-                    # The feed directory name doesn't have a year,
-                    # so make the year the same as the modtime:
-                    ddate = "%s-%d" % (d, time.localtime(modtime).tm_year)
-                    parsed_time = time.mktime(time.strptime(ddate,
-                                                            "%m-%d-%a-%Y"))
-                except ValueError:
-                    msglog.msg("Skipping directory %s" % d)
-                    continue
-                if parsed_time > newest_parsed_time:
-                    newest_parsed_time = parsed_time
-                    newest_parsed_dir = d
-
-    if newest_mtime_dir != newest_parsed_dir:
-        msglog.warn("Last time we fetched %s was %s, but dir was %s" \
-                    % (feedname,
-                       time.strftime("%a-%Y-%m-%d",
-                                     time.localtime(newest_mtime)),
-                       newest_parsed_dir))
-    # else:
-    #     # XXX This should only print if verbose,
-    #     # but this function doesn't know whether we're verbose.
-    #     print >>sys.stderr, "Last time we fetched %s was %s" \
-    #         % (feedname, newest_parsed_dir))
-
-    return newest_mtime
+    if not cache:
+        return None
+    return cache.last_fed_site(feedname)
 
 
 def falls_between(when, time1, time2):

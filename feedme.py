@@ -192,7 +192,8 @@ def clean_up():
             except Exception as e:
                 print("Couldn't unlink", f, str(e))
 
-    print("Cleaning up files older than %d days from feed and cache dirs" % days)
+    print("Cleaning up files older than %d days from feed and cache dirs"
+          % days)
     clean_up_dir(feedsdir, True)
     clean_up_dir(cachedir, False)
 
@@ -458,7 +459,7 @@ def get_feed(feedname, cache, last_time, msglog):
 
     # When did we last run this feed?
     # This code is probably brittle so wrap it in try/except.
-    last_fed_this = last_time_this_feed(outdir)
+    last_fed_this = last_time_this_feed(cache, feedname)
     if verbose:
         print("Last fetched %s on %s" % (feedname, str(last_fed_this)),
               file=sys.stderr)
@@ -561,7 +562,7 @@ def get_feed(feedname, cache, last_time, msglog):
         msglog.msg(sitefeedurl + " lacks a title!")
         feed.feed.title = '[' + feedname + ']'
 
-    if not nocache:
+    if cache and not nocache:
         if sitefeedurl not in cache:
             cache[sitefeedurl] = []
         feedcache = cache[sitefeedurl]
@@ -1449,11 +1450,13 @@ def main():
     usage = """
 If no site is specified, feedme will update all the feeds in
 ~/.config/feedme.conf."""
-    LongVersion = utils.VersionString + ": an RSS feed reader.\n\
-Copyright 2017 by Akkana Peck; share and enjoy under the GPL v2 or later."
+    LongVersion = utils.VersionString + """: an RSS feed reader.
+Copyright 2017-2024 by Akkana Peck;
+share and enjoy under the GPL v2 or later."""
 
     parser = argparse.ArgumentParser(prog="feedme", description=usage)
-    parser.add_argument('--version', action='version', version=LongVersion)
+    parser.add_argument('-v', '--version', action='version',
+                        version=LongVersion)
     parser.add_argument('feeds', type=str, nargs='*',
                         help="feeds to fetch")
     parser.add_argument("-n", "--nocache",
@@ -1474,14 +1477,14 @@ Copyright 2017 by Akkana Peck; share and enjoy under the GPL v2 or later."
     options = parser.parse_args()
     # print("Parsed args. args:", options)
 
-    utils.read_config_file()
-
-    sections = utils.g_config.sections()
-
-    if options.config_help:
+    if options.config_help or options.version:
         print(LongVersion)
         print(ConfigHelp)
         sys.exit(0)
+
+    utils.read_config_file()
+
+    sections = utils.g_config.sections()
 
     if options.show_sites:
         for feedname in sections:

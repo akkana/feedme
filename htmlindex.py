@@ -17,7 +17,9 @@ import email.utils as email_utils
 from types import SimpleNamespace
 import sys
 
-from feedme import pageparser, utils
+# feedme modules
+import pageparser
+import utils
 
 
 def parse(feedname, html_index_links, verbose=True):
