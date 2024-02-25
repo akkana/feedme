@@ -29,7 +29,7 @@ class FeedmeCache(object):
     def __init__(self, cachefile):
         self.filename = cachefile
         self.thedict = {}
-        self.lastfed = {}
+        self.last_fed = {}
         self.last_time = None
 
     @staticmethod
