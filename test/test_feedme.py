@@ -106,7 +106,8 @@ class FeedmeTests(TestCaseWithSave):
         dirpath = os.path.join('test', 'testfeeds', time.strftime("%m-%d-%a"))
         self.assertTrue(os.path.exists(dirpath))
 
-        fetchedfilepath = os.path.join(dirpath, 'Slashdot', 'index.html')
+        fetchedfilepath = os.path.join(dirpath, '01_Slashdot', 'index.html')
+        print("========= checking for", fetchedfilepath)
         self.assertTrue(os.path.exists(fetchedfilepath))
 
         expectfilepath = os.path.join('test', 'samples', 'slashdot-test.html')
