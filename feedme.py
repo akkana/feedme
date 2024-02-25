@@ -702,15 +702,21 @@ def get_feed(feedname, cache, last_time, msglog):
             else:
                 anchor = ""
 
-            # See if we've already seen this page's ID in this run:
+            # See if we've already seen this page's ID in this run.
             try:
                 pagenum = suburls.index(item_id)
                 # We've already seen a link to this URL.
                 # That could mean it's a link to a different named anchor
                 # within the same file, or it could mean that it's just
                 # a duplicate (see below).
+                if verbose:
+                    print("already seen item id", item_id, "this run: skipping",
+                          file=sys.stderr)
+                    continue
             except ValueError:
-                pagenum = None
+                if verbose:
+                    print("haven't seen item id", item_id, "yet this run",
+                          file=sys.stderr)
 
             # Is it a duplicate story that we've already seen in this run?
             # Some sites, like Washington Post, repeat the same stories
@@ -738,92 +744,91 @@ def get_feed(feedname, cache, last_time, msglog):
                 continue
             titles.append(item.title)
 
-            if not pagenum:
-                # Get the published date.
-                # item.pubDate is a unicode string, supposed to be in format
-                # Thu, 11 Aug 2016 14:46:50 GMT (or +0000)
-                # email.utils.parsedate returns a tuple.
-                # Pass it to time.mktime() to get seconds since epoch,
-                # XXX feedparser now has published_parsed which is
-                # a time.struct_time. Can we count on that and not
-                # have to do parsing here?
-                try:
-                    pub_date = time.mktime(email_utils.parsedate(item.published))
-                except:
-                    pub_date = None
+            # Get the published date.
+            # item.pubDate is a unicode string, supposed to be in format
+            # Thu, 11 Aug 2016 14:46:50 GMT (or +0000)
+            # email.utils.parsedate returns a tuple.
+            # Pass it to time.mktime() to get seconds since epoch.
+            # XXX feedparser now has published_parsed which is
+            # a time.struct_time. Can we count on that and not
+            # have to do parsing here?
+            try:
+                pub_date = time.mktime(email_utils.parsedate(item.published))
+            except:
+                pub_date = None
 
-                # Haven't seen it yet this run. But is it in the cache already?
-                if not nocache:
-                    # We want it in the cache, whether it's new or not:
-                    if verbose:
-                        print("Will cache as %s" % item_id, file=sys.stderr)
-                    newfeedcache.append(item_id)
-                    if item_id in feedcache:
-                        # We've seen this ID before. HOWEVER, it may still
-                        # be new: a site might have a static URL for the
-                        # monthly photo contest that gets updated once
-                        # a month with all-new content.
-                        if not utils.g_config.getboolean(feedname, 'allow_repeats'):
-                            if verbose:
-                                print(item_id, "already cached -- skipping",
-                                      file=sys.stderr)
-                            continue
-
-                        # Repeats are allowed. So check the pub date.
-                        # XXX Unfortunately cache entries don't include
-                        # a date, so for now, allow repeat URLs if their
-                        # content was updated since the last feedme run.
-                        # This will unfortunately miss sites that
-                        # aren't checked every day.
+            # Haven't seen it yet this run. But is it in the cache already?
+            if not nocache:
+                # We want it in the cache, whether it's new or not:
+                if verbose:
+                    print("Will cache as %s" % item_id, file=sys.stderr)
+                newfeedcache.append(item_id)
+                if item_id in feedcache:
+                    # We've seen this ID before. HOWEVER, it may still
+                    # be new: a site might have a static URL for the
+                    # monthly photo contest that gets updated once
+                    # a month with all-new content.
+                    if not utils.g_config.getboolean(feedname, 'allow_repeats'):
                         if verbose:
-                            print("Seen this before, but repeats are allowed")
-                            print("Last time this feed", last_fed_this)
-                            print("pub_date", pub_date)
-                            if pub_date <= last_fed_this:
-                                print("No new changes, skipping")
-                                continue
-                            print("It's changed recently, re-fetching")
+                            print(item_id, "already cached -- skipping",
+                                  file=sys.stderr)
+                        continue
 
-                    elif verbose:
-                        print("'%s' is not in the cache -- fetching" % item_id,
-                              file=sys.stderr)
-
-                # We're probably including this item. Add it to suburls.
-                suburls.append(item_id)
-                pagenum = len(suburls) - 1
-
-                # Sanity check: is the pubDate newer than the last
-                # time we ran feedme? A negative answer isn't
-                # necessarily a reason not to get it.
-                # See if it's newer or older. If it's older,
-                # we've probably seen it already; give a warning.
-                if pub_date and last_fed_this:
+                    # Repeats are allowed. So check the pub date.
+                    # XXX Unfortunately cache entries don't include
+                    # a date, so for now, allow repeat URLs if their
+                    # content was updated since the last feedme run.
+                    # This will unfortunately miss sites that
+                    # aren't checked every day.
                     if verbose:
-                        print("Comparing pub_date %s to last_fed_this %s"
-                              % (str(pub_date), str(last_fed_this)),
-                              file=sys.stderr)
-                    if pub_date < last_fed_this and (verbose or not nocache):
-                        # If an entry is older than the maximum age
-                        # for the cache, skip it with a warning.
-                        if pub_date <= too_old and not nocache:
-                            msglog.warn("%s is so old (%s -> %s) it's expired from the cache -- skipping" \
-                                        % (item_id, str(item.published),
-                                           str(pub_date)))
-                            # XXX Remove from suburls?
+                        print("Seen this before, but repeats are allowed")
+                        print("Last time this feed", last_fed_this)
+                        print("pub_date", pub_date)
+                        if pub_date <= last_fed_this:
+                            print("No new changes, skipping")
                             continue
+                        print("Recent change, re-fetching", file=sys.stderr)
 
-                        # Else warn about it, but include it in the feed.
-                        msglog.warn("%s is older (%s) than the last time we updated this feed (%s)" \
+                elif verbose:
+                    print("'%s' is not in the cache -- fetching" % item_id,
+                          file=sys.stderr)
+
+            # We're probably including this item. Add it to suburls.
+            suburls.append(item_id)
+            pagenum = len(suburls) - 1
+
+            # Sanity check: is the pubDate newer than the last
+            # time we ran feedme? A negative answer isn't
+            # necessarily a reason not to get it.
+            # See if it's newer or older. If it's older,
+            # we've probably seen it already; give a warning.
+            if pub_date and last_fed_this:
+                if verbose:
+                    print("Comparing pub_date %s to last_fed_this %s"
+                          % (str(pub_date), str(last_fed_this)),
+                          file=sys.stderr)
+                if pub_date < last_fed_this and (verbose or not nocache):
+                    # If an entry is older than the maximum age
+                    # for the cache, skip it with a warning.
+                    if pub_date <= too_old and not nocache:
+                        msglog.warn("%s is so old (%s -> %s) it's expired from the cache -- skipping" \
                                     % (item_id, str(item.published),
-                                       time.strftime("%m-%d-%a-%y",
-                                                time.gmtime(last_fed_this))))
-                    else:
-                        print("%s: last updated %s, pubDate is %s" \
-                            % (item_id, str(item.published),
-                               time.strftime("%m-%d-%a-%y",
-                                             time.gmtime(last_fed_this))))
-                elif verbose and not pub_date:
-                    print(item_id, ": No pub_date!", file=sys.stderr)
+                                       str(pub_date)))
+                        # XXX Remove from suburls?
+                        continue
+
+                    # Else warn about it, but include it in the feed.
+                    msglog.warn("%s is older (%s) than the last time we updated this feed (%s)" \
+                                % (item_id, str(item.published),
+                                   time.strftime("%m-%d-%a-%y",
+                                            time.gmtime(last_fed_this))))
+                else:
+                    print("%s: last updated %s, pubDate is %s" \
+                        % (item_id, str(item.published),
+                           time.strftime("%m-%d-%a-%y",
+                                         time.gmtime(last_fed_this))))
+            elif verbose and not pub_date:
+                print(item_id, ": No pub_date!", file=sys.stderr)
 
             itemnum += 1
             if verbose:

@@ -166,6 +166,8 @@ def last_time_this_feed(feeddir):
        Pass in the intended outdir, e.g. .../feeds/08-11-Thu/feedname
        Returns seconds since epoch.
     '''
+    # XXX really should store this in the cache file
+    # so it's not so dependent on how often we feed or clean up the cache.
     feeddir, feedname = os.path.split(feeddir)
     feeddir = os.path.dirname(feeddir)
 
