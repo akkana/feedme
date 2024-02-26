@@ -102,18 +102,19 @@ class FeedmeCache(object):
                     lastfed = 0
                 elif len(parts) == 3:
                     key, lastfed, urllist = parts
+                    lastfed = int(lastfed)
                 else:
                     print("Confused by", len(parts), "parts in cache",
                           file=sys.stderr)
                     continue
             except ValueError:
-                print("Problem splitting on |:", line, file=sys.stderr)
+                print("Problem splitting on |: '%s'" % line, file=sys.stderr)
                 continue
             key = key.strip()
             urls = urllist.strip().split()
 
             self.thedict[key] = urls
-            self.lastfed[key] = lastfed
+            self.last_fed[key] = lastfed
 
     def back_up(self):
         """Back up the cache file to a file named for when
@@ -149,7 +150,7 @@ class FeedmeCache(object):
             print("FeedMe v. 1.1", file=fp)
             for k in self.thedict:
                 print("%s|%d|%s" % (FeedmeCache.id_encode(k),
-                                    self.lastfed[k],
+                                    self.last_fed[k],
                                     ' '.join(map(FeedmeCache.id_encode,
                                                  self.thedict[k]))), file=fp)
 
@@ -194,7 +195,7 @@ class FeedmeCache(object):
     def __setitem__(self, key, val):
         if key not in self.thedict:
             self.thedict = []
-        self.lastfed[key] = int(time.time())
+        self.last_fed[key] = int(time.time())
         return self.thedict.__setitem__(key, val)
 
     def __delitem__(self, name):

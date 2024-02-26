@@ -764,7 +764,7 @@ def get_feed(feedname, cache, last_time, msglog):
                 if verbose:
                     print("Will cache as %s" % item_id, file=sys.stderr)
                 newfeedcache.append(item_id)
-                if item_id in feedcache:
+                if item_id in cache:
                     # We've seen this ID before. HOWEVER, it may still
                     # be new: a site might have a static URL for the
                     # monthly photo contest that gets updated once
