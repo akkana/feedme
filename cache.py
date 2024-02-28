@@ -173,6 +173,14 @@ class FeedmeCache(object):
                 print("Removing old cache", f, file=sys.stderr)
                 os.unlink(f)
 
+    def add_items(self, sitename, items):
+        if sitename not in self.thedict:
+            self.thedict[sitename] = items
+            return
+        for item in items:
+            if item not in self.thedict[sitename]:
+                self.thedict[sitename].append(item)
+
     def last_fed_site(self, sitename):
         try:
             return self.last_fed[sitename]

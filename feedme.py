@@ -563,9 +563,10 @@ def get_feed(feedname, cache, last_time, msglog):
         feed.feed.title = '[' + feedname + ']'
 
     if cache and not nocache:
-        if sitefeedurl not in cache:
-            cache[sitefeedurl] = []
-        feedcache = cache[sitefeedurl]
+        try:
+            feedcache = cache.thedict[sitefeedurl]
+        except:
+            feedcache = []
     newfeedcache = []
 
     # suburls: mapping of URLs we've encountered to local URLs.
@@ -730,7 +731,7 @@ def get_feed(feedname, cache, last_time, msglog):
             # re-fetch the story.
             if newfeedcache and item_id in newfeedcache:
                 if verbose:
-                    print("%s repeated -- skipping" % item_id,
+                    print("%s repeated today -- skipping" % item_id,
                           file=sys.stderr)
                 continue
 
@@ -763,8 +764,13 @@ def get_feed(feedname, cache, last_time, msglog):
                 # We want it in the cache, whether it's new or not:
                 if verbose:
                     print("Will cache as %s" % item_id, file=sys.stderr)
-                newfeedcache.append(item_id)
-                if item_id in cache:
+                if item_id not in newfeedcache:
+                    newfeedcache.append(item_id)
+                if item_id in feedcache:
+                    if verbose:
+                        print("Seen it before, it's in the cache",
+                              file=sys.stderr)
+
                     # We've seen this ID before. HOWEVER, it may still
                     # be new: a site might have a static URL for the
                     # monthly photo contest that gets updated once
@@ -833,7 +839,7 @@ def get_feed(feedname, cache, last_time, msglog):
 
             itemnum += 1
             if verbose:
-                print("\nItem:", item_title, file=sys.stderr)
+                print("Item:", item_title, file=sys.stderr)
 
             # Now itemnum is the number of the entry on the index page;
             # pagenum is the html file of the subentry, e.g. 3.html.
@@ -1337,16 +1343,23 @@ Which (default = n): """)
             # msglog.err(str(sys.exc_info()[1]).encode('utf-8'))
             print(traceback.format_exc(tb), file=sys.stderr)
 
-        # Update the cache for this site:
+        #
+        # Done with stories from this site. Update the cache file.
+        # Note the whole cache file gets rewritten on every site,
+        # in case the process gets killed somewhere along the way.
+        #
         if not nocache:
-            cache[sitefeedurl] = newfeedcache
-            # if verbose:
-            #     print("Will update %s cache with:" % sitefeedurl,
-            #           file=sys.stderr)
-            #     print(str(newfeedcache), file=sys.stderr)
+            cache.add_items(sitefeedurl, newfeedcache)
+            if verbose:
+                print("Updating %s cache with:" % sitefeedurl,
+                      file=sys.stderr)
+                print(cache[sitefeedurl], file=sys.stderr)
+            cache.save_to_file()
+        elif verbose:
+            print(feedname, ": Not updating cache file", file=sys.stderr)
 
-        ####################################################
-        # Generate the output files
+        #
+        # Generate any non-HTML output files
         #
         if 'plucker' in formats:
             output_fmt.make_plucker_file(indexfile, feedname, levels, ascii)
@@ -1355,17 +1368,6 @@ Which (default = n): """)
         if 'epub' in formats:
             output_fmt.make_epub_file(indexfile, feedname, levels, ascii)
 
-        #
-        # All done. Update the cache file.
-        # Note that we're rewriting the whole cache file on every site,
-        # in case the process gets killed somewhere along the way.
-        #
-        if not nocache:
-            if verbose:
-                print(feedname, ": Updating cache file", file=sys.stderr)
-            cache.save_to_file()
-        elif verbose:
-            print(feedname, ": Not updating cache file", file=sys.stderr)
 
     else:
         msglog.warn(feedname + ": no new content")
