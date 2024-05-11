@@ -1350,10 +1350,10 @@ Which (default = n): """)
         #
         if not nocache:
             cache.add_items(sitefeedurl, newfeedcache)
-            if verbose:
-                print("Updating %s cache with:" % sitefeedurl,
-                      file=sys.stderr)
-                print(cache[sitefeedurl], file=sys.stderr)
+            # if verbose:
+            #     print("Updating %s cache with:" % sitefeedurl,
+            #           file=sys.stderr)
+            #     print(cache[sitefeedurl], file=sys.stderr)
             cache.save_to_file()
         elif verbose:
             print(feedname, ": Not updating cache file", file=sys.stderr)

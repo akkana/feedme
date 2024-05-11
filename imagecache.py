@@ -230,8 +230,20 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
                 # Lots of things can go wrong with downloading
                 # the image, such as exceptions.IOError from
                 # [Errno 36] File name too long
-                # XXX Might want to wrap this in its own try.
-                local_file = open(imgfilename, "wb")
+                try:
+                    local_file = open(imgfilename, "wb")
+                except OSError as e:
+                    if e.errno != 36:
+                        raise e
+                    print("Filename too long:", imgfilename, file=sys.stderr)
+                    pathmax = os.pathconf('/', 'PC_PATH_MAX')
+                    while imgfilename >= pathmax:
+                        # chop stuff off the front
+                        base = base[int(len(base)/3):]
+                        imgfilename = os.path.join(newdir, base)
+                    local_file = open(imgfilename, "wb")
+                    print("Trying", imgfilename, "instead", file=sys.stderr)
+
                 # Write to our local file
                 local_file.write(f.read())
                 local_file.close()
