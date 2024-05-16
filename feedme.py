@@ -1259,7 +1259,7 @@ Which (default = s): """)
             else:
                 short_title = item_title
             if itemlink:
-                indexstr += "\n<br>[[" + itemlink + short_title + "</a>]]\n\n"
+                indexstr += "\n<br><center>[[" + itemlink + short_title + "</a>]]</center>\n\n"
 
         # If there was an error parsing this entry, we won't save
         # a file so decrement the itemnum and loop to the next entry.
