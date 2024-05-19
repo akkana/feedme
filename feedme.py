@@ -535,6 +535,10 @@ def get_feed(feedname, cache, last_time, msglog):
         msglog.err("Cookiefile details: %s\n" % e.longmessage)
         return
 
+    except ValueError as e:
+        msglog.err("Exception fetching URL %s: %s" % (url, e))
+        return
+
     except Exception as e:
         print("Couldn't parse feed: URL:", sitefeedurl, file=sys.stderr)
         print(str(e), file=sys.stderr)
@@ -564,10 +568,10 @@ def get_feed(feedname, cache, last_time, msglog):
 
     if cache and not nocache:
         try:
-            feedcache = cache.thedict[sitefeedurl]
+            feedcachedict = cache.thedict[sitefeedurl]
         except:
-            feedcache = []
-    newfeedcache = []
+            feedcachedict = []
+    newfeedcachedict = []
 
     # suburls: mapping of URLs we've encountered to local URLs.
     # Any anchors (#anchor) will be discarded.
@@ -723,13 +727,13 @@ def get_feed(feedname, cache, last_time, msglog):
             # Is it a duplicate story that we've already seen in this run?
             # Some sites, like Washington Post, repeat the same stories
             # multiple times on their RSS feed, but stories won't be
-            # added to our real feedcache until we've succeeded in
+            # added to our real feedcachedict until we've succeeded in
             # fetching the whole site. So check the temporary cache.
             # On the other hand, Risks Digest has a single story and
             # a lot of RSS entries with links to #name tags in that story.
             # So in that case we should include the entry but not
             # re-fetch the story.
-            if newfeedcache and item_id in newfeedcache:
+            if newfeedcachedict and item_id in newfeedcachedict:
                 if verbose:
                     print("%s repeated today -- skipping" % item_id,
                           file=sys.stderr)
@@ -764,9 +768,9 @@ def get_feed(feedname, cache, last_time, msglog):
                 # We want it in the cache, whether it's new or not:
                 if verbose:
                     print("Will cache as %s" % item_id, file=sys.stderr)
-                if item_id not in newfeedcache:
-                    newfeedcache.append(item_id)
-                if item_id in feedcache:
+                if item_id not in newfeedcachedict:
+                    newfeedcachedict.append(item_id)
+                if item_id in feedcachedict:
                     if verbose:
                         print("Seen it before, it's in the cache",
                               file=sys.stderr)
@@ -1349,7 +1353,7 @@ Which (default = n): """)
         # in case the process gets killed somewhere along the way.
         #
         if not nocache:
-            cache.add_items(sitefeedurl, newfeedcache)
+            cache.add_items(sitefeedurl, newfeedcachedict)
             # if verbose:
             #     print("Updating %s cache with:" % sitefeedurl,
             #           file=sys.stderr)

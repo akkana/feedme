@@ -10,7 +10,7 @@ import sys, os
 import traceback
 
 
-VersionString = "FeedMe 1.1b7"
+VersionString = "FeedMe 1.1b8"
 
 
 # The configuration object, once read in (in feedme.py main()),

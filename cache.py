@@ -149,8 +149,12 @@ class FeedmeCache(object):
         with open(self.filename, "w") as fp:
             print("FeedMe v. 1.1", file=fp)
             for k in self.thedict:
+                try:
+                    last_fed = self.last_fed[k]
+                except:
+                    last_fed = 0
                 print("%s|%d|%s" % (FeedmeCache.id_encode(k),
-                                    self.last_fed[k],
+                                    last_fed,
                                     ' '.join(map(FeedmeCache.id_encode,
                                                  self.thedict[k]))), file=fp)
 
@@ -173,19 +177,22 @@ class FeedmeCache(object):
                 print("Removing old cache", f, file=sys.stderr)
                 os.unlink(f)
 
-    def add_items(self, sitename, items):
-        if sitename not in self.thedict:
-            self.thedict[sitename] = items
+    def add_items(self, sitekey, items):
+        if not items:
+            return
+        self.last_fed[sitekey] = int(time.time())
+        if sitekey not in self.thedict:
+            self.thedict[sitekey] = items
             return
         for item in items:
-            if item not in self.thedict[sitename]:
-                self.thedict[sitename].append(item)
+            if item not in self.thedict[sitekey]:
+                self.thedict[sitekey].append(item)
 
-    def last_fed_site(self, sitename):
+    def last_fed_site(self, sitekey):
         try:
-            return self.last_fed[sitename]
+            return self.last_fed[sitekey]
         except Exception as e:
-            print("Couldn't get last fed time for", sitename, ":", e,
+            print("Couldn't get last fed time for", sitekey, ":", e,
                   file=sys.stderr)
             return None
 
@@ -196,12 +203,13 @@ class FeedmeCache(object):
     def id_encode(s):
         return s.replace(' ', '+')
 
-    # Dictionary class forwarded methods:
+    # Methods to act like a dictionary:
     def __getitem__(self, key):
         return self.thedict.__getitem__(key)
 
     def __setitem__(self, key, val):
-        if key not in self.thedict:
+        # XXX This never actually gets called
+        if not self.thedict:
             self.thedict = []
         self.last_fed[key] = int(time.time())
         return self.thedict.__setitem__(key, val)
