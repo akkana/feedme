@@ -227,9 +227,10 @@ def parse_name_from_conf_file(feedfile):
     """
     with open(feedfile) as fp:
         for line in fp:
-            m = re.match('^\b*\[(.*)\]\b*$', line)
-            if m:
-                return m.group(1)
+            line = line.strip()
+            if line.startswith('[') and line.endswith(']'):
+                return line[1:-1].strip()
+                # Could also do line.strip('][')
     return None
 
 
@@ -281,6 +282,7 @@ def get_feed(feedname, cache, last_time, msglog):
     if not sitefeedurl:
         fakefeedname = None
         if os.path.exists(feedname):
+            print("feedname is", feedname, "and it exists")
             # XXX This clause will accept the full path to a .conf file as
             # a commandline argument -- but that file will only be
             # used for the feed name, not for the actual feed parameters
@@ -290,6 +292,7 @@ def get_feed(feedname, cache, last_time, msglog):
             # is warranted given that I never actually expect to use
             # config files from outside the configdir.
             fakefeedname = parse_name_from_conf_file(feedname)
+            print("fakefeedname is", fakefeedname)
             if fakefeedname:
                 msglog.warn("Warning: Using name '%s' from %s,"
                             " but config parameters will actually be parsed "
