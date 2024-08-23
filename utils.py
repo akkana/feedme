@@ -130,7 +130,8 @@ def read_config_file(confdir=None):
         'continue_on_timeout' : 'false',
         'user_agent' : VersionString,
         'ascii' : 'false',
-        'allow_gzip' : 'true'
+        'allow_gzip' : 'true',
+        'allow_dup_titles' : 'false',
     } )
 
     g_config.read(conffile)

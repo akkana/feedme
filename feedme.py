@@ -641,16 +641,22 @@ def get_feed(feedname, cache, last_time, msglog):
             # (e.g. Washington Post), which doesn't have href either.
             #
             if 'links' in item:
-                href = [str(i['href']) for i in item.links
+                hrefs = [str(i['href']) for i in item.links
                         if 'rel' in i and 'href' in i
                         and i['rel'] == 'alternate']
+            elif 'link' in item:
+                hrefs = [ str(item.link) ]
             else:
-                href = []
+                hrefs = []
 
             if 'id' in item:
                 item_id = str(item.id)
                 if verbose:
                     print("\nID %s" % item_id, file=sys.stderr)
+            elif 'guid' in item:
+                item_id = str(item.guid)
+                if verbose:
+                    print("\nGUID %s" % item_id, file=sys.stderr)
             elif href:
                 item_id = str(href[0])
                 if verbose:
@@ -745,9 +751,11 @@ def get_feed(feedname, cache, last_time, msglog):
             # How about the title? Have we already seen that before?
             # Washington Post runs the same story (same title) several
             # times with different URLs.
-            # If we ever need to handle a feed where different stories
-            # have the same title, this will have to be configurable.
-            if item.title in titles:
+            # But on other sites, like the Los Alamos Daily Post Legal Notices,
+            # titles can be as simple as "LEGAL NOTICE" and are often dups,
+            # but the actual stories/links are different.
+            if item.title in titles and not utils.g_config.getboolean(
+                    feedname, 'allow_dup_titles'):
                 print('Skipping repeated title with a new ID: "%s", ID "%s"' \
                       % (item.title, item_id), file=sys.stderr)
                 continue
@@ -763,8 +771,10 @@ def get_feed(feedname, cache, last_time, msglog):
             # have to do parsing here?
             try:
                 pub_date = time.mktime(email_utils.parsedate(item.published))
-            except:
+            except Exception as e:
                 pub_date = None
+                if verbose:
+                    print("Couldn't read real pubdate:", e, file=sys.stderr)
 
             # Haven't seen it yet this run. But is it in the cache already?
             if not nocache:
