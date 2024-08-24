@@ -318,9 +318,6 @@ def get_feed(feedname, cache, last_time, msglog):
                     print(feedname, "isn't a site feed name either",
                           file=sys.stderr)
 
-    if verbose:
-        print("\n=============\nGetting %s feed" % feedname, file=sys.stderr)
-
     if not sitefeedurl:
         msglog.err("Can't find a config for: " + feedname)
         return
@@ -341,6 +338,9 @@ def get_feed(feedname, cache, last_time, msglog):
 
     user_agent = utils.g_config.get(feedname, 'user_agent')
 
+    if verbose:
+        print("\n=============\nGetting %s feed" % feedname, file=sys.stderr)
+
     # Is this a feed we should only check occasionally?
     """Does this feed specify only gathering at certain times?
        If so, has such a time passed since the last time the
@@ -358,6 +358,21 @@ def get_feed(feedname, cache, last_time, msglog):
     print("\n============\nfeedname:", feedname, file=sys.stderr)
     # Make it a legal and sane dirname
     feednamedir = slugify(feedname)
+
+    # Is there already a feednamedir, with or without a prepended order number?
+    # If it has an index.html in it, then feedme has already fed this
+    # site today, and should bail rather than overwriting what's
+    # already there.
+    if os.path.exists(feedsdir):
+        for d in os.listdir(feedsdir):
+            if d.endswith(feednamedir):
+                if os.path.exists(os.path.join(feedsdir, d, "index.html")):
+                    print("Already fed %s: not overwriting" % d)
+                    return
+                # Partially fed this site earlier today, but didn't finish.
+                # Continue, but note the fact on stderr.
+                if verbose:
+                    print("Partially fed %s: will overwrite old files" % d)
 
     # If the user specified an order, prepend its number
     g_feednum += 1
@@ -657,8 +672,8 @@ def get_feed(feedname, cache, last_time, msglog):
                 item_id = str(item.guid)
                 if verbose:
                     print("\nGUID %s" % item_id, file=sys.stderr)
-            elif href:
-                item_id = str(href[0])
+            elif hrefs:
+                item_id = str(hrefs[0])
                 if verbose:
                     print("Using URL '%s' for ID" % item_id, file=sys.stderr)
             else:
@@ -1300,8 +1315,8 @@ Which (default = n): """)
             itemnum -= 1
             if verbose:
                 print("Skipping item", end=' ', file=sys.stderr)
-                if 'link' in item:
-                    print(item_link, file=sys.stderr)
+                if itemlink:
+                    print(itemlink, file=sys.stderr)
                 else:
                     print("item has no link! item =", item, file=sys.stderr)
                 print("error was", str(e), file=sys.stderr)
@@ -1596,10 +1611,12 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
         print("Caught keyboard interrupt at the wrong time!", file=sys.stderr)
         print(traceback.format_exc())
         #sys.exit(1)
+
     except OSError as e:
         print("Caught an OSError", file=sys.stderr)
-        print(e, file=sys.stderr)
-        #sys.exit(e.errno)
+        utils.ptraceback()
+        # print(e, file=sys.stderr)
+        # sys.exit(e.errno)
 
     try:
         # Now we're done. It's time to move the log file into its final place.
