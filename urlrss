@@ -10,6 +10,12 @@
 # we'll try to mount the Android device # and collect URLs from a file
 # there and from another one locally.
 
+# Testing CGI mode: surf to https://servername/feedme/urlrss.cgi?xtraurls=STR
+# STR is a concatenation of extra URLS wanted,
+#  * URL encoded and connected by the string '%0a'.
+#  * For instance,
+#  *   /feedme/urlrss.cgi?xtraurls=http%3A%2F%2Fblog.arduino.cc%2F2013%2F07%2F10%2Fsend-in-the-clones%2F%0ahttp%3A%2F%2Fread.bi%2F10Lbfh9%0ahttp%3A%2F%2Fwww.popsci.com%2Ftechnology%2Farticle%2F2013-07%2Fdrones-civil-war%0ahttp%3A%2F%2Fwww.thisamericanlife.org%2Fblog%2F2015%2F05%2Fcanvassers-study-in-episode-555-has-been-retracted
+
 import os, sys
 import time, datetime
 import subprocess
@@ -17,6 +23,13 @@ import urllib.request, urllib.error, urllib.parse
 import xml.sax.saxutils
 
 import cgi
+
+# Being called as a CGI script?
+form = cgi.FieldStorage()
+if 'xtraurls' in form:
+    cgi_mode = True
+else:
+    cgi_mode = False
 
 ##############################
 # CONFIGURATION
@@ -30,33 +43,54 @@ if len(sys.argv) > 1:
 else:
     devicepath = "/droidsd"
 
-# The home dir of the server -- under which we should find feeds and feedme.
-# if in CGI mode. Must end with a slash.
-# If not CGI mode, this isn't used.
-serverhome = '/var/www/'
+if cgi_mode:
+    # The home dir of the server -- under which we should find feeds and feedme.
+    # if in CGI mode. Must end with a slash.
+    # If not CGI mode, this isn't used.
+    serverhome = '/var/www/'
 
-# Where to look for the saved URL files.
-# This will be tilde-expanded;
-# in CGI mode, ~ will expand to serverhome/feedme.
-urlfiles = map(os.path.expanduser, [ "~/feeds/localurls" ])
+    # Under serverhome, there are two directories, feedme and feeds.
+    # feedme contains .config, .cache and a link to the feedme executable.
+    # feeds is where the actual daily feeds will be written;
+    # anything under feeds may be copied to the feed viewing device,
+    # so don't store anything like logs or url lists there.
+    feeds_dir = os.path.join(serverhome, 'feeds')
+    feedme_dir = os.path.join(serverhome, 'feedme')
+
+    # The path to feedme on the web server, as seen from the www-data user.
+    feedme_exec = os.path.join(feedme_dir, 'feedme.py')
+
+else:   # Not cgi_mode
+    serverhome = os.path.expanduser('~')
+    feeds_dir = os.path.expanduser('~/feeds')
+    feedme_dir = os.path.expanduser('~')
+    # Assume feedme is in the user's path:
+    feedme_exec = os.path.expanduser('feedme')
+
+
+# Additional directories:
+# mostly the above definitions should define where these will be.
+
+# The cache dir will also store the backup for xtraurls.
+cachedir = os.path.join(feedme_dir, '.cache', 'feedme')
+
+# A list of directories in which to look for the saved URL files.
+urlfiles = [ os.path.join(cachedir, 'localurls') ]
 
 # Where to create the RSS file.
 # Will be tilde-expanded.
-rssfile = os.path.expanduser("~/feeds/xtraurls.rss")
+rssfile = os.path.join(cachedir, 'xtraurls.rss')
 
-# Where to save an HTML-format archive of the URLs.
+# Where to save a cumulative HTML-format archive of the URLs.
 # We'll append to what's already there.
-urlarchive = "~/.cache/feedme/xtraurls.html"
-
-# The path to feedme on the web server, as seen from the www-data user.
-# If you've set serverhome you can probably leave this alone.
-feedme_exec = serverhome + 'feedme/feedme'
+urlarchive = os.path.join(cachedir, 'xtraurls.html')
 
 # Optional: a file path on the server to log output to.
 # This will only be used in CGI mode.
 # Set to None for no debugging.
 # If you've set serverhome you can probably leave this as is.
-debuglogfile = serverhome + 'feeds/urlrss.log'
+# A timestamp will be inserted, e.g. urlrss-2024-08-28_16:41.log
+debuglogfile = os.path.join(cachedir, 'urlrss.log')
 
 ##############################
 # END CONFIGURATION
@@ -66,9 +100,6 @@ debuglogfile = serverhome + 'feeds/urlrss.log'
 urls = []
 
 debuglog = None
-
-# We need to be able to run either as a CGI or from the command line.
-cgi_mode = False
 
 def find_process(progname, uid):
     '''Find the lowest numbered process running a program named progname
@@ -108,14 +139,25 @@ def find_process(progname, uid):
 
 output = ''
 
-# See if we're being called as a CGI script:
-form = cgi.FieldStorage()
-if 'xtraurls' in form:
-    cgi_mode = True
-    if debuglogfile:
-        debuglog = open(debuglogfile, 'w')
-    else:
-        debuglog = sys.stderr
+if debuglogfile:
+    name, ext = os.path.splitext(debuglogfile)
+    debuglogfile = datetime.datetime.now().strftime(
+        f'{name}-%Y-%m-%d_%H:%M{ext}')
+    debuglog = open(debuglogfile, 'w')
+    print("Opened debuglog", debuglogfile, file=sys.stderr)
+
+    # and redirect stderr to there:
+    sys.stderr = debuglog
+else:
+    print("No debug log file, using stderr", file=sys.stderr)
+    debuglog = sys.stderr
+
+# XXX Need to delete old log files here.
+
+if cgi_mode:
+    # Force HOME to be one above the config dir,
+    # so the feedme subprocess will find .cache and .config in the right place.
+    os.environ['HOME'] = feedme_dir
 
     formurls = form['xtraurls'].value.strip().split('\n')
     for url in formurls:
@@ -126,27 +168,13 @@ if 'xtraurls' in form:
             print("URL", url, "from CGI args", file=debuglog)
             urls.append(url)
 
-    # Don't want to rely on config/cache files in the homedir of
-    # whatever user might be running the web server.
-    # Instead, try to force HOME:
-    os.environ['HOME'] = serverhome + 'feedme'
-
-    # Tilde-expand our various configuration variables,
-    # now that we know HOME is set appropriately.
-    urlfiles = list(map(os.path.expanduser, urlfiles))
-    rssfile = os.path.expanduser(rssfile)
-    urlarchive = os.path.expanduser(urlarchive)
-
-    if debuglog:
-        # and redirect stderr to there:
-        sys.stderr = debuglog
-
-        print("CGI mode", file=debuglog)
-        print("urlfiles:", urlfiles, file=debuglog)
-        print("rssfile:", rssfile, file=debuglog)
-        print("urlarchive:", urlarchive, file=debuglog)
-        print("feedme exec:", feedme_exec, file=debuglog)
-        print('HOME:', os.environ['HOME'], file=debuglog)
+    print("CGI mode", file=debuglog)
+    print("urlfiles:", urlfiles, file=debuglog)
+    print("urls passed in:", urls, file=debuglog)
+    print("rssfile:", rssfile, file=debuglog)
+    print("urlarchive:", urlarchive, file=debuglog)
+    print("feedme exec:", feedme_exec, file=debuglog)
+    print("HOME:", os.environ['HOME'])
 
     output += '''Content-type: text/plain
 Content-Disposition: inline; filename=urlrss-out.txt
@@ -166,8 +194,7 @@ Content-Disposition: inline; filename=urlrss-out.txt
                   file=debuglog)
 
         print(output)
-        print('Feedme is already running! PID %s. Quitting' % feedmeproc[-1],
-              file=debuglog)
+        print('Feedme is already running! PID %s. Quitting' % feedmeproc[-1])
         sys.exit(0)
 
     if debuglog:
@@ -191,22 +218,21 @@ else:
         else: print("Device is already mounted.")
         urlfiles.append(os.path.join(devicepath, "feeds", "saved-urls"))
 
-# Loop over all the url files to get our list of urls:
+# Loop over url files to get a list of extra urls:
 for urlfile in urlfiles:
     try:
         ifp = open(urlfile)
-        print("Reading URLs from", urlfile, file=sys.stderr)
+        print("Reading URLs from", urlfile, file=debuglog)
     except:
         continue
 
     for line in ifp:
         line = line.strip()
-        if not line : continue
+        if not line: continue
         print("URL from", urlfile, file=debuglog)
         urls.append(line)
 
     ifp.close()
-    os.unlink(urlfile)
 
 if not urls:
     print("No saved URLs", file=debuglog)
@@ -217,6 +243,7 @@ else:
     #
     # We have URLs to save. So open the output files.
     #
+    print("Full list of Xtra urls:", urls, file=debuglog)
 
     now = datetime.datetime.now().astimezone()
 
@@ -231,7 +258,7 @@ else:
 
     print("""<rss version="0.91">
 <channel>
-  <title>FeedMe URLs</title>
+  <title>FeedMe Xtra URLs</title>
   <description>Saved URLs %s</description>
   <language>en</language>""" % datetime.datetime.now().ctime(), file=ofp)
 
@@ -291,8 +318,8 @@ else:
         archivefp.close()
 
     if urls:
-        print("Saved %s urls to %s and %s" % (len(urls), rssfile,
-                                              urlarchive), file=sys.stderr)
+        print("Saved %d urls to %s and %s" % (len(urls), rssfile,
+                                              urlarchive), file=debuglog)
     # Done making the Xtra RSS file (if any).
 
 if cgi_mode:
@@ -323,19 +350,28 @@ if cgi_mode:
         print("Feedme should be running now. Will try to capture output.",
               file=sys.stderr)
         print("Running %s", feedme_exec)
-        output = pp.communicate()
+        out_tuple = pp.communicate()
         print("\n==== stdin:", file=sys.stderr)
-        print(output[0], file=sys.stderr)
+        print(out_tuple[0].decode(), file=sys.stderr)
         print("\n==== stderr:", file=sys.stderr)
-        print(output[1], file=sys.stderr)
-        output += "\n\n==== stdin:\n" + output[0]
-        output += "\n\n==== stderr:\n" + output[1]
+        print(out_tuple[1].decode(), file=sys.stderr)
+        output += "\n\n==== stdin:\n" + out_tuple[0].decode()
+        output += "\n\n==== stderr:\n" + out_tuple[1].decode()
 
     print(output)
     print("CGI OUTPUT:", file=sys.stderr)
     print(output, file=sys.stderr)
 
 
-# ofp and archivefp has already been closed, but debuglog hasn't
-if debuglog and debuglog != sys.stderr:
-    debuglog.close()
+# Once feedme has started, but not before, it's okay to remove urlfiles
+for urlfile in urlfiles:
+    try:
+        os.unlink(urlfile)
+    except FileNotFoundError:
+        pass
+
+# ofp and archivefp has already been closed, but debuglog hasn't.
+# But don't close it unless we're sure it's not sys.stderr,
+# which is hard since sys.stderr has been set to debuglog.
+# if debuglog and debuglog != sys.stderr:
+#     debuglog.close()
