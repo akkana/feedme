@@ -248,6 +248,8 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         self.skipping = None
         self.base_href = None
 
+        self.multipages = None
+
     def fetch_url(self, url, newdir, newname, title=None, author=None,
                   html=None,
                   footer='', referrer=None, user_agent=None,
@@ -524,7 +526,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                 print(e, file=sys.stderr)
 
         # Are there multiple pages? Try to fetch them.
-        elif self.multipages and not sub_page:
+        elif self.multipages and not sub_page:  # XXXXXXXXXXXXXX
             if self.multipages:
                 if self.verbose:
                     print("Chasing", len(self.multipages), "extra pages",
