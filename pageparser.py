@@ -248,7 +248,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         self.skipping = None
         self.base_href = None
 
-        self.multipages = None
+        self.multipages = []
 
     def fetch_url(self, url, newdir, newname, title=None, author=None,
                   html=None,
