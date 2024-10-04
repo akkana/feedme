@@ -364,12 +364,6 @@ def get_feed(feedname, cache, last_time, msglog):
     # screen, e.g. areas for paging up/down or adjusting brightness.
     minwidth = utils.g_config.getint(feedname, 'min_width')
 
-    # The feedname directory will probably be the link text in the viewer.
-    # So make sure it's at least minwidth.
-    feednamedirlen = len(feednamedir)
-    if feednamedirlen < minwidth:
-        feednamedir += '_' * (minwidth - feednamedirlen)
-
     # Is there already a feednamedir, with or without a prepended order number?
     # If it has an index.html in it, then feedme has already fed this
     # site today, and should bail rather than overwriting what's
