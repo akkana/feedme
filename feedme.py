@@ -359,6 +359,17 @@ def get_feed(feedname, cache, last_time, msglog):
     # Make it a legal and sane dirname
     feednamedir = slugify(feedname)
 
+    # Make sure the link is at least some minimum width.
+    # This is for viewers that have special areas defined on the
+    # screen, e.g. areas for paging up/down or adjusting brightness.
+    minwidth = utils.g_config.getint(feedname, 'min_width')
+
+    # The feedname directory will probably be the link text in the viewer.
+    # So make sure it's at least minwidth.
+    feednamedirlen = len(feednamedir)
+    if feednamedirlen < minwidth:
+        feednamedir += '_' * (minwidth - feednamedirlen)
+
     # Is there already a feednamedir, with or without a prepended order number?
     # If it has an index.html in it, then feedme has already fed this
     # site today, and should bail rather than overwriting what's
@@ -1161,10 +1172,6 @@ Which (default = s): """)
      # http://www.mail-archive.com/plucker-list@rubberchicken.org/msg07314.html
             indexstr += "<p><a name=\"%d\">&nbsp;</a>" % itemnum
 
-            # Make sure the link is at least some minimum width.
-            # This is for viewers that have special areas defined on the
-            # screen, e.g. areas for paging up/down or adjusting brightness.
-            minwidth = utils.g_config.getint(feedname, 'min_width')
             if len(item_title) < minwidth:
                 item_title += '. ' * (minwidth - len(item_title)) + '__'
 
