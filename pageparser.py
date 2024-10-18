@@ -437,7 +437,11 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                 try:
                     nodename, attrname, attrval = \
                         re.match(SKIP_NODE_PAT, nodespec).groups()
-                    for node in soup.find_all(attrs={ attrname: attrval }):
+                    # attrval is a regexp, which BS won't notice unless
+                    # it's already compiled.
+                    attrval = re.compile(attrval)
+                    for node in soup.find_all(nodename,
+                                              attrs={ attrname: attrval }):
                         node.decompose()
                         changed = True
                 except Exception as e:
