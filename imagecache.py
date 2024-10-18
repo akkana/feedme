@@ -276,56 +276,88 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
         # to view on a phone.
         try:
             maxsize = int(utils.g_config.get(feedname, 'max_image_size'))
-            if maxsize and imgfilename and os.path.exists(imgfilename):
-                try:
-                    im = Image.open(imgfilename)
-
-                    oldwidth, oldheight = im.size
-                    if max(oldwidth, oldheight) > maxsize:
-                        if oldwidth >= oldheight:    # landscape
-                            newwidth = maxsize
-                            newheight = oldheight * maxsize // oldwidth
-                        else:                        # portrait
-                            newheight = maxsize
-                            newwidth = oldwidth * maxsize // oldheight
-                        print("Resizing %dx%x image to %dx%d" % (oldwidth,
-                                                                 oldheight,
-                                                                 newwidth,
-                                                                 newheight),
-                              file=sys.stderr)
-                        im = im.resize((newwidth, newheight))
-
-                        # XXX resizing is nice, but LA Daily Post has taken
-                        # to using PNG for all their images, making them HUGE
-                        # so translating to JPG would also be good.
-                        # 3 ways to check for transparency:
-                        # https://stackoverflow.com/questions/43864101/python-pil-check-if-image-is-transparent
-                        # if has_transparency and rewrite_to_jpg:
-
-                        im.save(imgfilename)
-
-                        # Change the tag's width and height attributes, if any
-                        if 'width' in tag.attrs:
-                            print("Rewriting tag width from %s (%s) to %s"
-                                  % (tag.attrs['width'],
-                                     type(tag.attrs['width']),
-                                     newwidth), file=sys.stderr)
-                            tag.attrs['width'] = str(newwidth)
-                        if 'height' in tag.attrs:
-                            print("Rewriting tag height from %s (%s) to %s"
-                                  % (tag.attrs['height'],
-                                     type(tag.attrs['height']),
-                                     newheight), file=sys.stderr)
-                            tag.attrs['height'] = str(newwidth)
-
-                except UnidentifiedImageError:
-                    # Image might be SVG or some other non-PIL type
-                    print("Can't resize", imgfilename, file=sys.stderr)
-                    im = None
 
         except Exception as e:
             print("Exception", e, "checking maxsize")
             utils.ptraceback()
+            maxsize = 0
+
+        if maxsize and imgfilename and os.path.exists(imgfilename):
+            imchanged = False
+            try:
+                im = Image.open(imgfilename)
+
+                oldwidth, oldheight = im.size
+                if max(oldwidth, oldheight) > maxsize:
+                    if oldwidth >= oldheight:    # landscape
+                        newwidth = maxsize
+                        newheight = oldheight * maxsize // oldwidth
+                    else:                        # portrait
+                        newheight = maxsize
+                        newwidth = oldwidth * maxsize // oldheight
+                    print("Resizing %dx%x image to %dx%d" % (oldwidth,
+                                                             oldheight,
+                                                             newwidth,
+                                                             newheight),
+                          file=sys.stderr)
+                    im = im.resize((newwidth, newheight))
+                    imchanged = True
+
+                    # Change the tag's width and height attributes, if any
+                    if 'width' in tag.attrs:
+                        print("Rewriting tag width from %s (%s) to %s"
+                              % (tag.attrs['width'],
+                                 type(tag.attrs['width']),
+                                 newwidth), file=sys.stderr)
+                        tag.attrs['width'] = str(newwidth)
+                    if 'height' in tag.attrs:
+                        print("Rewriting tag height from %s (%s) to %s"
+                              % (tag.attrs['height'],
+                                 type(tag.attrs['height']),
+                                 newheight), file=sys.stderr)
+                        tag.attrs['height'] = str(newwidth)
+
+                # LA Daily Post has taken to using PNG for all
+                # their images, making them HUGE so translating to
+                # JPG would also be good.
+                # 3 ways to check for transparency:
+                # https://stackoverflow.com/a/58567453
+                def has_transparency(img):
+                    if img.info.get("transparency", None) is not None:
+                        return True
+                    if img.mode == "P":
+                        transparent = img.info.get("transparency", -1)
+                        for _, index in img.getcolors():
+                            if index == transparent:
+                                return True
+                    elif img.mode == "RGBA":
+                        extrema = img.getextrema()
+                        if extrema[3][0] < 255:
+                            return True
+                    return False
+
+                if imgfilename.lower().endswith('.png') \
+                   and not has_transparency(im):
+                    print("rewriting %s to %s" % (
+                        os.path.basename(imgfilename),
+                        os.path.basename(imgfilename)[:-3] + ".jpg"),
+                          file=sys.stderr)
+                    os.unlink(imgfilename)
+                    imgfilename = imgfilename[:-3] + ".jpg"
+                    # Hope that by now the img tag has been rewritten
+                    # so that src points to the filename, and it doesn't
+                    # use something else like srcset
+                    if tag.attrs['src'].lower().endswith('.jpg'):
+                        tag.attrs['src'] = tag.attrs['src'][:-3] + '.jpg'
+                    imchanged = True
+
+                if imchanged:
+                    im.save(imgfilename)
+
+            except UnidentifiedImageError:
+                # Image might be SVG or some other non-PIL type
+                print("Can't resize", imgfilename, file=sys.stderr)
+                im = None
 
         # Rewrite the url:
         ImageCache[src] = base
