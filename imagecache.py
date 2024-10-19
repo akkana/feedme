@@ -336,19 +336,13 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
                             return True
                     return False
 
-                if imgfilename.lower().endswith('.png') \
-                   and not has_transparency(im):
-                    print("rewriting %s to %s" % (
-                        os.path.basename(imgfilename),
-                        os.path.basename(imgfilename)[:-3] + ".jpg"),
+                if (base.lower().endswith('.png')
+                    and not has_transparency(im)):
+                    print("rewriting base %s to %s" % (base, base[:-3] + "jpg"),
                           file=sys.stderr)
                     os.unlink(imgfilename)
-                    imgfilename = imgfilename[:-3] + ".jpg"
-                    # Hope that by now the img tag has been rewritten
-                    # so that src points to the filename, and it doesn't
-                    # use something else like srcset
-                    if tag.attrs['src'].lower().endswith('.jpg'):
-                        tag.attrs['src'] = tag.attrs['src'][:-3] + '.jpg'
+                    imgfilename = os.path.join(newdir, base)
+
                     imchanged = True
 
                 if imchanged:
