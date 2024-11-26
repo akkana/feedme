@@ -431,17 +431,24 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
 
             changed = False
             for nodespec in skip_nodespecs:
+                print("looking for skip_node", nodespec, file=sys.stderr)
+
                 # Syntax is something like: div class="sticky-box"
                 # first word should be node type,
                 # which may be followed by someattr="somename"
                 try:
                     nodename, attrname, attrval = \
                         re.match(SKIP_NODE_PAT, nodespec).groups()
+                    print((f"nodename '{nodename}', "
+                           f"attrname '{attrname}', "
+                           f"attrval='{attrval}'"), file=sys.stderr)
+
                     # attrval is a regexp, which BS won't notice unless
                     # it's already compiled.
                     attrval = re.compile(attrval)
                     for node in soup.find_all(nodename,
                                               attrs={ attrname: attrval }):
+                        print("    found a node", file=sys.stderr)
                         node.decompose()
                         changed = True
                 except Exception as e:
