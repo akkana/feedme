@@ -1,3 +1,12 @@
+2024-12-13  Akkana Peck  <akkana@shallowsky.com>
+	Add a new variable png_to_jpg that works in concert with
+	max_image_size to convert ALL PNGs, even ones with
+	transparency, to JPG.
+
+2024-10-18  Akkana Peck  <akkana@shallowsky.com>
+	Make skip_pat work on regexps.
+	If max_image_size is set, rewrite non-transparent PNG to JPG.
+
 2024-08-22  Akkana Peck  <akkana@shallowsky.com>
 	New config variable allow_dup_titles.
 	Allow guid as unique id.

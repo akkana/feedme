@@ -282,80 +282,114 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
             utils.ptraceback()
             maxsize = 0
 
+        # Does the image need to be changed, because it's too big
+        # in pixel size or file size?
         if maxsize and imgfilename and os.path.exists(imgfilename):
             imchanged = False
             try:
                 im = Image.open(imgfilename)
 
-                oldwidth, oldheight = im.size
-                if max(oldwidth, oldheight) > maxsize:
-                    if oldwidth >= oldheight:    # landscape
-                        newwidth = maxsize
-                        newheight = oldheight * maxsize // oldwidth
-                    else:                        # portrait
-                        newheight = maxsize
-                        newwidth = oldwidth * maxsize // oldheight
-                    print("Resizing %dx%x image to %dx%d" % (oldwidth,
-                                                             oldheight,
-                                                             newwidth,
-                                                             newheight),
-                          file=sys.stderr)
-                    im = im.resize((newwidth, newheight))
-                    imchanged = True
-
-                    # Change the tag's width and height attributes, if any
-                    if 'width' in tag.attrs:
-                        print("Rewriting tag width from %s (%s) to %s"
-                              % (tag.attrs['width'],
-                                 type(tag.attrs['width']),
-                                 newwidth), file=sys.stderr)
-                        tag.attrs['width'] = str(newwidth)
-                    if 'height' in tag.attrs:
-                        print("Rewriting tag height from %s (%s) to %s"
-                              % (tag.attrs['height'],
-                                 type(tag.attrs['height']),
-                                 newheight), file=sys.stderr)
-                        tag.attrs['height'] = str(newwidth)
-
-                # LA Daily Post has taken to using PNG for all
-                # their images, making them HUGE so translating to
-                # JPG would also be good.
-                # 3 ways to check for transparency:
-                # https://stackoverflow.com/a/58567453
-                def has_transparency(img):
-                    if img.info.get("transparency", None) is not None:
-                        return True
-                    if img.mode == "P":
-                        transparent = img.info.get("transparency", -1)
-                        for _, index in img.getcolors():
-                            if index == transparent:
-                                return True
-                    elif img.mode == "RGBA":
-                        extrema = img.getextrema()
-                        if extrema[3][0] < 255:
-                            return True
-                    return False
-
-                if (base.lower().endswith('.png')
-                    and not has_transparency(im)):
-                    print("rewriting base %s to %s" % (base, base[:-3] + "jpg"),
-                          file=sys.stderr)
-                    os.unlink(imgfilename)
-                    imgfilename = os.path.join(newdir, base)
-
-                    imchanged = True
-
-                if imchanged:
-                    im.save(imgfilename)
-
             except UnidentifiedImageError:
                 # Image might be SVG or some other non-PIL type
-                print("Can't resize", imgfilename, file=sys.stderr)
-                im = None
+                print("PIL Can't resize", imgfilename, file=sys.stderr)
+
+                # Allow all SVGs, don't try to resize them
+                if imgfilename.lower().endswith(".svg"):
+                    print("Allowing SVG", imgfilename, file=sys.stderr)
+                    return
+
+                # If it's not a PNG, how big is it?
+                # If it's not too big, keep it.
+                filesize = os.stat(imgfilename).st_size    # size in bytes
+                if filesize < 1024*512:    # XXX hardwired, make configurable
+                    print("PIL can't handle", imgfilename,
+                          "but it's not that big, allowing anyway",
+                          file=sys.stderr)
+                else:
+                    # Make a link to the nonlocal image
+                    print("PIL can't handle", src,
+                          "and it's big: making a link to it",
+                          file=sys.stderr)
+                    replace_img_with_href(tag, src)
+                    return
+
+            oldwidth, oldheight = im.size
+            if max(oldwidth, oldheight) > maxsize:
+                if oldwidth >= oldheight:    # landscape
+                    newwidth = maxsize
+                    newheight = oldheight * maxsize // oldwidth
+                else:                        # portrait
+                    newheight = maxsize
+                    newwidth = oldwidth * maxsize // oldheight
+                print("Resizing %dx%d image to %dx%d" % (oldwidth,
+                                                         oldheight,
+                                                         newwidth,
+                                                         newheight),
+                      file=sys.stderr)
+                im = im.resize((newwidth, newheight))
+                imchanged = True
+
+                # Change the tag's width and height attributes, if any
+                if 'width' in tag.attrs:
+                    print("Rewriting tag width from %s (%s) to %s"
+                          % (tag.attrs['width'],
+                             type(tag.attrs['width']),
+                             newwidth), file=sys.stderr)
+                    tag.attrs['width'] = str(newwidth)
+                if 'height' in tag.attrs:
+                    print("Rewriting tag height from %s (%s) to %s"
+                          % (tag.attrs['height'],
+                             type(tag.attrs['height']),
+                             newheight), file=sys.stderr)
+                    tag.attrs['height'] = str(newwidth)
+
+            # LA Daily Post has taken to using PNG for all
+            # their images, making them HUGE so translating to
+            # JPG would also be good.
+            # 3 ways to check for transparency:
+            # https://stackoverflow.com/a/58567453
+            def has_transparency(img):
+                if img.info.get("transparency", None) is not None:
+                    print(base, "has transparency", file=sys.stderr)
+                    return True
+                if img.mode == "P":
+                    transparent = img.info.get("transparency", -1)
+                    for _, index in img.getcolors():
+                        if index == transparent:
+                            print(base,
+                                  "has a transparent color", file=sys.stderr)
+                            return True
+                elif img.mode == "RGBA":
+                    extrema = img.getextrema()
+                    if extrema[3][0] < 255:
+                        print(base, "extrama transparency", file=sys.stderr)
+                        return True
+                print(base, "is not transparent", file=sys.stderr)
+                return False
+
+            if (base.lower().endswith('.png')
+                and (utils.g_config.getboolean(feedname, 'png_to_jpg')
+                     or not has_transparency(im))):
+                # Make sure the image is RGB to convert to JPG
+                im = im.convert('RGB')
+                print("Removing", imgfilename, file=sys.stderr)
+                os.unlink(imgfilename)
+                base = base[:-3] + "jpg"
+                imgfilename = os.path.join(newdir, base)
+                print("rewriting PNG to", base, file=sys.stderr)
+                imchanged = True
+            else:
+                print(base, "isn't png, no need to rewrite", file=sys.stderr)
+
+            if imchanged:
+                print("Saving rewritten image to file", imgfilename,
+                      file=sys.stderr)
+                im.save(imgfilename)
 
         # Rewrite the url:
         ImageCache[src] = base
         tag.attrs['src'] = base
+        print("Image src rewritten to", base, file=sys.stderr)
 
     else:
         # Looks like it's probably a nonlocal image, don't download
@@ -363,31 +397,35 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
               "are too different -- not fetching image", src,
               file=sys.stderr)
 
-        # Add a link to the image, if a BS tag is provided
-        if tag:
-            # Find tag's root BeautifulSoup object (needed for new_tag)
-            soup = tag
-            tag.attrs['src'] = "nonlocal"
-            while type(soup) is not BeautifulSoup:
-                soup = soup.parent
-            awrap = soup.new_tag("a", href=src)
-            awrap.string = " [nonlocal image]"
-            # Originally, added alt text and wrapped the image in it,
-            # but Firefox, at least, doesn't show images with
-            # src = 'file:///nonexistant' and doesn't even show the
-            # alt text for them, so there's nothing visible to click on.
-            # tag.wrap(awrap)
-            # Instead, just add a tag around a text string.
-            tag.append(awrap)
-        else:
-            print("No soup, can't add image link to", src,
-                  file=sys.stderr)
+        replace_img_with_href(tag, src)
 
-        # We're left with a nonlocal image in the source.
-        # That could mean unwanted data use to fetch the image
-        # when viewing the file. So remove the image tag and
-        # replace it with a link.
-        tag.attrs['src'] = alt_src
+
+def replace_img_with_href(tag, src):
+    # Add a link to the image, if a BS tag is provided
+    if tag:
+        # Find tag's root BeautifulSoup object (needed for new_tag)
+        soup = tag
+        tag.attrs['src'] = "nonlocal"
+        while type(soup) is not BeautifulSoup:
+            soup = soup.parent
+        awrap = soup.new_tag("a", href=src)
+        awrap.string = " [nonlocal image]"
+        # Originally, added alt text and wrapped the image in it,
+        # but Firefox, at least, doesn't show images with
+        # src = 'file:///nonexistant' and doesn't even show the
+        # alt text for them, so there's nothing visible to click on.
+        # tag.wrap(awrap)
+        # Instead, just add a tag around a text string.
+        tag.append(awrap)
+    else:
+        print("No soup, can't add image link to", src,
+              file=sys.stderr)
+
+    # We're left with a nonlocal image in the source.
+    # That could mean unwanted data use to fetch the image
+    # when viewing the file. So remove the image tag and
+    # replace it with a link.
+    tag.attrs['src'] = alt_src
 
 
 # The srcset spec is here:
