@@ -372,8 +372,8 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
             for page_start in page_starts:
                 if self.verbose:
                     print("looking for page_start", page_start, file=sys.stderr)
-                start_re = re.compile(page_start, flags=re.DOTALL)
-                match = start_re.search(html, re.IGNORECASE)
+                start_re = re.compile(page_start, flags=re.DOTALL|re.IGNORECASE)
+                match = start_re.search(html)
                 if match:
                     if self.verbose:
                         print("Found page_start regexp", page_start,
@@ -385,8 +385,8 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
             for page_end in page_ends:
                 if self.verbose:
                     print("looking for page_end", page_end, file=sys.stderr)
-                end_re = re.compile(page_end, flags=re.DOTALL)
-                match = end_re.search(html, re.IGNORECASE)
+                end_re = re.compile(page_end, flags=re.DOTALL|re.IGNORECASE)
+                match = end_re.search(html)
                 if match:
                     if self.verbose:
                         print("Found page_end regexp", page_end,
@@ -448,7 +448,6 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                     attrval = re.compile(attrval)
                     for node in soup.find_all(nodename,
                                               attrs={ attrname: attrval }):
-                        print("    found a node", file=sys.stderr)
                         node.decompose()
                         changed = True
                 except Exception as e:
