@@ -466,11 +466,12 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
             if self.verbose:
                 print("error in handle_html:", e, file=sys.stderr)
                 traceback.print_exc(file=sys.stderr)
-                # traceback.print_stack(limit=6, file=sys.stderr)
+                traceback.print_stack(limit=6, file=sys.stderr)
             # We're in trouble here, but try to write some indication
             # of the error to the outfile.
             try:
                 print("error in handle_html:", e, file=self.outfile)
+                traceback.print_exc(file=self.outfile)
                 self.wrote_data = True
                 self.outfile.close()
             except Exception as e:
@@ -569,7 +570,15 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
            XXX should handle the header here too, for consistency.)
         """
 
+        if not uhtml:
+            print("Eek, null HTML passed to handle_html", file=sys.stderr)
+            print("Eek, null HTML passed to handle_html", file=self.outfile)
+            return
         soup = BeautifulSoup(uhtml, features='lxml')
+        if not soup:
+            print("Eek, null soup in handle_html", file=sys.stderr)
+            print("Eek, null soup in handle_html", file=self.outfile)
+            return
 
         # Does the page have an H1 header already? If not, manufacture one.
         if title and not soup.h1:

@@ -13,6 +13,7 @@ import re
 import urllib.request, urllib.parse, urllib.error
 from bs4 import BeautifulSoup
 from PIL import Image, UnidentifiedImageError
+from datetime import datetime
 import sys, os
 
 
@@ -32,8 +33,10 @@ def rewrite_images(html, baseurl, outdir, feedname, host=None):
         host = urllib.parse.urlparse(baseurl).hostname
 
     soup = BeautifulSoup(html, "lxml")
+    print("Starting image rewriting at", datetime.now(), file=sys.stderr)
     for img in soup.find_all("img"):
         process_img_tag(img, feedname, baseurl, outdir, host=host)
+    print("Finished image rewriting at", datetime.now(), file=sys.stderr)
     return str(soup)
 
 
@@ -52,6 +55,8 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
          host: if there's a need to override the host in base_href
          newdir: the local directory in which this site is being written
     """
+    print("Processing image", tag, "at", datetime.now(), file=sys.stderr)
+
     attrs = tag.attrs
     keys = list(attrs.keys())
 
@@ -225,7 +230,7 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
                 # urllib.request.urlopen is supposed to have
                 # a default timeout, but if so, it must be
                 # many minutes. Try this instead.
-                # Timeout is in seconds.
+                # Timeout is in seconds, but it doesn't work at all.
                 f = urllib.request.urlopen(req, timeout=8)
                 # Lots of things can go wrong with downloading
                 # the image, such as exceptions.IOError from
@@ -372,7 +377,9 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
                      or not has_transparency(im))):
                 # Make sure the image is RGB to convert to JPG
                 im = im.convert('RGB')
-                print("Removing", imgfilename, file=sys.stderr)
+                print("Removing", imgfilename,
+                      "which was", os.stat(imgfilename).st_size, "kb",
+                      file=sys.stderr)
                 os.unlink(imgfilename)
                 base = base[:-3] + "jpg"
                 imgfilename = os.path.join(newdir, base)

@@ -105,6 +105,7 @@ import urllib.error
 import socket
 import posixpath
 import unicodedata
+from datetime import datetime
 
 # sheesh, this is apparently the recommended way to parse RFC 2822 dates:
 import email.utils as email_utils
@@ -338,6 +339,7 @@ def get_feed(feedname, cache, last_time, msglog):
 
     if verbose:
         print("\n=============\nGetting %s feed" % feedname, file=sys.stderr)
+        print(datetime.now())
 
     # Is this a feed we should only check occasionally?
     """Does this feed specify only gathering at certain times?
@@ -511,7 +513,7 @@ def get_feed(feedname, cache, last_time, msglog):
     # Sadly, feedparser usually doesn't give any details about what went wrong.
     socket.setdefaulttimeout(100)
     try:
-        print("Running: feedparser.parse(%s)" % (sitefeedurl), file=sys.stderr)
+        print("Parsing feed %s" % (sitefeedurl), file=sys.stderr)
 
         # Feedparser sometimes makes bogus decisions about charsets
         # fetched from http servers.
@@ -532,10 +534,10 @@ def get_feed(feedname, cache, last_time, msglog):
         # HOWEVER:
         # If we do this on file:// URLs it causes an "unknown url type"
         # error -- no idea why. I just love feedparser so much. :-(
-        if sitefeedurl.startswith("file://"):
-            feed = feedparser.parse(sitefeedurl)
-        elif html_index_links:
+        if html_index_links:
             feed = htmlindex.parse(feedname, html_index_links, verbose=verbose)
+        elif sitefeedurl.startswith("file://"):
+            feed = feedparser.parse(sitefeedurl)
         else:
             downloader = pageparser.FeedmeURLDownloader(feedname,
                                                         verbose=verbose)
@@ -1435,6 +1437,9 @@ Which (default = n): """)
             print("lastfile", lastfile, "doesn't exist", file=sys.stderr)
     elif verbose:
         print("No pages written", file=sys.stderr)
+
+    if verbose:
+        print("Done fetching feed", feedname, datetime.now(), file=sys.stderr)
 
 
 def get_content(item):

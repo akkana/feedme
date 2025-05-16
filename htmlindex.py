@@ -44,7 +44,11 @@ def parse(feedname, html_index_links, verbose=True):
 
     downloader = pageparser.FeedmeURLDownloader(feedname)
     feedurl = utils.g_config.get(feedname, 'url')
-    soup = BeautifulSoup(downloader.download_url(feedurl), 'lxml')
+    print("Trying to download", feedurl)
+    html = downloader.download_url(feedurl)
+    print("Fetched", len(html), "characters")
+    soup = BeautifulSoup(html, 'lxml')
+    print("Made soup")
 
     # May need to splice feedurl onto the beginning of other URLs later
     feedurlparts = urllib.parse.urlparse(feedurl)
@@ -103,21 +107,27 @@ def parse(feedname, html_index_links, verbose=True):
             # is the linktext, so feedme can look at feed.feed.summary.value
             thisentry['summary'] = SimpleNamespace(value=linktext)
 
-            # Try to get the last modified date. Some websites have
-            # last-modified, CNN has X-Last-Modified, possibly this
-            # list will have to grow.
-            lastmodheaders = [ 'last-modified', 'X-Last-Modified' ]
-            conn = urllib.request.urlopen(linkhref)
-            lastmodstr = None
-            lastmod = None
-            for lmh in lastmodheaders:
-                try:
-                    lastmodstr = conn.headers.get(lmh)
-                    if lastmodstr:
-                        # print("Last mod string", lastmodstr, "for", linkhref)
-                        break
-                except:
-                    pass
+            # Guard against trashing the whole feed just because one
+            # link didn't work:
+            try:
+                # Try to get the last modified date. Some websites have
+                # last-modified, CNN has X-Last-Modified, possibly this
+                # list will have to grow.
+                lastmodheaders = [ 'last-modified', 'X-Last-Modified' ]
+                conn = urllib.request.urlopen(linkhref)
+                lastmodstr = None
+                lastmod = None
+                for lmh in lastmodheaders:
+                    try:
+                        lastmodstr = conn.headers.get(lmh)
+                        if lastmodstr:
+                            # print("Last mod string", lastmodstr, "for", linkhref)
+                            break
+                    except:
+                        pass
+            except Exception as e:
+                print("Couldn't fetch", linkhref, "because", e)
+                continue
             if lastmodstr:
                 # sites mostly seem to use format
                 # 'Sun, 11 Feb 2024 20:34:41 GMT'
