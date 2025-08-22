@@ -874,6 +874,8 @@ def get_feed(feedname, cache, last_time, msglog):
             elif verbose and not pub_date:
                 print(item_id, ": No pub_date!", file=sys.stderr)
 
+            # Okay, we're including this item.
+
             itemnum += 1
             if verbose:
                 print("Item:", item_title, file=sys.stderr)
@@ -896,7 +898,8 @@ def get_feed(feedname, cache, last_time, msglog):
 
             # A parser is mostly needed for levels > 1, but even with
             # levels=1 we'll use it at the end for rewriting images
-            # in the index string.
+            # in the index string and weeding out skip_nodes.
+
             parser = pageparser.FeedmeHTMLParser(feedname)
 
             #
@@ -1213,6 +1216,9 @@ Which (default = s): """)
             # If we're keeping links, don't keep empty ones:
             else:
                 content = re.sub('<a  [^>]*href=.*> *</a>', '', content)
+
+            # Delete any nodes specified for skipping
+            content = pageparser.delete_skipped_nodes(content, feedname)
 
             # Skip any text specified in index_skip_content_pats.
             # Some sites (*cough* Pro Publica *cough*) do weird things

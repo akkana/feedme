@@ -423,41 +423,8 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         # Keep a record of whether we've seen any content:
         self.wrote_data = False
 
-        # Delete any skip_nodes
-        skip_nodespecs = utils.g_config.get_multiline(self.feedname,
-                                                      'skip_nodes')
-        if skip_nodespecs:
-            soup = BeautifulSoup(html, "lxml")
-
-            changed = False
-            for nodespec in skip_nodespecs:
-                print("looking for skip_node", nodespec, file=sys.stderr)
-
-                # Syntax is something like: div class="sticky-box"
-                # first word should be node type,
-                # which may be followed by someattr="somename"
-                try:
-                    nodename, attrname, attrval = \
-                        re.match(SKIP_NODE_PAT, nodespec).groups()
-                    print((f"nodename '{nodename}', "
-                           f"attrname '{attrname}', "
-                           f"attrval='{attrval}'"), file=sys.stderr)
-
-                    # attrval is a regexp, which BS won't notice unless
-                    # it's already compiled.
-                    attrval = re.compile(attrval)
-                    for node in soup.find_all(nodename,
-                                              attrs={ attrname: attrval }):
-                        node.decompose()
-                        changed = True
-                except Exception as e:
-                    print("Problem finding SKIP_NODE_PAT '%s': %s"
-                          % (nodespec, e), file=sys.stderr)
-                    utils.ptraceback()
-                    continue
-            if changed:
-                print("Changed nodes in the HTML: rewriting", file=sys.stderr)
-                html = str(soup)
+        # Delete any nodes specified for skipping
+        html = delete_skipped_nodes(html, self.feedname)
 
         # Iterate through the HTML, making any necessary simplifications:
         try:
@@ -798,6 +765,49 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
             self.wrote_data = True
         else:
             print("Empty body! Not writing", file=sys.stderr)
+
+
+def delete_skipped_nodes(html, feedname):
+    """If skip_nodes is set for this feed, remove any matching nodes
+       from the HTML, returning rewritten HTML.
+    """
+    skip_nodespecs = utils.g_config.get_multiline(feedname,
+                                                  'skip_nodes')
+    if skip_nodespecs:
+        soup = BeautifulSoup(html, "lxml")
+
+        changed = False
+        for nodespec in skip_nodespecs:
+            print("looking for skip_node", nodespec, file=sys.stderr)
+
+            # Syntax is something like: div class="sticky-box"
+            # first word should be node type,
+            # which may be followed by someattr="somename"
+            try:
+                nodename, attrname, attrval = \
+                    re.match(SKIP_NODE_PAT, nodespec).groups()
+                print((f"nodename '{nodename}', "
+                       f"attrname '{attrname}', "
+                       f"attrval='{attrval}'"), file=sys.stderr)
+
+                # attrval is a regexp, which BS won't notice unless
+                # it's already compiled.
+                attrval = re.compile(attrval)
+                for node in soup.find_all(nodename,
+                                          attrs={ attrname: attrval }):
+                    print("  Found a node:", node)
+                    node.decompose()
+                    changed = True
+            except Exception as e:
+                print("Problem finding SKIP_NODE_PAT '%s': %s"
+                      % (nodespec, e), file=sys.stderr)
+                utils.ptraceback()
+                continue
+        if changed:
+            print("Changed nodes in the HTML: rewriting", file=sys.stderr)
+            return str(soup)
+        else:
+            return html
 
 
 def simplify_html(inhtml):
