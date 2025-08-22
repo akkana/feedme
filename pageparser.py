@@ -146,7 +146,7 @@ class FeedmeURLDownloader(object):
             # raise RuntimeError("Contents not text (%s)! %s" % (ctype, url))
             print("Contents not text (%s)! %s" % (ctype, url), file=sys.stderr)
             return '<p>Contents not text! (%s) <a href="%s">%s</a></p>' \
-                % (ctyle, url, url)
+                % (ctype, url, url)
 
         # Were we redirected? geturl() will tell us that.
         self.cur_url = response.geturl()
@@ -766,6 +766,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                 except Exception as e:
                     print("Error handling image tag", t, ":", e,
                           file=sys.stderr)
+                    utils.ptraceback()
 
         # find out if there will be a need to look for subsequent pages
         multipage_pat = utils.g_config.get(self.feedname, "multipage_pat",

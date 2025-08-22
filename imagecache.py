@@ -21,6 +21,10 @@ import sys, os
 ImageCache = {}
 
 
+# Known image extensions:
+KNOWN_EXTENSIONS = [ '.jpeg', '.png', '.gif', '.svg' ]
+
+
 def clear():
     """Clear the image cache, when starting a new site"""
     ImageCache = {}
@@ -186,32 +190,33 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
 
     alt_domains = utils.g_config.get_multiline(feedname, 'alt_domains')
     if nonlocal_images or similar_host(req.host, host, alt_domains):
-        # base = os.path.basename(src)
+        # imgfilename = os.path.basename(src)
         # For now, don't take the basename; we want to know
         # if images are unique, and the basename alone
         # can't tell us that.
-        base = src.replace('/', '_')
+        imgfilename = src.replace('/', '_')
         # Clean up the filename, since it might have illegal chars.
         # Only allow alphanumerics or others in a short whitelist.
         # Don't allow % in the whitelist -- it causes problems
         # with recursively copying the files over http later.
-        base = ''.join([x for x in base if x.isalpha() or x.isdigit()
-                        or x in '-_.'])
-        if not base : base = '_unknown.img'
-        imgfilename = os.path.join(newdir, base)
+        imgfilename = ''.join([x for x in imgfilename
+                               if x.isalpha() or x.isdigit()
+                               or x in '-_.'])
+        if not imgfilename : imgfilename = '_unknown.img'
+        imgpathname = os.path.join(newdir, imgfilename)
 
         # Some sites, like High Country News, use the same image
         # name for everything (e.g. they'll have
         # storyname-0418-jpg/image, storyname-0418-jpg/image etc.)
         # so we can't assume that just because the basename is unique,
         # the image must be.
-        # if os.path.exists(imgfilename) and \
+        # if os.path.exists(imgpathname) and \
         #    src not in ImageCache:
         #     howmany = 2
         #     while True:
-        #         newimgfile = "%d-%s" % (howmany, imgfilename)
+        #         newimgfile = "%d-%s" % (howmany, imgpathname)
         #         if not os.path.exists(newimgfile):
-        #             imgfilename = newimgfile
+        #             imgpathname = newimgfile
         #             break
         #         howmany += 1
         # But we don't need this clause if we use the whole image path,
@@ -224,8 +229,8 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
             return
 
         try:
-            if not os.path.exists(imgfilename):
-                print("Fetching image", src, "to", imgfilename,
+            if not os.path.exists(imgpathname):
+                print("Fetching image", src, "to", imgpathname,
                       file=sys.stderr)
                 # urllib.request.urlopen is supposed to have
                 # a default timeout, but if so, it must be
@@ -236,24 +241,24 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
                 # the image, such as exceptions.IOError from
                 # [Errno 36] File name too long
                 try:
-                    local_file = open(imgfilename, "wb")
+                    local_file = open(imgpathname, "wb")
                 except OSError as e:
                     if e.errno != 36:
                         raise e
-                    print("Filename too long:", imgfilename, file=sys.stderr)
+                    print("Filename too long:", imgpathname, file=sys.stderr)
                     pathmax = os.pathconf('/', 'PC_PATH_MAX')
-                    while imgfilename >= pathmax:
+                    while imgpathname >= pathmax:
                         # chop stuff off the front
-                        base = base[int(len(base)/3):]
-                        imgfilename = os.path.join(newdir, base)
-                    local_file = open(imgfilename, "wb")
-                    print("Trying", imgfilename, "instead", file=sys.stderr)
+                        imgfilename = imgfilename[int(len(imgfilename)/3):]
+                        imgpathname = os.path.join(newdir, imgfilename)
+                    local_file = open(imgpathname, "wb")
+                    print("Trying", imgpathname, "instead", file=sys.stderr)
 
                 # Write to our local file
                 local_file.write(f.read())
                 local_file.close()
             #else:
-            #    print("Not downloading, already have", imgfilename)
+            #    print("Not downloading, already have", imgpathname)
 
         # handle download errors
         except urllib.error.HTTPError as e:
@@ -289,25 +294,26 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
 
         # Does the image need to be changed, because it's too big
         # in pixel size or file size?
-        if maxsize and imgfilename and os.path.exists(imgfilename):
+        if maxsize and imgpathname and os.path.exists(imgpathname):
             imchanged = False
             try:
-                im = Image.open(imgfilename)
+                im = Image.open(imgpathname)
 
             except UnidentifiedImageError:
                 # Image might be SVG or some other non-PIL type
-                print("PIL Can't resize", imgfilename, file=sys.stderr)
+                print("PIL Unknown image type, can't resize",
+                      imgpathname, file=sys.stderr)
 
                 # Allow all SVGs, don't try to resize them
-                if imgfilename.lower().endswith(".svg"):
-                    print("Allowing SVG", imgfilename, file=sys.stderr)
+                if imgpathname.lower().endswith(".svg"):
+                    print("Allowing SVG", imgpathname, file=sys.stderr)
                     return
 
                 # If it's not a PNG, how big is it?
                 # If it's not too big, keep it.
-                filesize = os.stat(imgfilename).st_size    # size in bytes
+                filesize = os.stat(imgpathname).st_size    # size in bytes
                 if filesize < 1024*512:    # XXX hardwired, make configurable
-                    print("PIL can't handle", imgfilename,
+                    print("PIL can't handle", imgpathname,
                           "but it's not that big, allowing anyway",
                           file=sys.stderr)
                 else:
@@ -331,6 +337,7 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
                                                          newwidth,
                                                          newheight),
                       file=sys.stderr)
+                # This may set image.format to None
                 im = im.resize((newwidth, newheight))
                 imchanged = True
 
@@ -355,48 +362,67 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
             # https://stackoverflow.com/a/58567453
             def has_transparency(img):
                 if img.info.get("transparency", None) is not None:
-                    print(base, "has transparency", file=sys.stderr)
+                    print(imgfilename, "has transparency", file=sys.stderr)
                     return True
                 if img.mode == "P":
                     transparent = img.info.get("transparency", -1)
                     for _, index in img.getcolors():
                         if index == transparent:
-                            print(base,
+                            print(imgfilename,
                                   "has a transparent color", file=sys.stderr)
                             return True
                 elif img.mode == "RGBA":
                     extrema = img.getextrema()
                     if extrema[3][0] < 255:
-                        print(base, "extrama transparency", file=sys.stderr)
+                        print(imgfilename, "extrama transparency",
+                              file=sys.stderr)
                         return True
-                print(base, "is not transparent", file=sys.stderr)
+                print(imgfilename, "is not transparent", file=sys.stderr)
                 return False
 
-            if (base.lower().endswith('.png')
+            if ((im.format == 'PNG' or imgfilename.lower().endswith('.png'))
                 and (utils.g_config.getboolean(feedname, 'png_to_jpg')
                      or not has_transparency(im))):
                 # Make sure the image is RGB to convert to JPG
                 im = im.convert('RGB')
-                print("Removing", imgfilename,
-                      "which was", os.stat(imgfilename).st_size, "kb",
-                      file=sys.stderr)
-                os.unlink(imgfilename)
-                base = base[:-3] + "jpg"
-                imgfilename = os.path.join(newdir, base)
-                print("rewriting PNG to", base, file=sys.stderr)
+                os.unlink(imgpathname)
+                print("rewriting PNG to JPEG", "old filename was",
+                      imgpathname, file=sys.stderr)
                 imchanged = True
             else:
-                print(base, "isn't png, no need to rewrite", file=sys.stderr)
+                print(imgfilename, "isn't png, no need to rewrite",
+                      file=sys.stderr)
+
+            base, ext = os.path.splitext(imgfilename)
+            # base might still have dots in it, which will confuse PIL
+            # if it's something like ".jpg?w=2000&amp;quality=100&amp;ssl=1"
+            base = base.replace('.', '')
+            # For now, always save as .jpg
 
             if imchanged:
-                print("Saving rewritten image to file", imgfilename,
+                # imgpathname might not end with an extension, but if not,
+                # PIL will raise ValueError: unknown file extension.
+                # But PIL doesn't seem to have a way to generate an extension
+                # from the image's current format -- sigh.
+
+                # PIL apparently decides what format to save
+                # based on image extension, so convert to jpg.
+                print("Will save rewritten image to file", imgpathname,
                       file=sys.stderr)
-                im.save(imgfilename)
+                imgfilename = base + '.jpg'
+                imgpathname = os.path.join(newdir, imgfilename)
+                im.save(imgpathname)
+            elif not ext or ext.lower() not in KNOWN_EXTENSIONS:
+                print("Image filename", imgfilename, "has unknown extension",
+                      ext, ": rewriting as .jpg")
+                imgfilename = base + '.jpg'
+                imgpathname = os.path.join(newdir, imgfilename)
+                im.save(imgpathname)
 
         # Rewrite the url:
-        ImageCache[src] = base
-        tag.attrs['src'] = base
-        print("Image src rewritten to", base, file=sys.stderr)
+        ImageCache[src] = imgfilename
+        tag.attrs['src'] = imgfilename
+        print("Image src rewritten to", imgfilename, file=sys.stderr)
 
     else:
         # Looks like it's probably a nonlocal image, don't download
