@@ -59,7 +59,7 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
          host: if there's a need to override the host in base_href
          newdir: the local directory in which this site is being written
     """
-    print("Processing image", tag, "at", datetime.now(), file=sys.stderr)
+    print("\nProcessing image", tag, "at", datetime.now(), file=sys.stderr)
 
     attrs = tag.attrs
     keys = list(attrs.keys())
@@ -171,14 +171,14 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
     try:
         block_nonlocal = utils.g_config.getboolean(feedname,
                                                    'block_nonlocal_images')
-    except:
+    except Exception as e:
         block_nonlocal = False
+        print("Not blocking nonlocal images because of", e, file=sys.stderr)
 
     # If we can't or won't download an image, what should
     # we replace it with?
     if block_nonlocal:
-        # print("Using bogus image source for nonlocal images",
-        #       file=sys.stderr)
+        # print("Using bogus image source for nonlocal images", file=sys.stderr)
         alt_src = 'file:///nonexistant'
         # XXX Would be nice, in this case, to put a link around
         # the image so the user could tap on it if they wanted
@@ -186,6 +186,7 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
         # That would be easy in BeautifulSoup but it's hard
         # with this start/end tag model.
     else:
+        # print("Allowing nonlocal (external) image sources", file=sys.stderr)
         alt_src = src
 
     alt_domains = utils.g_config.get_multiline(feedname, 'alt_domains')
@@ -321,7 +322,7 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
                     print("PIL can't handle", src,
                           "and it's big: making a link to it",
                           file=sys.stderr)
-                    replace_img_with_href(tag, src)
+                    replace_img_with_link(tag, src, alt_src)
                     return
 
             oldwidth, oldheight = im.size
@@ -389,9 +390,9 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
                 print("rewriting PNG to JPEG", "old filename was",
                       imgpathname, file=sys.stderr)
                 imchanged = True
-            else:
-                print(imgfilename, "isn't png, no need to rewrite",
-                      file=sys.stderr)
+            # else:
+            #     print(imgfilename, "isn't png, no need to rewrite",
+            #           file=sys.stderr)
 
             base, ext = os.path.splitext(imgfilename)
             # base might still have dots in it, which will confuse PIL
@@ -407,14 +408,16 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
 
                 # PIL apparently decides what format to save
                 # based on image extension, so convert to jpg.
-                print("Will save rewritten image to file", imgpathname,
-                      file=sys.stderr)
+                if im.mode != 'RGB':
+                    im = im.convert('RGB')
                 imgfilename = base + '.jpg'
                 imgpathname = os.path.join(newdir, imgfilename)
                 im.save(imgpathname)
             elif not ext or ext.lower() not in KNOWN_EXTENSIONS:
                 print("Image filename", imgfilename, "has unknown extension",
                       ext, ": rewriting as .jpg")
+                if im.mode != 'RGB':
+                    im = im.convert('RGB')
                 imgfilename = base + '.jpg'
                 imgpathname = os.path.join(newdir, imgfilename)
                 im.save(imgpathname)
@@ -430,29 +433,30 @@ def process_img_tag(tag, feedname, base_href, newdir, host=None):
               "are too different -- not fetching image", src,
               file=sys.stderr)
 
-        replace_img_with_href(tag, src)
+        replace_img_with_link(tag, src, alt_src)
 
 
-def replace_img_with_href(tag, src):
-    # Add a link to the image, if a BS tag is provided
-    if tag:
-        # Find tag's root BeautifulSoup object (needed for new_tag)
-        soup = tag
-        tag.attrs['src'] = "nonlocal"
-        while type(soup) is not BeautifulSoup:
-            soup = soup.parent
-        awrap = soup.new_tag("a", href=src)
-        awrap.string = " [nonlocal image]"
-        # Originally, added alt text and wrapped the image in it,
-        # but Firefox, at least, doesn't show images with
-        # src = 'file:///nonexistant' and doesn't even show the
-        # alt text for them, so there's nothing visible to click on.
-        # tag.wrap(awrap)
-        # Instead, just add a tag around a text string.
-        tag.append(awrap)
-    else:
-        print("No soup, can't add image link to", src,
-              file=sys.stderr)
+def replace_img_with_link(tag, src, alt_src):
+    """Replace an external image ref with a link that points to the
+       external link, and make the original image invalid.
+    """
+    # Add a link to the image, if a BS tag is provided.
+    if not tag:
+        return
+
+    # Find tag's root BeautifulSoup object (needed for new_tag)
+    soup = tag
+    while type(soup) is not BeautifulSoup:
+        soup = soup.parent
+    awrap = soup.new_tag("a", href=src)
+    awrap.string = " [nonlocal image]"
+    # Originally, added alt text and wrapped the image in it,
+    # but Firefox, at least, doesn't show images with
+    # src = 'file:///nonexistant' and doesn't even show the
+    # alt text for them, so there's nothing visible to click on.
+    # tag.wrap(awrap)
+    # Instead, just add a tag around a text string.
+    tag.append(awrap)
 
     # We're left with a nonlocal image in the source.
     # That could mean unwanted data use to fetch the image

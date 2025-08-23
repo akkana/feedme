@@ -269,7 +269,8 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         self.verbose = utils.g_config.getboolean(self.feedname, 'verbose')
         if self.verbose:
             if html:
-                print("Parsing html from index, corresponding to", url,
+                print("Parsing html from index,", len(html),
+                      "chars from to", url,
                       "to", newdir + "/" + newname, file=sys.stderr)
             elif newname:
                 print("Fetching link", url,
@@ -458,7 +459,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
         if not self.wrote_data:
             errstr = "No real content"
             print(errstr, file=sys.stderr)
-            if verbose:
+            if self.verbose:
                 print("No content, removing", outfilename, file=sys.stderr)
             os.remove(outfilename)
             raise NoContentError(errstr)
@@ -773,41 +774,43 @@ def delete_skipped_nodes(html, feedname):
     """
     skip_nodespecs = utils.g_config.get_multiline(feedname,
                                                   'skip_nodes')
-    if skip_nodespecs:
-        soup = BeautifulSoup(html, "lxml")
+    if not skip_nodespecs:
+        return html
 
-        changed = False
-        for nodespec in skip_nodespecs:
-            print("looking for skip_node", nodespec, file=sys.stderr)
+    soup = BeautifulSoup(html, "lxml")
 
-            # Syntax is something like: div class="sticky-box"
-            # first word should be node type,
-            # which may be followed by someattr="somename"
-            try:
-                nodename, attrname, attrval = \
-                    re.match(SKIP_NODE_PAT, nodespec).groups()
-                print((f"nodename '{nodename}', "
-                       f"attrname '{attrname}', "
-                       f"attrval='{attrval}'"), file=sys.stderr)
+    changed = False
+    for nodespec in skip_nodespecs:
+        print("looking for skip_node", nodespec, file=sys.stderr)
 
-                # attrval is a regexp, which BS won't notice unless
-                # it's already compiled.
-                attrval = re.compile(attrval)
-                for node in soup.find_all(nodename,
-                                          attrs={ attrname: attrval }):
-                    print("  Found a node:", node)
-                    node.decompose()
-                    changed = True
-            except Exception as e:
-                print("Problem finding SKIP_NODE_PAT '%s': %s"
-                      % (nodespec, e), file=sys.stderr)
-                utils.ptraceback()
-                continue
-        if changed:
-            print("Changed nodes in the HTML: rewriting", file=sys.stderr)
-            return str(soup)
-        else:
-            return html
+        # Syntax is something like: div class="sticky-box"
+        # first word should be node type,
+        # which may be followed by someattr="somename"
+        try:
+            nodename, attrname, attrval = \
+                re.match(SKIP_NODE_PAT, nodespec).groups()
+            print((f"nodename '{nodename}', "
+                   f"attrname '{attrname}', "
+                   f"attrval='{attrval}'"), file=sys.stderr)
+
+            # attrval is a regexp, which BS won't notice unless
+            # it's already compiled.
+            attrval = re.compile(attrval)
+            for node in soup.find_all(nodename,
+                                      attrs={ attrname: attrval }):
+                print("  Found a node:", node)
+                node.decompose()
+                changed = True
+        except Exception as e:
+            print("Problem finding SKIP_NODE_PAT '%s': %s"
+                  % (nodespec, e), file=sys.stderr)
+            utils.ptraceback()
+            continue
+    if changed:
+        print("Changed nodes in the HTML: rewriting", file=sys.stderr)
+        return str(soup)
+    else:
+        return html
 
 
 def simplify_html(inhtml):

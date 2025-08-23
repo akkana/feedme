@@ -945,6 +945,8 @@ def get_feed(feedname, cache, last_time, msglog):
                             # entry, we can use that for the story,
                             # no need to fetch another file.
                             htmlstr = content
+                            print("Level 1.5: content length is", len(htmlstr),
+                                  file=sys.stderr)
                         else:
                             htmlstr = None
 
