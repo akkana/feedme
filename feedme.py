@@ -588,7 +588,8 @@ def get_feed(feedname, cache, last_time, msglog):
     if not title:
         msglog.msg(sitefeedurl + " lacks a title!")
         feed.feed.title = '[' + feedname + ']'
-
+    
+    feedcachedict = []
     if cache and not nocache:
         try:
             feedcachedict = cache.thedict[sitefeedurl]
