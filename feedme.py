@@ -18,7 +18,7 @@
 # <http://www.gnu.org/licenses/>.
 
 from __future__ import print_function
-
+import platform
 
 ConfigHelp = """Configuration options:
 
@@ -588,7 +588,8 @@ def get_feed(feedname, cache, last_time, msglog):
     if not title:
         msglog.msg(sitefeedurl + " lacks a title!")
         feed.feed.title = '[' + feedname + ']'
-
+    
+    feedcachedict = []
     if cache and not nocache:
         try:
             feedcachedict = cache.thedict[sitefeedurl]
@@ -1631,9 +1632,19 @@ Use -N to re-load all previously cached stories and reinitialize the cache.
         # sys.exit(e.errno)
 
     try:
+        # Close the log file before trying to rename it (needed on Windows)
+        if platform.system() == 'Windows':
+            outputlog.close()
+            sys.stderr = stderrsav
+        
         # Now we're done. It's time to move the log file into its final place.
         datestr = time.strftime("%m-%d-%a")
         datedir = os.path.join(feeddir, datestr)
+
+        # create the datedir if needed:
+        if not os.path.exists(datedir):
+            os.makedirs(datedir)
+
         print("Renaming", logfilename, "to", os.path.join(datedir, 'LOG'),
               file=sys.stderr)
         os.rename(logfilename,

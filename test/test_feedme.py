@@ -69,13 +69,13 @@ class TestCaseWithSave(unittest.TestCase):
            newfile is the file just generated; expectfile will have XXXDAYXXX
            replace with today's day name (e.g. Fri).
         """
-        with open(expectfile) as expectfp:
+        with open(expectfile, encoding='utf-8') as expectfp:
             # The generated HTML file will have the weekday set to today.
             # The test file has a placeholder that needs to be replaced.
             today = datetime.now().strftime("%a")
             expectcontents = expectfp.read().replace('XXXDAYXXX', today)
 
-        with open(newfile) as newfp:
+        with open(newfile, encoding='utf-8') as newfp:
             newcontents = newfp.read()
 
         return expectcontents, newcontents
