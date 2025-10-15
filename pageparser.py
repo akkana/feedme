@@ -76,7 +76,7 @@ class FeedmeURLDownloader(object):
             # In file:, allow for relative filenames even though that's not
             # part of the real file:// spec, to make testing a little easier.
             filename = url[7:]
-            with open(filename) as fp:
+            with open(filename, encoding='utf-8') as fp:
                 return fp.read()
 
         request = urllib.request.Request(url)
