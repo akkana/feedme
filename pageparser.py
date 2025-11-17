@@ -323,7 +323,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
 
         # In case download_url didn't get anything:
         if not html:
-            html = '<h1>No article</h1>\n<p>No HTML downloaded!\n"
+            html = '<h1>No article</h1>\n<p>No HTML downloaded!\n'
 
         # Does it contain any of skip_content_pats anywhere? If so, bail.
         skip_content_pats = utils.g_config.get_multiline(self.feedname,
