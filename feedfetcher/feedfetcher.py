@@ -212,7 +212,7 @@ def parse_directory_page(urldir):
 
 def fetch_feeds_dir_recursive(urldir, outdir):
     feeddirs = parse_directory_page(urldir)
-    if feeddirs == None:
+    if feeddirs is None:
         err = "Couldn't find %s on server" % os.path.basename(urldir)
         perror(err)
         if is_android:

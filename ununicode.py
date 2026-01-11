@@ -34,8 +34,8 @@ def toascii(line, errfilename = None, in_encoding = 'utf-8'):
     # Log an error, giving some context around the problematic area:
     def log_error(uni, start, end, msg="error"):
         contextsize = 15
-        if errfile[0] == None:
-            if errfilename == None:
+        if errfile[0] is None:
+            if errfilename is None:
                 return
             errfile[0] = open(errfile[1], "a")
         unilen = len(uni)

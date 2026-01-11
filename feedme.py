@@ -487,7 +487,7 @@ def get_feed(feedname, cache, last_time, msglog):
         print("Last fetched %s on %s" % (feedname, str(last_fed_this)),
               file=sys.stderr)
 
-    if cache == None:
+    if cache is None:
         nocache = True
     else:
         nocache = (utils.g_config.get(feedname, 'nocache') == 'true')
