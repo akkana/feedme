@@ -31,7 +31,7 @@ class NoContentError(Exception):
     pass
 
 
-SKIP_NODE_PAT = r'''\s*([a-zA-Z]+)\s+(?:([a-zA-Z]+)\s*=\s*['"](.*)['"])?'''
+SKIP_NODE_PAT = r'''\s*([a-zA-Z\d]+)\s+(?:([a-zA-Z]+)\s*=\s*['"](.*)['"])?'''
 
 
 class CookieError(Exception):
@@ -789,6 +789,7 @@ def delete_skipped_nodes(html, feedname):
         # first word should be node type,
         # which may be followed by someattr="somename"
         try:
+            print("nodespec:", nodespec)
             nodename, attrname, attrval = \
                 re.match(SKIP_NODE_PAT, nodespec).groups()
             print((f"nodename '{nodename}', "
