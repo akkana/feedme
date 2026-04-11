@@ -364,6 +364,13 @@ def get_feed(feedname, cache, last_time, msglog):
     # screen, e.g. areas for paging up/down or adjusting brightness.
     minwidth = utils.g_config.getint(feedname, 'min_width')
 
+    if cache is None:
+        nocache = True
+    else:
+        nocache = (utils.g_config.get(feedname, 'nocache') == 'true')
+    if verbose and nocache:
+        msglog.msg(feedname + ": Ignoring cache")
+
     # Is there already a feednamedir, with or without a prepended order number?
     # If it has an index.html in it, then feedme has already fed this
     # site today, and should bail rather than overwriting what's
@@ -371,7 +378,13 @@ def get_feed(feedname, cache, last_time, msglog):
     if os.path.exists(feedsdir):
         for d in os.listdir(feedsdir):
             if d.endswith(feednamedir):
-                if os.path.exists(os.path.join(feedsdir, d, "index.html")):
+                dpath = os.path.join(feedsdir, d)
+                # -n overrides this check, and removes anything previously there
+                if nocache:
+                    if verbose:
+                        print("Starting over, removing old dir", dpath)
+                    shutil.rmtree(dpath)
+                elif os.path.exists(os.path.join(dpath, "index.html")):
                     print("Already fed %s: not overwriting" % d)
                     return
                 # Partially fed this site earlier today, but didn't finish.
@@ -486,13 +499,6 @@ def get_feed(feedname, cache, last_time, msglog):
     if verbose:
         print("Last fetched %s on %s" % (feedname, str(last_fed_this)),
               file=sys.stderr)
-
-    if cache is None:
-        nocache = True
-    else:
-        nocache = (utils.g_config.get(feedname, 'nocache') == 'true')
-    if verbose and nocache:
-        msglog.msg(feedname + ": Ignoring cache")
 
     downloaded_string ="\n<hr><i>(Downloaded by " + \
         utils.VersionString + ")</i>\n"

@@ -276,6 +276,7 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
                 print("Fetching link", url,
                       "to", newdir + "/" + newname,
                       "sub_page=", sub_page,
+                      "with user agent", user_agent,
                       file=sys.stderr)
             else:
                 print("Parsing html from", url, "with dir", newdir,
@@ -319,6 +320,10 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
             self.encoding = "utf-8"
 
         if not html:
+            print("  Fetching link", url,
+                  "with user agent", user_agent,
+                  "and referrer", referrer,
+                  file=sys.stderr)
             html = self.download_url(url, referrer, user_agent)
 
         # In case download_url didn't get anything:
