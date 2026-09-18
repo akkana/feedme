@@ -828,10 +828,15 @@ def simplify_html(inhtml):
        need to be truncated.
     """
     soup = BeautifulSoup(inhtml, "lxml")
-    for tag in soup.body.find_all():
-        if "style" in tag.attrs:
-            del tag.attrs["style"]
-    return soup.prettify()
+    # Sometimes this has no body
+    try:
+        for tag in soup.body.find_all():
+            if "style" in tag.attrs:
+                del tag.attrs["style"]
+        return soup.prettify()
+    except AttributeError:
+        print("simplify_html Attribute error: inhtml was '%s'" % inhtml)
+        return inhtml
 
 
 #
