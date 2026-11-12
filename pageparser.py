@@ -554,6 +554,11 @@ class FeedmeHTMLParser(FeedmeURLDownloader):
             print("Eek, null soup in handle_html", file=sys.stderr)
             print("Eek, null soup in handle_html", file=self.outfile)
             return
+        if not soup.body:
+            print("Eek, soup has no body in handle_html", file=sys.stderr)
+            print("Eek, soup has no body in handle_html", file=self.outfile)
+            print("=== soup:\n", soup, "\n=== end soup", file=self.outfile)
+            return
 
         # Does the page have an H1 header already? If not, manufacture one.
         if title and not soup.h1:
